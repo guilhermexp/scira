@@ -139,14 +139,10 @@ const XSearch: React.FC<XSearchProps> = ({ result, args }) => {
     [args],
   );
 
-  if (!result) {
-    return <XSearchLoadingState />;
-  }
+  // Ensure searches exists and is an array (with fallback for loading state)
+  const searches = result?.searches || [];
 
-  // Ensure searches exists and is an array
-  const searches = result.searches || [];
-
-  // Aggregate all citations and sources from all searches
+  // Aggregate all citations and sources from all searches (with fallback for loading state)
   const allCitations = searches.flatMap((search) => search.citations || []);
   const allSources = searches.flatMap((search) => search.sources || []);
 
@@ -202,6 +198,11 @@ const XSearch: React.FC<XSearchProps> = ({ result, args }) => {
   const remainingTweets = useMemo(() => {
     return tweetCitations.slice(3);
   }, [tweetCitations]);
+
+  // Early return for loading state - after all hooks are declared
+  if (!result) {
+    return <XSearchLoadingState />;
+  }
 
   const formatDateRange = (dateRange: string) => {
     const [start, end] = dateRange.split(' to ');

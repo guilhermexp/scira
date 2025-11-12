@@ -18,7 +18,6 @@ const nextConfig: NextConfig = {
         : false,
   },
   experimental: {
-    turbopackFileSystemCacheForDev: true,
     useCache: true,
     optimizePackageImports: [
       '@phosphor-icons/react',

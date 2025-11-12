@@ -750,7 +750,7 @@ const ChatInterface = memo(
                 className={cn(
                   'transition-all duration-500',
                   messages.length === 0 && !chatState.hasSubmitted
-                    ? 'relative w-full max-w-2xl mx-auto'
+                    ? 'fixed md:relative bottom-0 md:bottom-auto left-0 right-0 md:left-auto md:right-auto z-20 !pb-6 md:!pb-0 mt-1 md:mt-0 mx-4 sm:mx-2 md:mx-auto p-0 md:w-full md:max-w-2xl'
                     : 'fixed bottom-0 left-0 right-0 z-20 !pb-6 mt-1 mx-4 sm:mx-2 p-0',
                 )}
               >

@@ -118,13 +118,14 @@ export async function POST(req: Request) {
     }
 
 
-    if (user) {
-        const isProUser = user.isProUser;
-
-        if (!isProUser) {
-            return new ChatSDKError('upgrade_required:auth', 'This feature requires a Pro subscription').toResponse();
-        }
-    }
+    // REMOVED: Pro subscription check for self-hosting
+    // if (user) {
+    //     const isProUser = user.isProUser;
+    //
+    //     if (!isProUser) {
+    //         return new ChatSDKError('upgrade_required:auth', 'This feature requires a Pro subscription').toResponse();
+    //     }
+    // }
 
     const result = streamText({
         model: scira.languageModel('scira-grok-4-fast'),
