@@ -85,8 +85,8 @@ export default function XQLPage() {
     >
       <div
         className={cn(
-          'max-w-3xl w-full mx-auto px-4 transition-[padding] duration-700 ease-in-out',
-          messages.length === 0 ? 'py-12 sm:py-14' : 'pt-12 sm:pt-14 pb-12 sm:pb-10',
+          'w-full mx-auto px-4 transition-all duration-700 ease-in-out',
+          messages.length === 0 ? 'max-w-3xl py-12 sm:py-14' : 'max-w-7xl pt-12 sm:pt-14 pb-12 sm:pb-10',
         )}
       >
         <div className="flex items-center justify-center gap-2 sm:gap-3 mb-6 sm:mb-8 text-2xl sm:text-3xl md:text-5xl font-be-vietnam-pro -tracking-normal font-medium">
@@ -436,7 +436,7 @@ export default function XQLPage() {
 
                         <div className="px-3 sm:px-4 pb-3 sm:pb-4">
                           {citations.length > 0 ? (
-                            <div className="flex flex-col items-center gap-2">
+                            <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 [column-fill:balance]">
                               {citations.map((url: string | null, i: number) => {
                                 if (!url) {
                                   return null;
@@ -447,7 +447,7 @@ export default function XQLPage() {
 
                                 if (tweetId) {
                                   return (
-                                    <div key={i} className="w-full max-w-lg sm:max-w-xl tweet-wrapper-sheet">
+                                    <div key={i} className="break-inside-avoid mb-4 tweet-wrapper-sheet">
                                       <Tweet id={tweetId} />
                                     </div>
                                   );
@@ -459,7 +459,7 @@ export default function XQLPage() {
                                     key={i}
                                     href={url}
                                     target="_blank"
-                                    className="flex items-center gap-3 p-3 sm:p-4 bg-muted/20 hover:bg-muted/30 border border-border rounded-lg group max-w-lg sm:max-w-xl w-full transition-colors"
+                                    className="flex items-center gap-3 p-3 sm:p-4 bg-muted/20 hover:bg-muted/30 border border-border rounded-lg group break-inside-avoid mb-4 transition-colors"
                                   >
                                     <XLogoIcon className="h-4 w-4 text-muted-foreground group-hover:text-foreground flex-shrink-0" />
                                     <div className="flex-1 min-w-0">

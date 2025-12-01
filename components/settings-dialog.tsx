@@ -30,7 +30,7 @@ import {
   getConnectorSyncStatusAction,
 } from '@/app/actions';
 import { SEARCH_LIMITS } from '@/lib/constants';
-import { authClient, betterauthClient } from '@/lib/auth-client';
+import { authClient } from '@/lib/auth-client';
 import {
   MagnifyingGlassIcon,
   LightningIcon,
@@ -1102,43 +1102,11 @@ export function SubscriptionSection({ subscriptionData, isProUser, user }: any) 
       return null;
     };
 
-    const proSource = getProAccessSource();
-
-    console.log('proSource', proSource);
-
-    try {
-      setIsManagingSubscription(true);
-
-      console.log('Settings Dialog - Provider source:', proSource);
-      console.log('User dodoProStatus:', user?.dodoProStatus);
-      console.log('User full object keys:', Object.keys(user || {}));
-
-      if (proSource === 'dodo') {
-        // Use DodoPayments portal for DodoPayments users
-        console.log('Opening DodoPayments portal');
-        console.log('User object for DodoPayments:', {
-          id: user?.id,
-          email: user?.email,
-          dodoProStatus: user?.dodoProStatus,
-          isProUser: user?.isProUser,
-        });
-        await betterauthClient.dodopayments.customer.portal();
-      } else {
-        // Use Polar portal for Polar subscribers
-        console.log('Opening Polar portal');
-        await authClient.customer.portal();
-      }
-    } catch (error) {
-      console.error('Subscription management error:', error);
-
-      if (proSource === 'dodo') {
-        toast.error('Unable to access DodoPayments portal. Please contact support at zaid@scira.ai');
-      } else {
-        toast.error('Failed to open subscription management');
-      }
-    } finally {
-      setIsManagingSubscription(false);
-    }
+    // REMOVED for self-hosting: payment portal functionality disabled
+    // const proSource = getProAccessSource();
+    // console.log('proSource', proSource);
+    // Payment portals are disabled for self-hosted version
+    toast.info('Self-hosted version - subscription management not available');
   };
 
   // Check for active status from either source

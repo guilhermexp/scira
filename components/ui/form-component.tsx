@@ -3006,12 +3006,12 @@ const FormComponent: React.FC<FormComponentProps> = ({
           {/* Form container */}
           <div className="relative">
             {/* Shadow-like background blur effect */}
-            <div className="absolute -inset-1 rounded-2xl bg-primary/5 dark:bg-primary/2 !blur-sm pointer-events-none z-9999" />
+            <div className="absolute -inset-1 rounded-[26px] bg-white/10 dark:bg-white/5 blur-2xl pointer-events-none z-[5]" />
             <div
               className={cn(
-                'relative rounded-xl !bg-muted border border-border/60 focus-within:border-ring/50 transition-all duration-200',
-                'border-0',
-                (isEnhancing || isTypewriting) && '!bg-muted',
+                'relative rounded-[26px] border border-white/10 bg-[rgba(16,16,18,0.95)] text-white/90 shadow-[0_25px_90px_rgba(0,0,0,0.55)] transition-all duration-200',
+                'focus-within:border-white/30 focus-within:ring-2 focus-within:ring-white/10',
+                (isEnhancing || isTypewriting) && 'bg-[rgba(21,21,24,0.95)]',
               )}
             >
               {isRecording ? (
@@ -3021,13 +3021,13 @@ const FormComponent: React.FC<FormComponentProps> = ({
                   value="◉ Recording..."
                   disabled={true}
                   className={cn(
-                    'w-full rounded-xl rounded-b-none md:text-base!',
-                    'text-base leading-relaxed',
-                    '!bg-muted',
+                    'w-full rounded-[26px] rounded-b-none md:text-base!',
+                    'text-base leading-relaxed text-white/80',
+                    '!bg-transparent',
                     'border-0!',
-                    '!text-muted-foreground',
+                    '!text-white/70',
                     'focus:ring-0! focus-visible:ring-0!',
-                    'px-4! py-4!',
+                    'px-6! py-5!',
                     'touch-manipulation',
                     'whatsize',
                     'text-center',
@@ -3086,18 +3086,17 @@ const FormComponent: React.FC<FormComponentProps> = ({
                     });
                   }}
                   className={cn(
-                    'w-full rounded-xl rounded-b-none md:text-base!',
-                    'text-base leading-relaxed',
-                    '!bg-muted',
+                    'w-full rounded-[26px] rounded-b-none md:text-base!',
+                    'text-base leading-relaxed text-white/90 placeholder:text-white/50',
+                    '!bg-transparent',
                     '!border-0',
-                    'text-foreground',
                     'focus:!ring-0 focus-visible:!ring-0',
-                    '!px-4 !py-4',
+                    '!px-6 !py-5',
                     'touch-manipulation',
                     'whatsize',
                     '!shadow-none',
                     'transition-all duration-200',
-                    (isEnhancing || isTypewriting) && 'text-muted-foreground cursor-wait',
+                    (isEnhancing || isTypewriting) && 'text-white/50 cursor-wait',
                   )}
                   style={{
                     WebkitUserSelect: 'text',
@@ -3117,13 +3116,12 @@ const FormComponent: React.FC<FormComponentProps> = ({
               {/* Toolbar as a separate block - no absolute positioning */}
               <div
                 className={cn(
-                  'flex justify-between items-center rounded-t-none rounded-b-xl',
-                  '!bg-muted',
-                  '!border-0',
-                  'p-2 gap-2 shadow-none',
+                  'flex justify-between items-center rounded-t-none rounded-b-[26px]',
+                  'border-t border-white/10 bg-white/5 backdrop-blur-sm',
+                  'px-3 py-2.5 md:px-4 md:py-3 gap-2 shadow-none text-white/80',
                   'transition-all duration-200',
-                  (isEnhancing || isTypewriting) && 'pointer-events-none',
-                  isRecording && '!bg-muted text-muted-foreground',
+                  (isEnhancing || isTypewriting) && 'pointer-events-none opacity-70',
+                  isRecording && 'text-white/40',
                 )}
               >
                 <div className={cn('flex items-center gap-2')}>
@@ -3171,7 +3169,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                         <Button
                           variant="outline"
                           size="icon"
-                          className="group rounded-full transition-colors duration-200 !size-8 border-0 !shadow-none hover:!bg-primary/30 hover:!border-0"
+                          className="group rounded-full transition-colors duration-200 !size-8 border border-white/10 bg-transparent text-white/80 !shadow-none hover:bg-white/10 hover:text-white"
                           onClick={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
@@ -3209,8 +3207,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           size="icon"
                           variant="outline"
                           className={cn(
-                            'group rounded-full transition-colors duration-200 !size-8 border-0 !shadow-none hover:!bg-primary/30 hover:!border-0',
-                            isEnhancementActive && 'bg-primary/10 border-primary/20',
+                            'group rounded-full transition-colors duration-200 !size-8 border border-white/10 bg-transparent text-white/80 !shadow-none hover:bg-white/10 hover:text-white',
+                            isEnhancementActive && '!bg-white/10 border-white/30 text-white',
                           )}
                           onClick={(event) => {
                             event.preventDefault();
@@ -3294,8 +3292,11 @@ const FormComponent: React.FC<FormComponentProps> = ({
                       <TooltipTrigger asChild>
                         <Button
                           size="icon"
-                          variant={isRecording ? 'destructive' : 'default'}
-                          className={cn('group rounded-full m-auto transition-colors duration-200 !size-8')}
+                          variant={isRecording ? 'destructive' : 'outline'}
+                          className={cn(
+                            'group rounded-full m-auto transition-colors duration-200 !size-8 border border-white/10 bg-transparent text-white/80 !shadow-none hover:bg-white/10 hover:text-white',
+                            isRecording && 'border-destructive/40 bg-destructive/10 text-destructive',
+                          )}
                           onClick={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
@@ -3331,7 +3332,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                       <TooltipTrigger asChild>
                         <Button
                           size="icon"
-                          className="group rounded-full flex m-auto transition-colors duration-200 !size-8"
+                          className="group rounded-full flex m-auto transition-colors duration-200 !size-8 border border-white/10 bg-white text-black hover:bg-white/90"
                           onClick={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
