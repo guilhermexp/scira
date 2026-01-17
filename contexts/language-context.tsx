@@ -28,13 +28,14 @@ const translations: Record<Language, Record<string, string>> = {
     'settings.language.english': 'English',
     'settings.language.portuguese': 'Português',
     'settings.language.note': 'Select your preferred language for the interface. Changes take effect immediately.',
-    
+
     // Profile
     'profile.fullName': 'Full Name',
     'profile.email': 'Email Address',
     'profile.notProvided': 'Not provided',
-    'profile.managedBy': 'Profile information is managed through your authentication provider. Contact support to update your details.',
-    
+    'profile.managedBy':
+      'Profile information is managed through your authentication provider. Contact support to update your details.',
+
     // Preferences
     'preferences.general': 'General',
     'preferences.ordering': 'Ordering',
@@ -44,18 +45,20 @@ const translations: Record<Language, Record<string, string>> = {
     'preferences.enableInstructions.description': 'Toggle to enable or disable custom instructions',
     'preferences.instructions': 'Instructions',
     'preferences.instructions.description': 'Guide how the AI responds to your questions',
-    'preferences.instructions.placeholder': 'Enter your custom instructions here... For example: \'Always provide code examples when explaining programming concepts\' or \'Keep responses concise and focused on practical applications\'',
+    'preferences.instructions.placeholder':
+      "Enter your custom instructions here... For example: 'Always provide code examples when explaining programming concepts' or 'Keep responses concise and focused on practical applications'",
     'preferences.saveInstructions': 'Save Instructions',
     'preferences.saving': 'Saving...',
     'preferences.lastUpdated': 'Last updated',
     'preferences.searchProvider': 'Search Provider',
     'preferences.searchProvider.description': 'Choose your preferred search engine',
-    'preferences.searchProvider.note': 'Select your preferred search provider for web searches. Changes take effect immediately and will be used for all future searches.',
+    'preferences.searchProvider.note':
+      'Select your preferred search provider for web searches. Changes take effect immediately and will be used for all future searches.',
     'preferences.reorderModes': 'Reorder Search Modes',
     'preferences.reorderModes.description': 'Drag to set your preferred order',
     'preferences.reorderModels': 'Reorder Models',
     'preferences.reorderModels.description': 'Drag to set your preferred model order',
-    
+
     // Usage
     'usage.dailySearch': 'Daily Search Usage',
     'usage.today': 'Today',
@@ -66,7 +69,7 @@ const translations: Record<Language, Record<string, string>> = {
     'usage.pastMonths': 'Past {months} Months',
     'usage.noActivity': 'No activity data',
     'usage.refresh': 'Refresh',
-    
+
     // Common
     'common.loading': 'Loading...',
     'common.save': 'Save',
@@ -75,20 +78,20 @@ const translations: Record<Language, Record<string, string>> = {
     'common.close': 'Close',
     'common.success': 'Success',
     'common.error': 'Error',
-    
+
     // Navbar
     'navbar.new': 'New',
     'navbar.upgrade': 'Upgrade',
     'navbar.freePlan': 'Free Plan',
     'navbar.shared': 'Shared',
     'navbar.private': 'Private',
-    
+
     // Chat Input
     'chat.input.placeholder': 'Ask a question...',
     'chat.input.placeholder.new': 'Ask a new question...',
     'chat.input.enhancing': '✨ Enhancing your prompt...',
     'chat.input.typewriting': '✨ Writing enhanced prompt...',
-    
+
     // Auth
     'auth.welcomeBack': 'Welcome back',
     'auth.signInToContinue': 'Sign in to continue to Scira AI',
@@ -104,7 +107,8 @@ const translations: Record<Language, Record<string, string>> = {
     'auth.nameLabel': 'Name',
     'auth.namePlaceholder': 'Your name',
     'auth.continueWithoutAccount': 'Continue without account',
-    'auth.magicLinkDescription': 'We will send an access link that expires in a few minutes. Just click to sign in without a password.',
+    'auth.magicLinkDescription':
+      'We will send an access link that expires in a few minutes. Just click to sign in without a password.',
     'auth.magicLinkPlaceholder': 'Enter your e-mail',
     'auth.sendMagicLink': 'Send magic link',
     'auth.newToScira': 'New to Scira?',
@@ -116,10 +120,10 @@ const translations: Record<Language, Record<string, string>> = {
 
     // Settings Dialog
     'settings.dialog.title': 'Settings',
-    
+
     // Profile Section
     'profile.proUser': 'pro user',
-    
+
     // Usage Section
     'usage.refreshSuccess': 'Usage data refreshed',
     'usage.refreshError': 'Failed to refresh usage data',
@@ -131,14 +135,14 @@ const translations: Record<Language, Record<string, string>> = {
     'usage.messagesRange2': '4-7 messages',
     'usage.messagesRange3': '8-12 messages',
     'usage.messagesRange4': '13+ messages',
-    
+
     // Memories
     'memories.stored': '{{count}} {{count, plural, one {memory} other {memories}}} stored',
     'memories.noMemories': 'No memories found',
     'memories.loadMore': 'Load More',
     'memories.deleted': 'Memory deleted successfully',
     'memories.deleteError': 'Failed to delete memory',
-    
+
     // Connectors
     'connectors.title': 'Connected Services',
     'connectors.description': 'Connect your cloud services to search across all your documents in one place',
@@ -164,17 +168,17 @@ const translations: Record<Language, Record<string, string>> = {
     'connectors.limit': 'Limit:',
     'connectors.syncingStatus': 'Syncing...',
     'connectors.never': 'Never',
-    
+
     // Custom Instructions
     'instructions.saveSuccess': 'Custom instructions saved successfully',
     'instructions.saveError': 'Failed to save instructions',
     'instructions.deleteSuccess': 'Custom instructions deleted successfully',
     'instructions.deleteError': 'Failed to delete instructions',
     'instructions.enterInstructions': 'Please enter some instructions',
-    
+
     // Search Provider
     'searchProvider.changed': 'Search provider changed to {{provider}}',
-    
+
     // Search Modes
     'searchMode.web': 'Web',
     'searchMode.web.description': 'Search across the entire internet powered by {{provider}}',
@@ -192,7 +196,8 @@ const translations: Record<Language, Record<string, string>> = {
     'searchMode.academic.description': 'Search academic papers powered by Exa',
     'searchMode.extreme': 'Extreme',
     'searchMode.extreme.description': 'Deep research with multiple sources and analysis',
-    'searchMode.extreme.description.tooltip': 'Deep research with multiple sources and in-depth analysis with 3x sources',
+    'searchMode.extreme.description.tooltip':
+      'Deep research with multiple sources and in-depth analysis with 3x sources',
     'searchMode.extreme.active': 'Extreme Search Active',
     'searchMode.extreme.title': 'Extreme Search',
     'searchMode.memory': 'Memory',
@@ -208,12 +213,13 @@ const translations: Record<Language, Record<string, string>> = {
     'searchMode.switchBack': 'Switch back to search modes',
     'searchMode.choose': 'Choose search mode',
     'searchMode.signInRequired': 'Sign in Required',
-    
+
     // Lookout
     'lookout.newFeature': 'New Feature',
     'lookout.introducing': 'Introducing Scira Lookout',
     'lookout.description': 'Automated search monitoring on your schedule',
-    'lookout.setupDescription': 'Set up searches that track trends, monitor developments, and keep you informed without manual effort.',
+    'lookout.setupDescription':
+      'Set up searches that track trends, monitor developments, and keep you informed without manual effort.',
     'lookout.scheduleSearches': 'Schedule searches to run automatically',
     'lookout.receiveNotifications': 'Receive notifications when results are ready',
     'lookout.accessHistory': 'Access comprehensive search history',
@@ -232,14 +238,16 @@ const translations: Record<Language, Record<string, string>> = {
     'settings.language.description': 'Escolha seu idioma preferido',
     'settings.language.english': 'Inglês',
     'settings.language.portuguese': 'Português',
-    'settings.language.note': 'Selecione seu idioma preferido para a interface. As alterações entram em vigor imediatamente.',
-    
+    'settings.language.note':
+      'Selecione seu idioma preferido para a interface. As alterações entram em vigor imediatamente.',
+
     // Profile
     'profile.fullName': 'Nome Completo',
     'profile.email': 'Endereço de Email',
     'profile.notProvided': 'Não fornecido',
-    'profile.managedBy': 'As informações do perfil são gerenciadas pelo seu provedor de autenticação. Entre em contato com o suporte para atualizar seus detalhes.',
-    
+    'profile.managedBy':
+      'As informações do perfil são gerenciadas pelo seu provedor de autenticação. Entre em contato com o suporte para atualizar seus detalhes.',
+
     // Preferences
     'preferences.general': 'Geral',
     'preferences.ordering': 'Ordenação',
@@ -249,18 +257,20 @@ const translations: Record<Language, Record<string, string>> = {
     'preferences.enableInstructions.description': 'Ative ou desative as instruções personalizadas',
     'preferences.instructions': 'Instruções',
     'preferences.instructions.description': 'Guie como a IA responde às suas perguntas',
-    'preferences.instructions.placeholder': 'Digite suas instruções personalizadas aqui... Por exemplo: \'Sempre forneça exemplos de código ao explicar conceitos de programação\' ou \'Mantenha as respostas concisas e focadas em aplicações práticas\'',
+    'preferences.instructions.placeholder':
+      "Digite suas instruções personalizadas aqui... Por exemplo: 'Sempre forneça exemplos de código ao explicar conceitos de programação' ou 'Mantenha as respostas concisas e focadas em aplicações práticas'",
     'preferences.saveInstructions': 'Salvar Instruções',
     'preferences.saving': 'Salvando...',
     'preferences.lastUpdated': 'Última atualização',
     'preferences.searchProvider': 'Provedor de Busca',
     'preferences.searchProvider.description': 'Escolha seu mecanismo de busca preferido',
-    'preferences.searchProvider.note': 'Selecione seu provedor de busca preferido para buscas na web. As alterações entram em vigor imediatamente e serão usadas para todas as buscas futuras.',
+    'preferences.searchProvider.note':
+      'Selecione seu provedor de busca preferido para buscas na web. As alterações entram em vigor imediatamente e serão usadas para todas as buscas futuras.',
     'preferences.reorderModes': 'Reordenar Modos de Busca',
     'preferences.reorderModes.description': 'Arraste para definir sua ordem preferida',
     'preferences.reorderModels': 'Reordenar Modelos',
     'preferences.reorderModels.description': 'Arraste para definir sua ordem preferida de modelos',
-    
+
     // Usage
     'usage.dailySearch': 'Uso Diário de Busca',
     'usage.today': 'Hoje',
@@ -271,7 +281,7 @@ const translations: Record<Language, Record<string, string>> = {
     'usage.pastMonths': 'Últimos {months} Meses',
     'usage.noActivity': 'Sem dados de atividade',
     'usage.refresh': 'Atualizar',
-    
+
     // Common
     'common.loading': 'Carregando...',
     'common.save': 'Salvar',
@@ -280,20 +290,20 @@ const translations: Record<Language, Record<string, string>> = {
     'common.close': 'Fechar',
     'common.success': 'Sucesso',
     'common.error': 'Erro',
-    
+
     // Navbar
     'navbar.new': 'Novo',
     'navbar.upgrade': 'Atualizar',
     'navbar.freePlan': 'Plano Gratuito',
     'navbar.shared': 'Compartilhado',
     'navbar.private': 'Privado',
-    
+
     // Chat Input
     'chat.input.placeholder': 'Faça uma pergunta...',
     'chat.input.placeholder.new': 'Faça uma nova pergunta...',
     'chat.input.enhancing': '✨ Aprimorando seu prompt...',
     'chat.input.typewriting': '✨ Escrevendo prompt aprimorado...',
-    
+
     // Auth
     'auth.welcomeBack': 'Bem-vindo de volta',
     'auth.signInToContinue': 'Entre para continuar no Scira AI',
@@ -309,7 +319,8 @@ const translations: Record<Language, Record<string, string>> = {
     'auth.nameLabel': 'Nome',
     'auth.namePlaceholder': 'Seu nome',
     'auth.continueWithoutAccount': 'Continuar sem conta',
-    'auth.magicLinkDescription': 'Enviaremos um link de acesso que expira em poucos minutos. Basta clicar para entrar sem senha.',
+    'auth.magicLinkDescription':
+      'Enviaremos um link de acesso que expira em poucos minutos. Basta clicar para entrar sem senha.',
     'auth.magicLinkPlaceholder': 'Digite seu e-mail',
     'auth.sendMagicLink': 'Enviar magic link',
     'auth.newToScira': 'Novo no Scira?',
@@ -321,10 +332,10 @@ const translations: Record<Language, Record<string, string>> = {
 
     // Settings Dialog
     'settings.dialog.title': 'Configurações',
-    
+
     // Profile Section
     'profile.proUser': 'usuário pro',
-    
+
     // Usage Section
     'usage.refreshSuccess': 'Dados de uso atualizados',
     'usage.refreshError': 'Falha ao atualizar dados de uso',
@@ -336,7 +347,7 @@ const translations: Record<Language, Record<string, string>> = {
     'usage.messagesRange2': '4-7 mensagens',
     'usage.messagesRange3': '8-12 mensagens',
     'usage.messagesRange4': '13+ mensagens',
-    
+
     // Memories
     'memories.stored': '{{count}} {{count, plural, one {memória} other {memórias}}} armazenadas',
     'memories.stored.singular': '{{count}} memória armazenada',
@@ -345,12 +356,13 @@ const translations: Record<Language, Record<string, string>> = {
     'memories.loadMore': 'Carregar Mais',
     'memories.deleted': 'Memória excluída com sucesso',
     'memories.deleteError': 'Falha ao excluir memória',
-    
+
     // Connectors
     'connectors.title': 'Serviços Conectados',
     'connectors.description': 'Conecte seus serviços em nuvem para buscar em todos os seus documentos em um só lugar',
     'connectors.beta': 'Conectores (Beta)',
-    'connectors.betaDescription': 'Conectores estão disponíveis em beta. Esperem mudanças conforme a experiência melhora.',
+    'connectors.betaDescription':
+      'Conectores estão disponíveis em beta. Esperem mudanças conforme a experiência melhora.',
     'connectors.connected': 'Conectado',
     'connectors.notConnected': 'Não conectado',
     'connectors.checking': 'Verificando conexão...',
@@ -371,17 +383,17 @@ const translations: Record<Language, Record<string, string>> = {
     'connectors.limit': 'Limite:',
     'connectors.syncingStatus': 'Sincronizando...',
     'connectors.never': 'Nunca',
-    
+
     // Custom Instructions
     'instructions.saveSuccess': 'Instruções personalizadas salvas com sucesso',
     'instructions.saveError': 'Falha ao salvar instruções',
     'instructions.deleteSuccess': 'Instruções personalizadas excluídas com sucesso',
     'instructions.deleteError': 'Falha ao excluir instruções',
     'instructions.enterInstructions': 'Por favor, digite algumas instruções',
-    
+
     // Search Provider
     'searchProvider.changed': 'Provedor de busca alterado para {{provider}}',
-    
+
     // Search Modes
     'searchMode.web': 'Web',
     'searchMode.web.description': 'Busque em toda a internet alimentado por {{provider}}',
@@ -399,7 +411,8 @@ const translations: Record<Language, Record<string, string>> = {
     'searchMode.academic.description': 'Buscar artigos acadêmicos alimentado por Exa',
     'searchMode.extreme': 'Extremo',
     'searchMode.extreme.description': 'Pesquisa profunda com múltiplas fontes e análise',
-    'searchMode.extreme.description.tooltip': 'Pesquisa profunda com múltiplas fontes e análise detalhada com 3x fontes',
+    'searchMode.extreme.description.tooltip':
+      'Pesquisa profunda com múltiplas fontes e análise detalhada com 3x fontes',
     'searchMode.extreme.active': 'Busca Extrema Ativa',
     'searchMode.extreme.title': 'Busca Extrema',
     'searchMode.memory': 'Memória',
@@ -415,12 +428,13 @@ const translations: Record<Language, Record<string, string>> = {
     'searchMode.switchBack': 'Voltar para modos de busca',
     'searchMode.choose': 'Escolher modo de busca',
     'searchMode.signInRequired': 'Login Necessário',
-    
+
     // Lookout
     'lookout.newFeature': 'Nova Funcionalidade',
     'lookout.introducing': 'Apresentando Scira Lookout',
     'lookout.description': 'Monitoramento automatizado de buscas no seu horário',
-    'lookout.setupDescription': 'Configure buscas que rastreiam tendências, monitoram desenvolvimentos e mantêm você informado sem esforço manual.',
+    'lookout.setupDescription':
+      'Configure buscas que rastreiam tendências, monitoram desenvolvimentos e mantêm você informado sem esforço manual.',
     'lookout.scheduleSearches': 'Agende buscas para executar automaticamente',
     'lookout.receiveNotifications': 'Receba notificações quando os resultados estiverem prontos',
     'lookout.accessHistory': 'Acesse histórico completo de buscas',
@@ -451,7 +465,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const t = useCallback(
     (key: string, params?: Record<string, string | number>): string => {
       let text = translations[language]?.[key] || translations.en[key] || key;
-      
+
       // Replace parameters in the format {param} or {{param}}
       if (params) {
         Object.entries(params).forEach(([paramKey, paramValue]) => {
@@ -459,7 +473,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
           text = text.replace(new RegExp(`\\{${paramKey}\\}`, 'g'), String(paramValue));
         });
       }
-      
+
       return text;
     },
     [language],
@@ -475,4 +489,3 @@ export function useLanguage() {
   }
   return context;
 }
-

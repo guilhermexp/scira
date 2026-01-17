@@ -18,6 +18,7 @@ Usuário → Seleciona Modo → Backend aplica:
 ```
 
 **Localização do código:**
+
 - Modos e prompts: `app/actions.ts` (linhas 253-1410)
 - Tools: `lib/tools/` (diretório)
 - API handler: `app/api/search/route.ts`
@@ -28,12 +29,14 @@ Usuário → Seleciona Modo → Backend aplica:
 ## Modos Disponíveis
 
 ### 1. Web (Padrão)
+
 - **Prompt:** Motor de busca AI geral
 - **Tools:** 14 ferramentas (web_search, weather, maps, translate, code_interpreter, etc)
 - **Resposta:** Markdown conciso com citações inline
 - **Requer login:** Não
 
 ### 2. Extreme
+
 - **Prompt:** Pesquisador avançado - relatório de 3 páginas
 - **Tools:** `extreme_search` apenas
 - **Resposta:** Pesquisa profunda com 3x mais fontes
@@ -45,49 +48,59 @@ Usuário → Seleciona Modo → Backend aplica:
   4. Retorna relatório extenso com citações obrigatórias
 
 ### 3. Academic
+
 - **Prompt:** Assistente de pesquisa acadêmica
 - **Tools:** academic_search, code_interpreter, datetime
 - **Resposta:** Prosa acadêmica formal, citações com DOI
 - **Formato citação:** `[Author et al. (Year) Title](URL)`
 
 ### 4. X (Twitter)
+
 - **Prompt:** Expert em conteúdo X/Twitter
 - **Tools:** x_search
 - **Resposta:** Mix de listas, parágrafos, tabelas
 - **Busca:** Grok-4 com suporte nativo a X search
 
 ### 5. Memory
+
 - **Prompt:** Companheiro de memórias
 - **Tools:** search_memories, add_memory, datetime
 - **Resposta:** Tom amigável e pessoal
 - **Requer login:** Sim
 
 ### 6. Chat
+
 - **Prompt:** Conversação pura
 - **Tools:** Nenhuma
 - **Resposta:** Chat direto sem ferramentas
 
 ### 7. Reddit
+
 - **Tools:** reddit_search, datetime
 - **Prompt:** Especialista em conteúdo Reddit
 
 ### 8. YouTube
+
 - **Tools:** youtube_search, datetime
 - **Prompt:** Especialista em conteúdo YouTube
 
 ### 9. Stocks
+
 - **Tools:** stock_chart, currency_converter, datetime
 - **Prompt:** Analista financeiro
 
 ### 10. Crypto
+
 - **Tools:** coin_data, coin_ohlc, coin_data_by_contract, datetime
 - **Prompt:** Analista de criptomoedas
 
 ### 11. Code
+
 - **Tools:** code_context
 - **Prompt:** Assistente de contexto de código
 
 ### 12. Connectors
+
 - **Tools:** connectors_search, datetime
 - **Prompt:** Busca em Google Drive, Notion, OneDrive
 - **Requer login:** Sim + Pro
@@ -97,62 +110,69 @@ Usuário → Seleciona Modo → Backend aplica:
 ## Ferramentas Disponíveis
 
 ### Busca e Conteúdo
-| Tool | Descrição | Provider |
-|------|-----------|----------|
-| `web_search` | Busca web multi-query (3-5 queries paralelas) | Tavily/Exa/Firecrawl |
-| `extreme_search` | Pesquisa profunda autônoma com planejamento | Exa + Firecrawl + Grok |
-| `academic_search` | Busca papers acadêmicos | Exa |
-| `x_search` | Busca posts no X/Twitter | Grok-4 (native) |
-| `reddit_search` | Busca posts no Reddit | Reddit API |
-| `youtube_search` | Busca vídeos no YouTube | YouTube API |
-| `retrieve` | Extrai conteúdo de URL específica | Firecrawl |
-| `mcp_search` | Busca via MCP (Model Context Protocol) | MCP |
-| `connectors_search` | Busca em Drive/Notion/OneDrive | Supermemory |
+
+| Tool                | Descrição                                     | Provider               |
+| ------------------- | --------------------------------------------- | ---------------------- |
+| `web_search`        | Busca web multi-query (3-5 queries paralelas) | Tavily/Exa/Firecrawl   |
+| `extreme_search`    | Pesquisa profunda autônoma com planejamento   | Exa + Firecrawl + Grok |
+| `academic_search`   | Busca papers acadêmicos                       | Exa                    |
+| `x_search`          | Busca posts no X/Twitter                      | Grok-4 (native)        |
+| `reddit_search`     | Busca posts no Reddit                         | Reddit API             |
+| `youtube_search`    | Busca vídeos no YouTube                       | YouTube API            |
+| `retrieve`          | Extrai conteúdo de URL específica             | Firecrawl              |
+| `mcp_search`        | Busca via MCP (Model Context Protocol)        | MCP                    |
+| `connectors_search` | Busca em Drive/Notion/OneDrive                | Supermemory            |
 
 ### Mídia e Entretenimento
-| Tool | Descrição | Provider |
-|------|-----------|----------|
-| `movie_or_tv_search` | Busca filmes/séries | TMDB |
-| `trending_movies` | Filmes em alta | TMDB |
-| `trending_tv` | Séries em alta | TMDB |
+
+| Tool                 | Descrição           | Provider |
+| -------------------- | ------------------- | -------- |
+| `movie_or_tv_search` | Busca filmes/séries | TMDB     |
+| `trending_movies`    | Filmes em alta      | TMDB     |
+| `trending_tv`        | Séries em alta      | TMDB     |
 
 ### Finanças
-| Tool | Descrição | Provider |
-|------|-----------|----------|
-| `stock_chart` | Gráficos de ações | yfinance |
-| `currency_converter` | Conversor de moedas | yfinance |
-| `coin_data` | Dados de cripto | CoinGecko |
-| `coin_ohlc` | OHLC de cripto | CoinGecko |
-| `coin_data_by_contract` | Dados por contrato | CoinGecko |
+
+| Tool                    | Descrição           | Provider  |
+| ----------------------- | ------------------- | --------- |
+| `stock_chart`           | Gráficos de ações   | yfinance  |
+| `currency_converter`    | Conversor de moedas | yfinance  |
+| `coin_data`             | Dados de cripto     | CoinGecko |
+| `coin_ohlc`             | OHLC de cripto      | CoinGecko |
+| `coin_data_by_contract` | Dados por contrato  | CoinGecko |
 
 ### Localização e Clima
-| Tool | Descrição | Provider |
-|------|-----------|----------|
-| `get_weather_data` | Dados de clima | OpenWeather |
-| `find_place_on_map` | Busca lugares | Google Maps |
+
+| Tool                   | Descrição        | Provider    |
+| ---------------------- | ---------------- | ----------- |
+| `get_weather_data`     | Dados de clima   | OpenWeather |
+| `find_place_on_map`    | Busca lugares    | Google Maps |
 | `nearby_places_search` | Lugares próximos | Google Maps |
 
 ### Utilitários
-| Tool | Descrição | Provider |
-|------|-----------|----------|
-| `code_interpreter` | Executa Python | Daytona Sandbox |
-| `code_context` | Contexto de linguagens/frameworks | Interno |
-| `text_translate` | Tradução de texto | Interno |
-| `track_flight` | Rastreamento de voos | FlightAware |
-| `datetime` | Data/hora atual | Sistema |
-| `greeting` | Responde saudações | Interno |
+
+| Tool               | Descrição                         | Provider        |
+| ------------------ | --------------------------------- | --------------- |
+| `code_interpreter` | Executa Python                    | Daytona Sandbox |
+| `code_context`     | Contexto de linguagens/frameworks | Interno         |
+| `text_translate`   | Tradução de texto                 | Interno         |
+| `track_flight`     | Rastreamento de voos              | FlightAware     |
+| `datetime`         | Data/hora atual                   | Sistema         |
+| `greeting`         | Responde saudações                | Interno         |
 
 ### Memória
-| Tool | Descrição | Provider |
-|------|-----------|----------|
+
+| Tool              | Descrição                 | Provider    |
+| ----------------- | ------------------------- | ----------- |
 | `search_memories` | Busca memórias do usuário | Supermemory |
-| `add_memory` | Adiciona memória | Supermemory |
+| `add_memory`      | Adiciona memória          | Supermemory |
 
 ---
 
 ## Fluxo de Execução
 
 ### 1. Modo Web (exemplo)
+
 ```
 Usuário: "clima em São Paulo"
   ↓
@@ -169,6 +189,7 @@ LLM formata resposta em markdown com citações
 ```
 
 ### 2. Modo Extreme (exemplo)
+
 ```
 Usuário: "análise da IA em 2025"
   ↓
@@ -196,12 +217,14 @@ LLM sintetiza em relatório de 3 páginas
 ## Características Técnicas
 
 ### Web Search (multi-query)
+
 - **Paralelo:** 3-5 queries simultâneas
 - **Providers:** Tavily (padrão), Exa, Firecrawl
 - **Switch:** Baseado em `searchProvider` (localStorage)
 - **Recency:** Inclui ano/data nas queries
 
 ### Extreme Search (autônomo)
+
 - **Model:** Grok-4-Fast-Think
 - **Planning:** `generateObject` com schema Zod
 - **Execution:** `generateText` com `stopWhen(stepCountIs(totalTodos))`
@@ -213,6 +236,7 @@ LLM sintetiza em relatório de 3 páginas
 - **Content extraction:** 3000 chars max por fonte
 
 ### Code Interpreter
+
 - **Sandbox:** Daytona
 - **Libs disponíveis:** pandas, numpy, scipy, keras, seaborn, matplotlib, transformers, scikit-learn
 - **Install on-demand:** Detecta imports e instala libs faltantes
@@ -223,22 +247,26 @@ LLM sintetiza em relatório de 3 páginas
 ## Limitações
 
 ### 1. Extreme Search
+
 - Limite rígido de 15 ações (pode ser insuficiente para pesquisas muito complexas)
 - Sem controle manual do plano (100% autônomo)
 - Não reutiliza resultados entre queries similares
 - Python libs limitadas (não instala qualquer pacote)
 
 ### 2. Web Search
+
 - Máximo 5 queries paralelas
 - Dependente de providers externos (Exa/Tavily downtime = falha)
 - Firecrawl como fallback nem sempre funciona (paywall, JS dinâmico)
 
 ### 3. X Search
+
 - Depende 100% do Grok-4 (sem fallback)
 - Limitado a 15 resultados por query
 - Requer API key da xAI
 
 ### 4. Geral
+
 - **Sem streaming de tool calls:** Usuário não vê progresso das ferramentas em tempo real
 - **1 tool por turno (Web mode):** Regra artificial pode limitar eficiência
 - **Sem retry logic:** Falha de tool = resposta incompleta
@@ -246,6 +274,7 @@ LLM sintetiza em relatório de 3 páginas
 - **Rate limits não robustos:** Self-hosted = unlimited, mas providers externos têm limites
 
 ### 5. Memory/Connectors
+
 - Dependente de Supermemory (placeholder = feature desabilitada)
 - Sem sincronização em tempo real
 
@@ -355,8 +384,8 @@ const { tools, instructions } = await getGroupConfig(group);
 
 const result = streamText({
   model: scira.languageModel(model),
-  system: instructions,  // ← Prompt específico
-  tools: tools,          // ← Ferramentas específicas
+  system: instructions, // ← Prompt específico
+  tools: tools, // ← Ferramentas específicas
   messages: messages,
 });
 ```
@@ -386,19 +415,20 @@ const handleToggleExtreme = useCallback(() => {
 
 ## Resumo Executivo
 
-| Aspecto | Status |
-|---------|--------|
-| **Modos disponíveis** | 12 (Web, Extreme, Academic, X, Memory, Chat, Reddit, YouTube, Stocks, Crypto, Code, Connectors) |
-| **Total de tools** | 32+ ferramentas |
-| **Providers externos** | 15+ (Exa, Tavily, Firecrawl, Grok, TMDB, yfinance, OpenWeather, etc) |
-| **Extreme Search** | Pesquisa autônoma com planejamento (até 15 ações, 3x mais fontes) |
-| **Maior limitação** | Dependência de providers externos sem fallbacks robustos |
-| **Maior força** | Sistema multi-modo flexível com especialização por domínio |
-| **Prioridade #1** | Implementar streaming de tool calls e retry logic |
+| Aspecto                | Status                                                                                          |
+| ---------------------- | ----------------------------------------------------------------------------------------------- |
+| **Modos disponíveis**  | 12 (Web, Extreme, Academic, X, Memory, Chat, Reddit, YouTube, Stocks, Crypto, Code, Connectors) |
+| **Total de tools**     | 32+ ferramentas                                                                                 |
+| **Providers externos** | 15+ (Exa, Tavily, Firecrawl, Grok, TMDB, yfinance, OpenWeather, etc)                            |
+| **Extreme Search**     | Pesquisa autônoma com planejamento (até 15 ações, 3x mais fontes)                               |
+| **Maior limitação**    | Dependência de providers externos sem fallbacks robustos                                        |
+| **Maior força**        | Sistema multi-modo flexível com especialização por domínio                                      |
+| **Prioridade #1**      | Implementar streaming de tool calls e retry logic                                               |
 
 ---
 
 **Documentação relacionada:**
+
 - [Quick Start](../ai_quickstart.md)
 - [MCP Search Integration](./MCP_SEARCH_INTEGRATION.md)
 - [Project Guidelines](../CLAUDE.md)

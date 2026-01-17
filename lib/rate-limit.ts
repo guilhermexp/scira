@@ -30,4 +30,3 @@ export function getClientIdentifier(req: Request): string {
   const ip = forwarded?.split(',')[0] ?? realIp ?? 'unknown';
   return `ip:${ip}`;
 }
-

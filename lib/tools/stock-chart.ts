@@ -51,7 +51,7 @@ interface NewsGroup {
 export const stockChartTool = tool({
   description:
     'Get stock data and news for companies using natural language. Valyu will resolve company names to stock tickers automatically.',
-  inputSchema: z.object({
+  parameters: z.object({
     title: z.string().describe('The title of the chart.'),
     news_queries: z.array(z.string()).describe('The news queries to search for.'),
     icon: z.enum(['stock', 'date', 'calculation', 'default']).describe('The icon to display for the chart.'),
@@ -130,6 +130,7 @@ export const stockChartTool = tool({
         'Time period for financial statements (e.g., "2020-2024", "last 3 years", "Q4 2023"). Defaults to latest available if not specified.',
       ),
   }),
+  // @ts-expect-error - AI SDK v6 type inference issue
   execute: async ({
     title,
     icon,

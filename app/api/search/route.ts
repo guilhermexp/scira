@@ -134,7 +134,7 @@ export async function POST(req: Request) {
       const resetDate = new Date(reset);
       return new ChatSDKError(
         'rate_limit:api',
-        `You've reached the limit of ${limit} searches per day for unauthenticated users. Sign in for more searches or wait until ${resetDate.toLocaleString()}.`
+        `You've reached the limit of ${limit} searches per day for unauthenticated users. Sign in for more searches or wait until ${resetDate.toLocaleString()}.`,
       ).toResponse();
     }
   }
@@ -165,9 +165,10 @@ export async function POST(req: Request) {
   const fullUserPromise = lightweightUser ? getCurrentUser() : Promise.resolve(null);
 
   // 3. Custom instructions (only if enabled and authenticated)
-  const customInstructionsPromise = lightweightUser && (isCustomInstructionsEnabled ?? true)
-    ? fullUserPromise.then(user => user ? getCachedCustomInstructionsByUserId(user.id) : null)
-    : Promise.resolve(null);
+  const customInstructionsPromise =
+    lightweightUser && (isCustomInstructionsEnabled ?? true)
+      ? fullUserPromise.then((user) => (user ? getCachedCustomInstructionsByUserId(user.id) : null))
+      : Promise.resolve(null);
 
   // 4. For authenticated users: start ALL operations in parallel
   let criticalChecksPromise: Promise<{
@@ -218,48 +219,44 @@ export async function POST(req: Request) {
 
     // For non-Pro users: run usage checks in parallel
     if (!isProUser) {
-      criticalChecksPromise = Promise.all([
-        fullUserPromise,
-        chatValidationPromise,
-      ]).then(async ([user]) => {
-        if (!user) {
-          throw new ChatSDKError('unauthorized:auth', 'User authentication failed');
-        }
+      criticalChecksPromise = Promise.all([fullUserPromise, chatValidationPromise])
+        .then(async ([user]) => {
+          if (!user) {
+            throw new ChatSDKError('unauthorized:auth', 'User authentication failed');
+          }
 
-        const [messageCountResult, extremeSearchUsage] = await Promise.all([
-          getUserMessageCount(user),
-          getExtremeSearchUsageCount(user),
-        ]);
+          const [messageCountResult, extremeSearchUsage] = await Promise.all([
+            getUserMessageCount(user),
+            getExtremeSearchUsageCount(user),
+          ]);
 
-        if (messageCountResult.error) {
-          throw new ChatSDKError('bad_request:api', 'Failed to verify usage limits');
-        }
+          if (messageCountResult.error) {
+            throw new ChatSDKError('bad_request:api', 'Failed to verify usage limits');
+          }
 
-        const shouldBypassLimits = shouldBypassRateLimits(model, user);
-        if (!shouldBypassLimits && messageCountResult.count !== undefined && messageCountResult.count >= 100) {
-          throw new ChatSDKError('rate_limit:chat', 'Daily search limit reached');
-        }
+          const shouldBypassLimits = shouldBypassRateLimits(model, user);
+          if (!shouldBypassLimits && messageCountResult.count !== undefined && messageCountResult.count >= 100) {
+            throw new ChatSDKError('rate_limit:chat', 'Daily search limit reached');
+          }
 
-        return {
-          canProceed: true,
-          isProUser: false,
-          messageCount: messageCountResult.count,
-          extremeSearchUsage: extremeSearchUsage.count,
-          subscriptionData: user.polarSubscription
-            ? { hasSubscription: true, subscription: { ...user.polarSubscription, organizationId: null } }
-            : { hasSubscription: false },
-          shouldBypassLimits,
-        };
-      }).catch(error => {
-        if (error instanceof ChatSDKError) throw error;
-        throw new ChatSDKError('bad_request:api', 'Failed to verify user access');
-      });
+          return {
+            canProceed: true,
+            isProUser: false,
+            messageCount: messageCountResult.count,
+            extremeSearchUsage: extremeSearchUsage.count,
+            subscriptionData: user.polarSubscription
+              ? { hasSubscription: true, subscription: { ...user.polarSubscription, organizationId: null } }
+              : { hasSubscription: false },
+            shouldBypassLimits,
+          };
+        })
+        .catch((error) => {
+          if (error instanceof ChatSDKError) throw error;
+          throw new ChatSDKError('bad_request:api', 'Failed to verify user access');
+        });
     } else {
       // Pro users: just validate chat ownership
-      criticalChecksPromise = Promise.all([
-        fullUserPromise,
-        chatValidationPromise,
-      ]).then(([user]) => ({
+      criticalChecksPromise = Promise.all([fullUserPromise, chatValidationPromise]).then(([user]) => ({
         canProceed: true,
         isProUser: true,
         messageCount: 0,
@@ -304,19 +301,21 @@ export async function POST(req: Request) {
       // Save user message BEFORE streaming (critical for conversation history)
       if (user) {
         await saveMessages({
-          messages: [{
-            chatId: id,
-            id: messages[messages.length - 1].id,
-            role: 'user',
-            parts: messages[messages.length - 1].parts,
-            attachments: messages[messages.length - 1].experimental_attachments ?? [],
-            createdAt: new Date(),
-            model: model,
-            inputTokens: 0,
-            outputTokens: 0,
-            totalTokens: 0,
-            completionTime: 0,
-          }],
+          messages: [
+            {
+              chatId: id,
+              id: messages[messages.length - 1].id,
+              role: 'user',
+              parts: messages[messages.length - 1].parts,
+              attachments: messages[messages.length - 1].experimental_attachments ?? [],
+              createdAt: new Date(),
+              model: model,
+              inputTokens: 0,
+              outputTokens: 0,
+              totalTokens: 0,
+              completionTime: 0,
+            },
+          ],
         });
       }
 
@@ -350,32 +349,37 @@ export async function POST(req: Request) {
           openai: {
             ...(model !== 'scira-qwen-coder'
               ? {
-                parallelToolCalls: false,
-              }
+                  parallelToolCalls: false,
+                }
               : {}),
             ...((model === 'scira-gpt5' ||
-              model === 'scira-gpt5-mini' ||
-              model === 'scira-o3' ||
-              model === 'scira-gpt5-nano' ||
-              model === 'scira-gpt5-codex' ||
-              model === 'scira-gpt5-medium' ||
-              model === 'scira-o4-mini' ||
-              model === 'scira-gpt-4.1' ||
-              model === 'scira-gpt-4.1-mini' ||
-              model === 'scira-gpt-4.1-nano'
+            model === 'scira-gpt5-mini' ||
+            model === 'scira-o3' ||
+            model === 'scira-gpt5-nano' ||
+            model === 'scira-gpt5-codex' ||
+            model === 'scira-gpt5-medium' ||
+            model === 'scira-o4-mini' ||
+            model === 'scira-gpt-4.1' ||
+            model === 'scira-gpt-4.1-mini' ||
+            model === 'scira-gpt-4.1-nano'
               ? {
-                reasoningEffort: (
-                  model === 'scira-gpt5-nano' ||
-                    model === 'scira-gpt5' ||
-                    model === 'scira-gpt5-mini' ?
-                    'minimal' :
-                    'medium'
-                ),
-                promptCacheKey: 'scira-oai',
-                parallelToolCalls: false,
-                reasoningSummary: 'detailed',
-                textVerbosity: (model === 'scira-o3' || model === 'scira-gpt5-codex' || model === 'scira-o4-mini' || model === 'scira-gpt-4.1' || model === 'scira-gpt-4.1-mini' || model === 'scira-gpt-4.1-nano' ? 'medium' : 'high'),
-              }
+                  reasoningEffort:
+                    model === 'scira-gpt5-nano' || model === 'scira-gpt5' || model === 'scira-gpt5-mini'
+                      ? 'minimal'
+                      : 'medium',
+                  promptCacheKey: 'scira-oai',
+                  parallelToolCalls: false,
+                  reasoningSummary: 'detailed',
+                  textVerbosity:
+                    model === 'scira-o3' ||
+                    model === 'scira-gpt5-codex' ||
+                    model === 'scira-o4-mini' ||
+                    model === 'scira-gpt-4.1' ||
+                    model === 'scira-gpt-4.1-mini' ||
+                    model === 'scira-gpt-4.1-nano'
+                      ? 'medium'
+                      : 'high',
+                }
               : {}) satisfies OpenAIResponsesProviderOptions),
           },
           deepseek: {
@@ -384,14 +388,14 @@ export async function POST(req: Request) {
           groq: {
             ...(model === 'scira-gpt-oss-20' || model === 'scira-gpt-oss-120'
               ? {
-                reasoningEffort: 'high',
-                reasoningFormat: 'hidden',
-              }
+                  reasoningEffort: 'high',
+                  reasoningFormat: 'hidden',
+                }
               : {}),
             ...(model === 'scira-qwen-32b'
               ? {
-                reasoningEffort: 'none',
-              }
+                  reasoningEffort: 'none',
+                }
               : {}),
             parallelToolCalls: false,
             structuredOutputs: true,
@@ -403,35 +407,35 @@ export async function POST(req: Request) {
           cohere: {
             ...(model === 'scira-cmd-a-think'
               ? {
-                thinking: {
-                  type: 'enabled',
-                  tokenBudget: 1000,
-                },
-              }
+                  thinking: {
+                    type: 'enabled',
+                    tokenBudget: 1000,
+                  },
+                }
               : {}),
           } satisfies CohereChatModelOptions,
           anthropic: {
             ...(model === 'scira-anthropic-think'
               ? {
-                sendReasoning: true,
-                thinking: {
-                  type: 'enabled',
-                  budgetTokens: 4000,
-                },
-              }
+                  sendReasoning: true,
+                  thinking: {
+                    type: 'enabled',
+                    budgetTokens: 4000,
+                  },
+                }
               : {}),
             disableParallelToolUse: true,
           } satisfies AnthropicProviderOptions,
           google: {
             ...(model === 'scira-google-think' || model === 'scira-google-pro-think'
               ? {
-                thinkingConfig: {
-                  thinkingBudget: 400,
-                  includeThoughts: true,
-                },
-              }
+                  thinkingConfig: {
+                    thinkingBudget: 400,
+                    includeThoughts: true,
+                  },
+                }
               : {}),
-            threshold: "OFF"
+            threshold: 'OFF',
           } satisfies GoogleGenerativeAIProviderOptions,
         },
         prepareStep: async ({ steps, messages }) => {
@@ -440,12 +444,12 @@ export async function POST(req: Request) {
 
           // Check if we need to prune messages
           const shouldPrune = messages.length > 10 || totalTokens > 100000;
-          
+
           // Always check if model supports reasoning
           const modelHasReasoning = hasReasoningSupport(model);
 
           let prunedMessages = messages;
-          
+
           // If model doesn't support reasoning, always prune ALL reasoning content
           // to prevent errors when switching from reasoning to non-reasoning models
           if (!modelHasReasoning) {
@@ -455,7 +459,9 @@ export async function POST(req: Request) {
               toolCalls: shouldPrune ? 'before-last-2-messages' : 'none',
               emptyMessages: shouldPrune ? 'remove' : 'keep',
             });
-            console.log(`🧹 Removed reasoning content for non-reasoning model (${messages.length} → ${prunedMessages.length} messages)`);
+            console.log(
+              `🧹 Removed reasoning content for non-reasoning model (${messages.length} → ${prunedMessages.length} messages)`,
+            );
           } else if (shouldPrune) {
             // For reasoning models, only prune when needed
             console.log(`🔧 Pruning messages: ${messages.length} messages, ${totalTokens} tokens used`);
@@ -475,13 +481,13 @@ export async function POST(req: Request) {
               return {
                 toolChoice: 'none',
                 activeTools: [],
-                messages: (!modelHasReasoning || shouldPrune) ? prunedMessages : undefined,
+                messages: !modelHasReasoning || shouldPrune ? prunedMessages : undefined,
               };
             }
           }
 
           // Return pruned messages if needed
-          return (!modelHasReasoning || shouldPrune) ? { messages: prunedMessages } : undefined;
+          return !modelHasReasoning || shouldPrune ? { messages: prunedMessages } : undefined;
         },
         tools: (() => {
           const baseTools = {

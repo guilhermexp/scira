@@ -9,6 +9,7 @@ Detailed technical specifications for features, APIs, database schemas, and inte
 ## File Organization
 
 Organized by domain/module:
+
 - Feature specifications (prefix with `SPEC_`)
 - API specifications (prefix with `API_`)
 - Database schemas (prefix with `DB_`)
@@ -17,6 +18,7 @@ Organized by domain/module:
 ## Current Documents
 
 Existing subdirectories:
+
 - `remove-subscription-ui/` - Specification for removing subscription UI elements
 - `test-app-local/` - Local testing specifications
 
@@ -37,25 +39,32 @@ Existing subdirectories:
 # [Feature Name] Specification
 
 ## Overview
+
 Brief description of the feature
 
 ## Requirements
+
 - Functional requirements
 - Non-functional requirements
 
 ## Technical Design
+
 Architecture and implementation details
 
 ## API Endpoints (if applicable)
+
 Request/response formats
 
 ## Database Changes (if applicable)
+
 Schema modifications
 
 ## Testing Strategy
+
 How to test the feature
 
 ## Dependencies
+
 External services, libraries, etc.
 ```
 

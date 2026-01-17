@@ -8,9 +8,7 @@ const SM_KEY = serverEnv.SUPERMEMORY_API_KEY;
 const SM_ENABLED = !!SM_KEY && SM_KEY !== 'placeholder';
 
 // Initialize the memory client only if enabled
-const supermemoryClient = SM_ENABLED
-  ? new Supermemory({ apiKey: SM_KEY })
-  : null as unknown as Supermemory;
+const supermemoryClient = SM_ENABLED ? new Supermemory({ apiKey: SM_KEY }) : (null as unknown as Supermemory);
 
 // Define the types based on actual API responses
 export interface MemoryItem {
@@ -65,7 +63,6 @@ export async function searchMemories(query: string, page = 1, pageSize = 20): Pr
       containerTag: user.id,
       limit: pageSize,
     });
-
 
     return { memories: [], total: result.total || 0 };
   } catch (error) {

@@ -20,6 +20,7 @@ From `.prettierrc`:
 ```
 
 **Key Rules:**
+
 - Semicolons enabled
 - Single quotes for strings
 - Trailing commas everywhere
@@ -63,39 +64,47 @@ npm run build     # Production build
 ### File Naming
 
 **Components:**
+
 - React components: PascalCase or kebab-case
   - Examples: `ChatInterface.tsx`, `chat-interface.tsx`
 - UI components (Shadcn): lowercase kebab-case
   - Examples: `button.tsx`, `dialog.tsx`, `accordion.tsx`
 
 **Utilities & Services:**
+
 - kebab-case for all utility files
   - Examples: `auth-client.ts`, `auth-utils.ts`, `performance-cache.ts`
 
 **Hooks:**
+
 - kebab-case with `use-` prefix
   - Examples: `use-cached-user-data.tsx`, `use-local-storage.tsx`
 
 **Contexts:**
+
 - kebab-case with `-context` suffix
   - Examples: `user-context.tsx`, `language-context.tsx`
 
 **API Routes:**
+
 - `route.ts` for route handlers
 - Organized by feature directories
 
 **Database:**
+
 - `schema.ts` for Drizzle schemas
 - `queries.ts` for database operations
 - `[feature]-queries.ts` for feature-specific queries
 
 **Tools:**
+
 - kebab-case in `lib/tools/`
   - Examples: `web-search.ts`, `code-interpreter.ts`, `extreme-search.ts`
 
 ### Variable & Function Naming
 
 **Constants:**
+
 ```typescript
 const DEFAULT_MODEL = 'scira-default';
 const SEARCH_LIMITS = { free: 10, pro: 100 };
@@ -103,6 +112,7 @@ const PRICING = { monthly: 999 };
 ```
 
 **Boolean Flags:**
+
 ```typescript
 const isProUser = true;
 const hasActiveSubscription = false;
@@ -111,31 +121,35 @@ const shouldCheckLimits = false;
 ```
 
 **Event Handlers:**
+
 ```typescript
-function handleOpenSettings() { }
-function handleManualScroll() { }
-function handleSubmit() { }
+function handleOpenSettings() {}
+function handleManualScroll() {}
+function handleSubmit() {}
 ```
 
 **Getters:**
+
 ```typescript
-function getSearchGroups() { }
-function getWebSearchDescription() { }
-function getImageUrl() { }
+function getSearchGroups() {}
+function getWebSearchDescription() {}
+function getImageUrl() {}
 ```
 
 **Setters/Updaters:**
+
 ```typescript
-function setSelectedModel() { }
-function updateChatVisibilityById() { }
+function setSelectedModel() {}
+function updateChatVisibilityById() {}
 ```
 
 **Database Queries:**
+
 ```typescript
-function getChatsByUserId() { }
-function deleteChatById() { }
-function createLookout() { }
-function updateLookoutStatus() { }
+function getChatsByUserId() {}
+function deleteChatById() {}
+function createLookout() {}
+function updateLookoutStatus() {}
 ```
 
 ### Type & Interface Naming
@@ -204,9 +218,9 @@ import { tool } from 'ai';
 import { z } from 'zod';
 
 export const myTool = tool({
-  description: "What this tool does",
+  description: 'What this tool does',
   parameters: z.object({
-    query: z.string().describe("Parameter description"),
+    query: z.string().describe('Parameter description'),
   }),
   execute: async ({ query }) => {
     // Implementation
@@ -240,12 +254,7 @@ From `lib/db/queries.ts`:
 
 ```typescript
 export async function getUser(email: string): Promise<User[]> {
-  return await db
-    .select()
-    .from(user)
-    .where(eq(user.email, email))
-    .limit(1)
-    .$withCache();
+  return await db.select().from(user).where(eq(user.email, email)).limit(1).$withCache();
 }
 ```
 
@@ -373,17 +382,14 @@ export class ChatSDKError extends Error {
   constructor(
     message: string,
     public code: ErrorCode,
-    public statusCode: number = 500
+    public statusCode: number = 500,
   ) {
     super(message);
     this.name = 'ChatSDKError';
   }
 
   toResponse() {
-    return Response.json(
-      { error: this.message, code: this.code },
-      { status: this.statusCode }
-    );
+    return Response.json({ error: this.message, code: this.code }, { status: this.statusCode });
   }
 
   isAuthError() {
@@ -421,6 +427,7 @@ Per `CLAUDE.md` owner's prime directive:
 > **NUNCA FALE QUE ALGO ESTA FUNCIONANDO, ANTES TER CERTEZA E DE TESTAR USANDO DEVTOOLS.**
 
 **Manual testing workflow:**
+
 1. Start dev server: `npm run dev`
 2. Open browser to `http://localhost:8931`
 3. Open DevTools (F12 or Cmd+Opt+I)

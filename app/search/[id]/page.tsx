@@ -251,12 +251,11 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   const user = await getUser();
 
   // Use optimized combined query to get chat, user, and messages in fewer DB calls
-  const { chat, messages: messagesFromDb } =
-    await getChatWithUserAndInitialMessages({
-      id,
-      messageLimit: 20,
-      messageOffset: 0,
-    });
+  const { chat, messages: messagesFromDb } = await getChatWithUserAndInitialMessages({
+    id,
+    messageLimit: 20,
+    messageOffset: 0,
+  });
 
   if (!chat) {
     notFound();

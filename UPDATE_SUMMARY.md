@@ -3,12 +3,14 @@
 ## ✅ Atualizações Realizadas com Sucesso
 
 ### Next.js e Core
+
 - **Next.js**: `canary.14` → `16.0.2` (versão estável) ✅
 - **React**: Mantido em `19.2.0`
 - **TypeScript**: `5.9.2` → `5.9.3`
 - **Tailwind CSS**: `4.1.14` → `4.1.17`
 
 ### AI SDKs (Vercel AI SDK)
+
 - `@ai-sdk/anthropic`: `2.0.33` → `2.0.44`
 - `@ai-sdk/cohere`: `2.0.14` → `2.0.19`
 - `@ai-sdk/elevenlabs`: `1.0.14` → `1.0.19`
@@ -24,12 +26,14 @@
 - `ai` (core): `5.0.76` → `5.0.92`
 
 ### AWS & Cloud
+
 - `@aws-sdk/client-s3`: `3.901.0` → `3.929.0`
 - `@aws-sdk/lib-storage`: `3.903.0` → `3.929.0`
 - `@vercel/edge-config`: `1.4.0` → `1.4.3`
 - `@vercel/functions`: `3.1.4` → `3.3.0`
 
 ### UI Libraries
+
 - `@radix-ui/react-avatar`: `1.1.10` → `1.1.11`
 - `@radix-ui/react-label`: `2.1.7` → `2.1.8`
 - `@radix-ui/react-progress`: `1.1.7` → `1.1.8`
@@ -38,12 +42,14 @@
 - `lucide-react`: `0.545.0` → `0.553.0`
 
 ### Database & ORM
+
 - `drizzle-orm`: `0.44.6` → `0.44.7`
 - `drizzle-kit`: `0.31.5` → `0.31.6`
 - `postgres`: Mantido em `3.4.7`
 - `redis`: `5.8.3` → `5.9.0`
 
 ### Outras Bibliotecas Importantes
+
 - `axios`: `1.12.2` → `1.13.2`
 - `canvas-confetti`: `1.9.3` → `1.9.4`
 - `dodopayments`: `2.2.1` → `2.4.5`
@@ -60,6 +66,7 @@
 - `eslint`: `9.32.0` → `9.39.1`
 
 ### DevDependencies
+
 - `@types/node`: `20.x` → `20.19.25`
 - `@types/react`: `19.1.10` → `19.2.4`
 - `@types/react-dom`: `19.1.7` → `19.2.3`
@@ -68,11 +75,13 @@
 - `@tailwindcss/typography`: `0.5.16` → `0.5.19`
 
 ### Novas Dependências Adicionadas
+
 - `ws`: `^8.18.3` (necessário para @daytonaio/sdk)
 
 ## ⚠️ Bibliotecas Mantidas em Versões Anteriores (Breaking Changes)
 
 ### Revertidas por Incompatibilidade
+
 1. **recharts**: Mantido em `2.15.4` (não atualizado para `3.4.1`)
    - Razão: v3 tem breaking changes significativos na API de tipos
    - Erro: `Property 'payload' does not exist on type`
@@ -101,14 +110,18 @@
 ## 🔧 Build Status
 
 ### Production Build (npm run build)
+
 ✅ **SUCESSO**
+
 - Compilação: 10.0s
 - TypeScript: Sem erros
 - 24 páginas geradas com sucesso
 - Build otimizado criado
 
 ### Development Server (npm run dev)
+
 ⚠️ **PARCIALMENTE FUNCIONAL**
+
 - Servidor inicia corretamente na porta 8931
 - Compilação bem-sucedida
 - **Problema:** Erro em runtime no browser
@@ -116,9 +129,11 @@
 ## ❌ Problemas Identificados
 
 ### Erro no Modo de Desenvolvimento
+
 **Sintoma:** Página exibe "Something went wrong" error boundary
 
 **Erros no Console:**
+
 ```
 The "original" argument must be of type Function (5x repetidos)
 Error occurred in <Lazy> component
@@ -126,6 +141,7 @@ Handled by <ErrorBoundaryHandler>
 ```
 
 **Possíveis Causas:**
+
 1. Incompatibilidade entre versões de bibliotecas que usam event emitters
 2. Problema com `@supermemory/tools` (1.2.13 → 1.3.3)
 3. Problema com `parallel-web` (0.1.1 → 0.2.3)
@@ -159,7 +175,6 @@ npm run dev    # ⚠️ Roda mas com erro em runtime
 - Usado `--legacy-peer-deps` devido a conflitos:
   - `better-auth@1.3.3` (via pkg.pr.new) vs `@polar-sh/better-auth@1.3.0`
   - Peer dependencies entre versões de @polar-sh
-  
 - Avisos durante instalação:
   - 5 vulnerabilidades (4 moderate, 1 critical)
   - Deprecated packages: `node-domexception`, `@esbuild-kit/*`
@@ -168,6 +183,7 @@ npm run dev    # ⚠️ Roda mas com erro em runtime
 ## 🎯 Próximos Passos Recomendados
 
 1. **Reverter bibliotecas problemáticas:**
+
    ```bash
    # Testar versões anteriores de:
    - @supermemory/tools: 1.2.13
@@ -188,12 +204,12 @@ npm run dev    # ⚠️ Roda mas com erro em runtime
 
 ## 📊 Resumo Final
 
-| Categoria | Status |
-|-----------|--------|
-| Build Production | ✅ Funcionando |
-| TypeScript | ✅ Sem erros |
-| Dependencies | ✅ Instaladas |
-| Dev Server | ⚠️ Roda com erros |
-| Runtime | ❌ Error boundary ativo |
+| Categoria        | Status                  |
+| ---------------- | ----------------------- |
+| Build Production | ✅ Funcionando          |
+| TypeScript       | ✅ Sem erros            |
+| Dependencies     | ✅ Instaladas           |
+| Dev Server       | ⚠️ Roda com erros       |
+| Runtime          | ❌ Error boundary ativo |
 
 **Conclusão:** A atualização foi parcialmente bem-sucedida. O build de produção funciona perfeitamente, mas há um problema em runtime no modo de desenvolvimento que precisa ser resolvido antes de considerar a atualização completa.

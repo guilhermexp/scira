@@ -34,10 +34,11 @@ interface SubtitleFragment {
 
 export const youtubeSearchTool = tool({
   description: 'Search YouTube videos using Exa AI and get detailed video information.',
-  inputSchema: z.object({
+  parameters: z.object({
     query: z.string().describe('The search query for YouTube videos'),
     timeRange: z.enum(['day', 'week', 'month', 'year', 'anytime']),
   }),
+  // @ts-expect-error - AI SDK v6 type inference issue
   execute: async ({
     query,
     timeRange,
@@ -202,7 +203,7 @@ export const youtubeSearchTool = tool({
                   console.warn(`⚠️ getVideoDetails failed for ${videoId}:`, e);
                   return null;
                 });
- 
+
                 // Extract transcript text from subtitles (prefer details.subtitles, fallback to direct API)
                 let transcriptText: string | undefined = undefined;
                 if (details && Array.isArray(details.subtitles) && details.subtitles.length > 0) {

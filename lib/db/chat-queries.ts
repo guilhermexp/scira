@@ -1,14 +1,7 @@
 import 'server-only';
 
 import { asc, eq, inArray } from 'drizzle-orm';
-import {
-  user,
-  chat,
-  type User,
-  message,
-  type Message,
-  type Chat,
-} from './schema';
+import { user, chat, type User, message, type Message, type Chat } from './schema';
 import { ChatSDKError } from '../errors';
 import { db } from './index';
 
@@ -31,12 +24,7 @@ export async function getChatWithInitialMessages({
     const startTime = Date.now();
 
     // Get chat data
-    const [selectedChat] = await db
-      .select()
-      .from(chat)
-      .where(eq(chat.id, id))
-      .limit(1)
-      .$withCache();
+    const [selectedChat] = await db.select().from(chat).where(eq(chat.id, id)).limit(1).$withCache();
 
     if (!selectedChat) {
       return {
@@ -164,13 +152,9 @@ export async function getChatsWithInitialMessages({
     const startTime = Date.now();
 
     // Get all chats in one query
-    const chats = await db
-      .select()
-      .from(chat)
-      .where(inArray(chat.id, chatIds))
-      .$withCache();
+    const chats = await db.select().from(chat).where(inArray(chat.id, chatIds)).$withCache();
 
-    const chatMap = new Map(chats.map(c => [c.id, c]));
+    const chatMap = new Map(chats.map((c) => [c.id, c]));
 
     // Get all messages for these chats in one query
     const allMessages = await db
@@ -182,7 +166,7 @@ export async function getChatsWithInitialMessages({
 
     // Group messages by chat ID and apply limits
     const messagesByChat = new Map<string, Message[]>();
-    allMessages.forEach(msg => {
+    allMessages.forEach((msg) => {
       if (!messagesByChat.has(msg.chatId)) {
         messagesByChat.set(msg.chatId, []);
       }
@@ -198,7 +182,7 @@ export async function getChatsWithInitialMessages({
       };
     } = {};
 
-    chatIds.forEach(chatId => {
+    chatIds.forEach((chatId) => {
       const chat = chatMap.get(chatId) || null;
       const messages = messagesByChat.get(chatId) || [];
       const hasMoreMessages = messages.length > messageLimit;
@@ -222,13 +206,7 @@ export async function getChatsWithInitialMessages({
 }
 
 // Optimized query to check chat visibility and ownership
-export async function getChatVisibilityAndOwnership({
-  id,
-  userId,
-}: {
-  id: string;
-  userId?: string;
-}): Promise<{
+export async function getChatVisibilityAndOwnership({ id, userId }: { id: string; userId?: string }): Promise<{
   chat: Chat | null;
   isOwner: boolean;
   canAccess: boolean;
@@ -237,11 +215,7 @@ export async function getChatVisibilityAndOwnership({
     console.log('🔍 [DB-OPTIMIZED] getChatVisibilityAndOwnership: Starting visibility check...');
     const startTime = Date.now();
 
-    const [selectedChat] = await db
-      .select()
-      .from(chat)
-      .where(eq(chat.id, id))
-      .$withCache();
+    const [selectedChat] = await db.select().from(chat).where(eq(chat.id, id)).$withCache();
 
     if (!selectedChat) {
       return {

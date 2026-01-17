@@ -76,6 +76,7 @@ app/
 ```
 
 **Key Characteristics:**
+
 - Route groups `(auth)` and `(search)` for organization without URL segments
 - API routes follow REST conventions
 - Server actions centralized in `actions.ts`
@@ -118,6 +119,7 @@ components/
 ```
 
 **Size Concerns:**
+
 - Several large components (2,000+ lines) that could be split
 - `ui/form-component.tsx` is particularly complex (3,490 lines)
 
@@ -178,6 +180,7 @@ lib/
 ```
 
 **Key Characteristics:**
+
 - Tools organized by feature/domain
 - Database layer fully isolated in `db/`
 - Auth spread across 3 files (setup, client, utilities)
@@ -281,7 +284,9 @@ public/
 ## Key Observations
 
 ### Large Files
+
 Several files exceed 2,000 lines and could benefit from splitting:
+
 - `components/ui/form-component.tsx` - 3,490 lines
 - `app/actions.ts` - 2,661 lines
 - `components/interactive-stock-chart.tsx` - 2,420 lines
@@ -289,7 +294,9 @@ Several files exceed 2,000 lines and could benefit from splitting:
 - `components/message-parts/index.tsx` - 2,343 lines
 
 ### Self-Hosting Modifications
+
 Files modified for self-hosting (documented in `CLAUDE.md`):
+
 - `lib/auth.ts` - Payment plugins commented out
 - `lib/subscription.ts` - All functions return Pro status
 - `hooks/use-cached-user-data.tsx` - Hardcoded Pro user
@@ -297,4 +304,5 @@ Files modified for self-hosting (documented in `CLAUDE.md`):
 - `env/server.ts` - Optional env vars with 'placeholder' defaults
 
 ### Tool Organization
+
 The `lib/tools/` directory is well-organized by feature domain with 27 tools covering search, finance, entertainment, maps, code execution, and utilities.

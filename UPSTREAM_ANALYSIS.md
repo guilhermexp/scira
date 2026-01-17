@@ -10,6 +10,7 @@
 ## 📊 Resumo Executivo
 
 O upstream teve **573 commits** desde janeiro de 2025, com mudanças significativas em:
+
 - Novos modelos AI (GPT 5.1/5.2, Grok 4.1)
 - Refatorações de performance
 - Novos recursos (Export PDF, Search Library, X-Wrapped)
@@ -23,9 +24,11 @@ O upstream teve **573 commits** desde janeiro de 2025, com mudanças significati
 ## 🟢 ALTA PRIORIDADE - Seguro Trazer
 
 ### 1. Atualizações de AI Providers
+
 **Commits:** `3878b4d`, `ac26478`, `d58e53c`, `465246e`
 
 **Mudanças:**
+
 ```diff
 + Novos modelos OpenAI: GPT 5.1, 5.2, 5.1-codex, 5.1-codex-mini
 + Grok 4.1 Fast Thinking
@@ -38,6 +41,7 @@ O upstream teve **573 commits** desde janeiro de 2025, com mudanças significati
 ```
 
 **Arquivos Afetados:**
+
 - `ai/providers.ts` (completa refatoração)
 
 **Impacto:** ✅ Compatível com self-hosting
@@ -46,9 +50,11 @@ O upstream teve **573 commits** desde janeiro de 2025, com mudanças significati
 ---
 
 ### 2. Better Auth v1.4.10
+
 **Commit:** `71b6b28`
 
 **Mudanças:**
+
 ```json
 "better-auth": "1.4.10" (vs. versão dev atual)
 ```
@@ -59,9 +65,11 @@ O upstream teve **573 commits** desde janeiro de 2025, com mudanças significati
 ---
 
 ### 3. AI SDK - Output.object Pattern
+
 **Commits:** `2b52951`, `cbad27c`
 
 **Mudanças:**
+
 ```typescript
 // ANTES
 const { object } = await generateObject({
@@ -77,6 +85,7 @@ const { output } = await generateText({
 ```
 
 **Arquivos Afetados:**
+
 - `app/actions.ts` (função `suggestQuestions`)
 
 **Impacto:** ✅ API mais moderna do Vercel AI SDK
@@ -87,16 +96,20 @@ const { output } = await generateText({
 ### 4. Bug Fixes Importantes
 
 #### 4.1 Dropdown Menu Visibility
+
 **Commit:** `02c9d9f`
 **Descrição:** Melhora visibilidade de dropdowns no hover
 
 #### 4.2 Form Submission & Keyboard
+
 **Commit:** `953ffa0`
 **Descrição:** Melhora handling de submissão de formulários e interações de teclado
 
 #### 4.3 Dynamic Domain for Share URLs
+
 **Commit:** `67cf909`
 **Descrição:** Remove hardcoded `scira.ai`, usa domínio dinâmico
+
 ```diff
 - const shareUrl = `https://scira.ai/share/${chatId}`
 + const shareUrl = `${baseUrl}/share/${chatId}`
@@ -110,15 +123,18 @@ const { output } = await generateText({
 ### 5. Melhorias de Performance
 
 #### 5.1 Dynamic Component Loading
+
 **Commit:** `a782708`
 
 **Descrição:** Carregamento dinâmico de componentes que dependem do browser
+
 ```typescript
 // Lazy loading para componentes pesados
-const MapComponent = dynamic(() => import('./map'), { ssr: false })
+const MapComponent = dynamic(() => import('./map'), { ssr: false });
 ```
 
 #### 5.2 Eager Tool Loading
+
 **Commit:** `746155a`
 
 **Descrição:** Pre-carregamento de ferramentas para melhor UX
@@ -133,10 +149,12 @@ const MapComponent = dynamic(() => import('./map'), { ssr: false })
 ### 1. Novos Recursos
 
 #### 1.1 Search Library Page
+
 **Commit:** `fa09b19`
 
 **Descrição:** Página para biblioteca de buscas anteriores
 **Arquivos Novos:**
+
 - `app/(search)/library/*`
 
 **Impacto:** ⚠️ Requer avaliação
@@ -145,13 +163,16 @@ const MapComponent = dynamic(() => import('./map'), { ssr: false })
 ---
 
 #### 1.2 PDF Export
+
 **Commits:** Múltiplos
 
 **Arquivos Novos:**
+
 - `app/api/export/pdf/route.ts`
 - `app/api/export/pdf/fonts/*`
 
 **Dependências Novas:**
+
 ```json
 "jspdf": "^2.x",
 "pdf-lib": "^1.x",
@@ -165,11 +186,14 @@ const MapComponent = dynamic(() => import('./map'), { ssr: false })
 ---
 
 #### 1.3 X-Wrapped Feature
+
 **Arquivos Novos:**
+
 - `app/(content)/x-wrapped/page.tsx`
 - `app/(content)/x-wrapped/[username]/page.tsx`
 
 **Dependências:**
+
 ```json
 "@xdevplatform/xdk": "^1.x"
 ```
@@ -180,7 +204,9 @@ const MapComponent = dynamic(() => import('./map'), { ssr: false })
 ---
 
 #### 1.4 Content Pages (About, Privacy, Terms)
+
 **Arquivos Novos:**
+
 - `app/(content)/about/page.tsx`
 - `app/(content)/privacy-policy/page.tsx`
 - `app/(content)/terms/page.tsx`
@@ -193,18 +219,21 @@ const MapComponent = dynamic(() => import('./map'), { ssr: false })
 ### 2. Refatorações de UI/UX
 
 #### 2.1 Sidebar State Management
+
 **Commit:** `fb01b9a`
 
 **Descrição:** Simplificação do gerenciamento de estado da sidebar
 **Impacto:** ✅ Melhora manutenibilidade
 
 #### 2.2 Layout & Skeleton Structure
+
 **Commit:** `3be455f`
 
 **Descrição:** Melhora estrutura de layout e loading states
 **Impacto:** ✅ Melhor UX
 
 #### 2.3 Message Component Styling
+
 **Commit:** `f9dd166`
 
 **Descrição:** Melhorias visuais no componente de mensagens
@@ -215,7 +244,9 @@ const MapComponent = dynamic(() => import('./map'), { ssr: false })
 ### 3. Mudanças em Database
 
 #### 3.1 PostgreSQL Client Change
+
 **Mudança:**
+
 ```diff
 - "@neondatabase/serverless": "^0.x"
 - "postgres": "^3.x"
@@ -224,6 +255,7 @@ const MapComponent = dynamic(() => import('./map'), { ssr: false })
 
 **Impacto:** ⚠️ **BREAKING CHANGE**
 **Considerações:**
+
 - Requer migração de código de acesso ao DB
 - Verificar se `drizzle-orm` funciona com `pg`
 - Pode ter impacto em performance
@@ -235,6 +267,7 @@ const MapComponent = dynamic(() => import('./map'), { ssr: false })
 ### 4. Novas Dependências Interessantes
 
 #### 4.1 ElevenLabs Integration
+
 ```json
 "@elevenlabs/elevenlabs-js": "^1.x"
 ```
@@ -243,6 +276,7 @@ const MapComponent = dynamic(() => import('./map'), { ssr: false })
 **Impacto:** Feature adicional de voz
 
 #### 4.2 Travel API (Amadeus)
+
 ```json
 "amadeus": "^8.x"
 ```
@@ -251,6 +285,7 @@ const MapComponent = dynamic(() => import('./map'), { ssr: false })
 **Impacto:** Feature extra, não essencial
 
 #### 4.3 MathJax
+
 ```json
 "@mathjax/mathjax-newcm-font": "^1.x",
 "@mathjax/src": "^3.x"
@@ -260,6 +295,7 @@ const MapComponent = dynamic(() => import('./map'), { ssr: false })
 **Impacto:** ✅ Útil para conteúdo acadêmico
 
 #### 4.4 Three.js
+
 ```json
 "@react-three/fiber": "^8.x",
 "@react-three/drei": "^9.x",
@@ -274,6 +310,7 @@ const MapComponent = dynamic(() => import('./map'), { ssr: false })
 ## 🔴 NÃO TRAZER - Conflita com Self-Hosting
 
 ### 1. Rate Limiting
+
 **Commit:** `8c9d486` - ❌ **EVITAR**
 
 **Descrição:** Adiciona rate limiting para usuários não autenticados
@@ -282,9 +319,11 @@ const MapComponent = dynamic(() => import('./map'), { ssr: false })
 ---
 
 ### 2. Subscription Features
+
 **Commits:** `c932bba`, `0b8448d` - ❌ **EVITAR**
 
 **Descrição:**
+
 - Student discount support
 - Auto-apply discounts
 - Gateway models gating
@@ -294,7 +333,9 @@ const MapComponent = dynamic(() => import('./map'), { ssr: false })
 ---
 
 ### 3. Redis/Upstash Cache
+
 **Dependência:**
+
 ```json
 "ioredis": "^5.x"
 ```
@@ -305,6 +346,7 @@ const MapComponent = dynamic(() => import('./map'), { ssr: false })
 ---
 
 ### 4. Payment-Related Changes
+
 **Arquivos:** `lib/auth.ts`, `lib/subscription.ts`
 
 **Razão:** Todas modificações de payment devem ser ignoradas
@@ -321,6 +363,7 @@ const MapComponent = dynamic(() => import('./map'), { ssr: false })
    - Adicionar providers (Baseten, Novita, Anannas)
 
 2. **Atualizar Better Auth**
+
    ```bash
    npm install better-auth@1.4.10
    ```
@@ -423,22 +466,22 @@ Antes de trazer qualquer mudança do upstream, verificar:
 ### Dependências
 
 | Categoria | Adicionadas | Removidas |
-|-----------|-------------|-----------|
-| AI/ML | 5 | 1 |
-| Database | 1 | 2 |
-| UI/3D | 4 | 1 |
-| Utils | 8 | 0 |
-| **Total** | **18** | **4** |
+| --------- | ----------- | --------- |
+| AI/ML     | 5           | 1         |
+| Database  | 1           | 2         |
+| UI/3D     | 4           | 1         |
+| Utils     | 8           | 0         |
+| **Total** | **18**      | **4**     |
 
 ### Commits por Categoria
 
-| Tipo | Quantidade |
-|------|-----------|
-| Features | ~120 |
-| Fixes | ~180 |
-| Refactors | ~80 |
-| Chores/Docs | ~193 |
-| **Total** | **573** |
+| Tipo        | Quantidade |
+| ----------- | ---------- |
+| Features    | ~120       |
+| Fixes       | ~180       |
+| Refactors   | ~80        |
+| Chores/Docs | ~193       |
+| **Total**   | **573**    |
 
 ---
 
@@ -457,6 +500,7 @@ Antes de trazer qualquer mudança do upstream, verificar:
 ### Conflitos Esperados
 
 Ao fazer cherry-pick, espere conflitos em:
+
 - `ai/providers.ts` (muito modificado localmente)
 - `lib/auth.ts` (payments comentados)
 - `lib/subscription.ts` (hardcoded para Pro)
@@ -474,4 +518,4 @@ Ao fazer cherry-pick, espere conflitos em:
 
 **Fim do Relatório**
 
-*Gerado automaticamente por Claude Code em 2026-01-17*
+_Gerado automaticamente por Claude Code em 2026-01-17_

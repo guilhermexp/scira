@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2025-11-11] - Share URL Fix & Allow Continuation Feature
 
 ### Added
+
 - **Allow Continuation Feature** - Chat owners can now control if visitors can add messages to public shared pages
   - `lib/db/schema.ts:71` - Added `allowContinuation` boolean column to chat table (default: true)
   - `drizzle/migrations/0009_strong_black_queen.sql` - Migration to add the new column
@@ -25,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - When enabled (default): Visitors can continue the conversation
 
 ### Fixed
+
 - **Share URL Generation Bug** - Fixed hardcoded upstream domain in shared pages
   - `components/share/share-dialog.tsx:50` - Changed from hardcoded `https://scira.ai` to `window.location.origin`
   - `app/layout.tsx` - Updated metadata configuration
@@ -32,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Shared URLs now correctly point to user's Vercel deployment (scira-repo.vercel.app)
 
 ### Fixed (Build & TypeScript)
+
 - **Model Constants Export** - Fixed Vercel build failure
   - `ai/providers.ts` - Exported `DEFAULT_MODEL` and `LEGACY_DEFAULT_MODEL` constants
   - `app/api/raycast/route.ts` - Updated to use exported constants
@@ -50,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Technical Details
 
 #### Feature Implementation Flow
+
 ```
 User (Chat Owner) → ShareDialog Toggle
   ↓
@@ -65,6 +69,7 @@ Visitor Experience (input visible/hidden)
 ```
 
 #### Database Schema Change
+
 ```sql
 ALTER TABLE "chat"
 ADD COLUMN "allow_continuation" boolean
@@ -72,6 +77,7 @@ DEFAULT true NOT NULL;
 ```
 
 #### Conditional Input Logic
+
 ```typescript
 {((user && isOwner) ||
   (!isOwner && chatState.allowContinuation) ||
@@ -83,11 +89,13 @@ DEFAULT true NOT NULL;
 ```
 
 This ensures:
+
 - Owners always see input
 - Non-owners only see input if allowContinuation is true
 - Private pages without auth show input (for sign-in prompts)
 
 #### Files Modified (17 total)
+
 - `ai/providers.ts` - Model constants export
 - `app/actions.ts` - Server action for allowContinuation
 - `app/api/raycast/route.ts` - Use exported model constants
@@ -108,12 +116,14 @@ This ensures:
 Total: ~150+ insertions across feature implementation and fixes
 
 #### Commits
+
 - `3d1ed8c` - Configure dynamic base URLs for different environments
 - `4f00de6` - feat: add allowContinuation toggle to control visitor chat input
 - `1119e5b` - fix: export DEFAULT_MODEL and LEGACY_DEFAULT_MODEL constants
 - `cac2f83` - fix: resolve TypeScript build errors
 
 #### Deployment Status
+
 ✅ Successfully deployed to Vercel production
 ✅ All builds passing
 ✅ Feature ready for testing with authentication
@@ -123,6 +133,7 @@ Total: ~150+ insertions across feature implementation and fixes
 ## [Previous Changes]
 
 ### Added
+
 - MCP (Model Context Protocol) search functionality re-enabled
   - `lib/tools/mcp-search.ts` - Added back to exports
   - `app/api/search/route.ts:516` - MCP search tool added to available tools
@@ -134,6 +145,7 @@ Total: ~150+ insertions across feature implementation and fixes
   - `lib/tools/connectors-search.ts` - Added validation for API key presence
 
 ### Changed
+
 - **AI Provider Configuration**
   - `ai/providers.ts:39` - Changed `scira-name` provider from Anannas Llama to xAI Grok 4 Fast
   - Reason: Improved performance and consistency with other Scira models
@@ -151,6 +163,7 @@ Total: ~150+ insertions across feature implementation and fixes
 ### Technical Details
 
 #### Supermemory Graceful Degradation Pattern
+
 ```typescript
 const SM_KEY = process.env.SUPERMEMORY_API_KEY;
 const SM_ENABLED = !!SM_KEY && SM_KEY !== 'placeholder';
@@ -162,11 +175,13 @@ if (!SM_ENABLED) {
 ```
 
 This pattern is now consistently applied across:
+
 - Connection creation and management
 - Memory search and retrieval
 - Connector integration
 
 #### Files Modified (9 total)
+
 - `ai/providers.ts` - 1 line changed
 - `app/actions.ts` - 1 line added
 - `app/api/search/route.ts` - 2 lines changed
@@ -182,21 +197,26 @@ Total: +52 insertions, -16 deletions
 ## [Previous] - 2025-11-03
 
 ### Added
+
 - Novita AI documentation to README (commit: 664198c)
 
 ### Changed
+
 - Tweet wrapper and loading state UI refinements (commit: a229929)
 - Text verbosity logic for Scira models (commit: 234ea37)
 
 ### Fixed
+
 - Package dependencies and component logic (commit: 2b52951)
 - Scira provider model references and message rendering (commit: cbad27c)
 
 ### Refactored
+
 - Dynamic loading of browser-dependent components for performance (commit: a782708)
 - Eager loading of tool components for UX improvements (commit: 746155a)
 
 ### Security
+
 - Added rate limiting for unauthenticated users (commit: 8c9d486)
 - Improved search query security (commit: 8c9d486)
 
@@ -205,6 +225,7 @@ Total: +52 insertions, -16 deletions
 ## Documentation Structure Created - 2025-11-03
 
 ### Added
+
 - AI documentation directory structure:
   - `ai_changelog/` - Change history and versioning
   - `ai_docs/` - Technical documentation and guides
@@ -214,6 +235,7 @@ Total: +52 insertions, -16 deletions
 - README.md files in each AI directory explaining purpose and organization
 
 ### Context
+
 This changelog was created as part of systematic documentation organization for the self-hosted Scira instance.
 
 ---
@@ -223,6 +245,7 @@ This changelog was created as part of systematic documentation organization for 
 This fork maintains several key differences from the upstream Scira project:
 
 ### Self-Hosting Modifications
+
 - No payment systems (Polar, DodoPayments removed)
 - No rate limits for authenticated users
 - No subscription tiers (everything is "Pro")

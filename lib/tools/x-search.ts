@@ -6,38 +6,55 @@ import { XaiProviderOptions, xai } from '@ai-sdk/xai';
 export const xSearchTool = tool({
   description:
     'Search X (formerly Twitter) posts using xAI Live Search with multiple queries for the past 15 days by default otherwise user can specify a date range.',
-  inputSchema: z.object({
-    queries: z.array(z.string()).describe('Array of search queries for X posts. Minimum 1, recommended 3-5.').min(1).max(5),
-    startDate: z
-      .string()
-      .optional()
-      .describe(
-        'The start date of the search in the format YYYY-MM-DD (always default to 15 days ago if not specified)',
-      ),
-    endDate: z
-      .string()
-      .optional()
-      .describe('The end date of the search in the format YYYY-MM-DD (default to today if not specified)'),
-    includeXHandles: z
-      .array(z.string())
-      .max(10)
-      .optional()
-      .describe('The X handles to include in the search (max 10). Cannot be used with excludeXHandles.'),
-    excludeXHandles: z
-      .array(z.string())
-      .max(10)
-      .optional()
-      .describe('The X handles to exclude in the search (max 10). Cannot be used with includeXHandles.'),
-    postFavoritesCount: z.number().min(0).optional().describe('Minimum number of favorites (likes) the post must have'),
-    postViewCount: z.number().min(0).optional().describe('Minimum number of views the post must have'),
-    maxResults: z.array(z.number().min(1).max(100)).optional().describe('Array of maximum results per query (default 15 per query)'),
-  }).refine(data => {
-    // Ensure includeXHandles and excludeXHandles are not both specified
-    return !(data.includeXHandles && data.excludeXHandles);
-  }, {
-    message: "Cannot specify both includeXHandles and excludeXHandles - use one or the other",
-    path: ["includeXHandles", "excludeXHandles"]
-  }),
+  parameters: z
+    .object({
+      queries: z
+        .array(z.string())
+        .describe('Array of search queries for X posts. Minimum 1, recommended 3-5.')
+        .min(1)
+        .max(5),
+      startDate: z
+        .string()
+        .optional()
+        .describe(
+          'The start date of the search in the format YYYY-MM-DD (always default to 15 days ago if not specified)',
+        ),
+      endDate: z
+        .string()
+        .optional()
+        .describe('The end date of the search in the format YYYY-MM-DD (default to today if not specified)'),
+      includeXHandles: z
+        .array(z.string())
+        .max(10)
+        .optional()
+        .describe('The X handles to include in the search (max 10). Cannot be used with excludeXHandles.'),
+      excludeXHandles: z
+        .array(z.string())
+        .max(10)
+        .optional()
+        .describe('The X handles to exclude in the search (max 10). Cannot be used with includeXHandles.'),
+      postFavoritesCount: z
+        .number()
+        .min(0)
+        .optional()
+        .describe('Minimum number of favorites (likes) the post must have'),
+      postViewCount: z.number().min(0).optional().describe('Minimum number of views the post must have'),
+      maxResults: z
+        .array(z.number().min(1).max(100))
+        .optional()
+        .describe('Array of maximum results per query (default 15 per query)'),
+    })
+    .refine(
+      (data) => {
+        // Ensure includeXHandles and excludeXHandles are not both specified
+        return !(data.includeXHandles && data.excludeXHandles);
+      },
+      {
+        message: 'Cannot specify both includeXHandles and excludeXHandles - use one or the other',
+        path: ['includeXHandles', 'excludeXHandles'],
+      },
+    ),
+  // @ts-expect-error - AI SDK v6 type inference issue
   execute: async ({
     queries,
     startDate,
@@ -47,7 +64,7 @@ export const xSearchTool = tool({
     postFavoritesCount,
     postViewCount,
     maxResults,
-  }) => {
+  }: any) => {
     try {
       const sanitizeHandle = (handle: string) => handle.replace(/^@+/, '').trim();
 
@@ -67,7 +84,7 @@ export const xSearchTool = tool({
       console.log('[X search - queries]:', queries);
       console.log('[X search - includeHandles]:', normalizedInclude, '[excludeHandles]:', normalizedExclude);
 
-      const searchPromises = queries.map(async (query, index) => {
+      const searchPromises = queries.map(async (query: any, index: number) => {
         const currentMaxResults = maxResults?.[index] || maxResults?.[0] || 15;
 
         try {

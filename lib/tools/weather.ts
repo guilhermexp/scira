@@ -4,7 +4,7 @@ import { serverEnv } from '@/env/server';
 
 export const weatherTool = tool({
   description: 'Get the weather data for a location using either location name or coordinates with OpenWeather API.',
-  inputSchema: z.object({
+  parameters: z.object({
     location: z
       .string()
       .optional()
@@ -14,6 +14,7 @@ export const weatherTool = tool({
     latitude: z.number().optional().describe('The latitude coordinate. Required if location is not provided.'),
     longitude: z.number().optional().describe('The longitude coordinate. Required if location is not provided.'),
   }),
+  // @ts-expect-error - AI SDK v6 type inference issue
   execute: async ({
     location,
     latitude,

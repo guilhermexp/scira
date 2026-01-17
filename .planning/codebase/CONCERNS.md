@@ -8,14 +8,14 @@ This document outlines technical debt, security concerns, performance issues, an
 
 ## Summary Table
 
-| Category | Severity | Count | Impact |
-|----------|----------|-------|--------|
-| **Large Components** | Medium | 5 | Maintainability, IDE performance |
-| **Error Handling** | High | 3 | Debugging difficulty, user experience |
-| **Type Safety** | Medium | 4 | Refactoring risk, runtime errors |
-| **Security Config** | Medium | 2 | Silent failures, fragile feature flags |
-| **Performance** | Low | 2 | Database overhead, log pollution |
-| **Documentation** | Medium | 3 | Developer onboarding, maintainability |
+| Category             | Severity | Count | Impact                                 |
+| -------------------- | -------- | ----- | -------------------------------------- |
+| **Large Components** | Medium   | 5     | Maintainability, IDE performance       |
+| **Error Handling**   | High     | 3     | Debugging difficulty, user experience  |
+| **Type Safety**      | Medium   | 4     | Refactoring risk, runtime errors       |
+| **Security Config**  | Medium   | 2     | Silent failures, fragile feature flags |
+| **Performance**      | Low      | 2     | Database overhead, log pollution       |
+| **Documentation**    | Medium   | 3     | Developer onboarding, maintainability  |
 
 ## Critical Issues (High Priority)
 
@@ -24,6 +24,7 @@ This document outlines technical debt, security concerns, performance issues, an
 **Severity:** 🔴 High (Security/Architecture Risk)
 
 **Files Affected:**
+
 - `lib/subscription.ts` (lines 96-102, 105-149)
 - `hooks/use-cached-user-data.tsx` (lines 36-40, 74-78)
 - `app/api/search/route.ts` (line 159)
@@ -61,17 +62,20 @@ export async function isUserSubscribed(): Promise<boolean> {
 **Severity:** 🔴 High (Code Quality)
 
 **Files Affected:**
+
 - `lib/auth.ts` (lines 155-293)
 
 **Problem:**
 140+ lines of commented-out Polar and DodoPayments webhook handler code. If reactivated, lacks proper error recovery strategy.
 
 **Concerns:**
+
 - Dead code cluttering the codebase
 - No structured logging if reactivated
 - Inconsistent with self-hosted mission
 
 **Recommendation:**
+
 - Either remove entirely, OR
 - Extract to separate conditional feature module with feature flag
 
@@ -80,6 +84,7 @@ export async function isUserSubscribed(): Promise<boolean> {
 **Severity:** 🔴 High (User Experience)
 
 **Files Affected:**
+
 - `lib/tools/extreme-search.ts` (lines 112-150)
 - `lib/tools/extreme-search.ts` (lines 106-109)
 
@@ -104,6 +109,7 @@ try {
 ```
 
 **Impact:**
+
 - Users don't know why search failed
 - Developers can't debug provider issues
 - No visibility into API limits or errors
@@ -132,15 +138,16 @@ try {
 
 **Files with Size Concerns:**
 
-| File | Lines | Issue |
-|------|-------|-------|
-| `components/ui/form-component.tsx` | 3,490 | Massive model switcher with complex state |
-| `app/actions.ts` | 2,661 | All server actions in single file |
-| `components/interactive-stock-chart.tsx` | 2,420 | Complex chart rendering |
-| `components/extreme-search.tsx` | 2,408 | Research tool UI with timeline |
-| `components/message-parts/index.tsx` | 2,343 | Huge switch statement for 40+ tool types |
+| File                                     | Lines | Issue                                     |
+| ---------------------------------------- | ----- | ----------------------------------------- |
+| `components/ui/form-component.tsx`       | 3,490 | Massive model switcher with complex state |
+| `app/actions.ts`                         | 2,661 | All server actions in single file         |
+| `components/interactive-stock-chart.tsx` | 2,420 | Complex chart rendering                   |
+| `components/extreme-search.tsx`          | 2,408 | Research tool UI with timeline            |
+| `components/message-parts/index.tsx`     | 2,343 | Huge switch statement for 40+ tool types  |
 
 **Impact:**
+
 - Increased cognitive load
 - Difficult to test in isolation
 - IDE performance degradation
@@ -150,12 +157,14 @@ try {
 Split into smaller, focused modules:
 
 **Example: `form-component.tsx` →**
+
 - `ModelSwitcher.tsx`
 - `SearchProviderSelector.tsx`
 - `AttachmentUploader.tsx`
 - `EnhanceToggle.tsx`
 
 **Example: `app/actions.ts` →**
+
 - `actions/chat.ts`
 - `actions/user.ts`
 - `actions/lookout.ts`
@@ -188,13 +197,9 @@ Use cursor value directly or refactor to keyset pagination:
 ```typescript
 // Option 1: Pass cursor timestamp directly
 getChatsByUserId({ userId, afterTimestamp })
-
-// Option 2: Use keyset pagination
-.where(and(
-  eq(chat.userId, userId),
-  lt(chat.id, cursor)
-))
-.orderBy(desc(chat.id))
+  // Option 2: Use keyset pagination
+  .where(and(eq(chat.userId, userId), lt(chat.id, cursor)))
+  .orderBy(desc(chat.id));
 ```
 
 ### 6. Unnecessary Console.logs in Production Code
@@ -202,6 +207,7 @@ getChatsByUserId({ userId, afterTimestamp })
 **Severity:** 🟡 Medium (Code Quality)
 
 **Files Affected:**
+
 - `lib/db/queries.ts` (lines 145, 154, 262-281, 294-298)
 - `lib/tools/extreme-search.ts` (lines 78, 94, 104, 113)
 - `components/ui/form-component.tsx` (lines 401-412, 437)
@@ -237,6 +243,7 @@ logger.debug('Starting research', { query, category });
 **Severity:** 🟡 Medium (Type Safety)
 
 **Files Affected:**
+
 - `lib/tools/extreme-search.ts` (line 64): `toolResults: any[]`
 - `app/api/search/route.ts` (lines 531-570): `experimental_repairToolCall` with minimal typing
 
@@ -268,6 +275,7 @@ interface WebSearchResult extends ToolResult {
 **Severity:** 🟡 Medium (Robustness)
 
 **Files Affected:**
+
 - `lib/tools/web-search.ts` (lines 64-69)
 - `lib/tools/extreme-search.ts` (lines 77-110)
 
@@ -278,9 +286,7 @@ Malformed inputs could cause API errors or unexpected behavior.
 // processDomains() filters empty strings but no format validation
 const processDomains = (domains?: (string | null)[]): string[] | undefined => {
   if (!domains || domains.length === 0) return undefined;
-  const processedDomains = domains
-    .map((domain) => extractDomain(domain))
-    .filter((domain) => domain.trim() !== '');
+  const processedDomains = domains.map((domain) => extractDomain(domain)).filter((domain) => domain.trim() !== '');
   return processedDomains.length === 0 ? undefined : processedDomains;
 };
 ```
@@ -294,9 +300,9 @@ const domainSchema = z.string().regex(/^[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,
 const processDomains = (domains?: (string | null)[]): string[] | undefined => {
   if (!domains) return undefined;
   const validated = domains
-    .map(d => domainSchema.safeParse(d))
-    .filter(r => r.success)
-    .map(r => r.data);
+    .map((d) => domainSchema.safeParse(d))
+    .filter((r) => r.success)
+    .map((r) => r.data);
   return validated.length > 0 ? validated : undefined;
 };
 ```
@@ -319,6 +325,7 @@ OPENAI_API_KEY: z.string().default('placeholder'),
 ```
 
 **Concerns:**
+
 - `placeholder` string used as feature flag is fragile
 - If any code path doesn't check for placeholder, API call will fail silently
 - No validation that at least one AI provider is configured
@@ -345,6 +352,7 @@ if (!providers.some(hasAIProvider)) {
 **Severity:** 🟡 Medium (Robustness)
 
 **Files Affected:**
+
 - `lib/connectors.tsx` (lines 4-14)
 - `app/api/search/route.ts` (lines 523-529)
 
@@ -438,11 +446,13 @@ export const message = pgTable('message', {
 **Severity:** 🟡 Medium (Developer Experience)
 
 **Files Affected:**
+
 - `lib/tools/extreme-search.ts` (entire file - 29KB)
 - `app/api/search/route.ts` (lines 157-283)
 
 **Problem:**
 No JSDoc comments explaining:
+
 - The research plan generation flow
 - Tool execution strategy
 - Why certain operations run in parallel
@@ -480,6 +490,7 @@ export async function executeResearch(query: string, plan: ResearchPlan) {
 Multiple files have "SELF-HOSTED:" comments but no centralized checklist.
 
 **Files Modified:**
+
 - `lib/auth.ts` - Payment plugins commented
 - `lib/subscription.ts` - All functions return Pro
 - `hooks/use-cached-user-data.tsx` - Hardcoded Pro
@@ -570,6 +581,7 @@ Add fallback UI:
 **Severity:** 🟢 Low (Type Safety)
 
 **Files Affected:**
+
 - `components/ui/form-component.tsx` (line 66): `subscriptionData?: any`
 - `app/actions.ts` (line 94): history parameter not typed
 

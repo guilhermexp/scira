@@ -16,14 +16,16 @@ Per `CLAUDE.md` owner's prime directive:
 
 > **NUNCA FALE QUE ALGO ESTA FUNCIONANDO, ANTES TER CERTEZA E DE TESTAR USANDO DEVTOOLS.**
 >
-> *(Never say something is working before being sure and testing using DevTools)*
+> _(Never say something is working before being sure and testing using DevTools)_
 
 ### Manual Testing Workflow
 
 1. **Start Development Server**
+
    ```bash
    npm run dev
    ```
+
    - Runs on port 8931 (custom, not default 3000)
 
 2. **Open Browser**
@@ -50,6 +52,7 @@ Per `CLAUDE.md` owner's prime directive:
 ### No Automated Tests
 
 **Current State:**
+
 - ❌ No test files (`*.test.ts`, `*.spec.ts`, `*.test.tsx`, `*.spec.tsx`)
 - ❌ No test configuration (`vitest.config.*`, `jest.config.*`)
 - ❌ No test dependencies in `package.json` (Jest, Vitest, Testing Library, etc.)
@@ -58,6 +61,7 @@ Per `CLAUDE.md` owner's prime directive:
 - ❌ No test coverage measurement
 
 **What We Have:**
+
 - ✅ Linting via ESLint (code quality)
 - ✅ Formatting via Prettier (code style)
 - ✅ Unused code detection via Knip (dead code elimination)
@@ -74,6 +78,7 @@ npm run lint
 **Purpose:** Code quality and consistency checks
 
 **Configuration:** `.eslintrc.json`
+
 ```json
 {
   "extends": ["next/core-web-vitals"]
@@ -91,6 +96,7 @@ npm run fix
 **Purpose:** Consistent code formatting
 
 **Configuration:** `.prettierrc`
+
 ```json
 {
   "semi": true,
@@ -111,6 +117,7 @@ npm run knip
 **Purpose:** Detect and eliminate unused imports/exports
 
 **Benefits:**
+
 - Finds dead code
 - Identifies unused dependencies
 - Helps keep codebase clean
@@ -120,6 +127,7 @@ npm run knip
 **Purpose:** Compile-time type safety
 
 **Configuration:** `tsconfig.json`
+
 ```json
 {
   "compilerOptions": {
@@ -129,6 +137,7 @@ npm run knip
 ```
 
 **Benefits:**
+
 - Catches type errors at compile time
 - Ensures proper typing throughout codebase
 - Reduces runtime errors
@@ -232,9 +241,11 @@ For new AI tools in `lib/tools/`:
 For schema or query changes:
 
 1. **Schema Changes:**
+
    ```bash
    npx drizzle-kit push
    ```
+
    - Verify migration applied
    - Check for errors in console
 
@@ -254,11 +265,13 @@ For schema or query changes:
 ### 1. No Unit Tests
 
 **Impact:**
+
 - No automated verification of individual functions
 - Regression risks when refactoring
 - Hard to verify edge cases
 
 **Recommendation:**
+
 - Consider adding Vitest for unit tests
 - Start with critical utility functions
 - Add tests for tool execution logic
@@ -266,41 +279,49 @@ For schema or query changes:
 ### 2. No Integration Tests
 
 **Impact:**
+
 - No automated verification of API routes
 - No verification of database interactions
 - No verification of auth flow
 
 **Recommendation:**
+
 - Consider adding Playwright or Cypress for integration tests
 - Test critical user flows (sign-in, chat, search)
 
 ### 3. No E2E Tests
 
 **Impact:**
+
 - No automated verification of full user flows
 - Manual testing required for each deployment
 
 **Recommendation:**
+
 - Consider Playwright for E2E tests
 - Test main user journeys
 
 ### 4. No Test Coverage Measurement
 
 **Impact:**
+
 - Unknown which code paths are tested
 - Hard to identify untested code
 
 **Recommendation:**
+
 - Add coverage tools when implementing tests
 - Aim for 80%+ coverage on critical paths
 
 ### 5. No CI/CD Pipeline
 
 **Impact:**
+
 - No automated testing on pull requests
 - Manual verification required before merge
 
 **Recommendation:**
+
 - Add GitHub Actions workflow
 - Run lint, format check, type check on PRs
 - Add tests when available
@@ -310,21 +331,25 @@ For schema or query changes:
 ### Browser DevTools
 
 **Console:**
+
 - View logs and errors
 - Test code snippets in console
 - Monitor warnings
 
 **Network:**
+
 - Inspect API requests/responses
 - Check timing and payloads
 - Verify streaming responses
 
 **Application:**
+
 - Inspect cookies
 - View local storage
 - Check session storage
 
 **Sources:**
+
 - Set breakpoints
 - Step through code
 - Inspect variables
@@ -407,6 +432,7 @@ XAI_API_KEY=...  # At least one AI provider
 ```
 
 **Verify:**
+
 - ✅ App starts successfully
 - ✅ Authentication works
 - ✅ Chat works with available AI provider

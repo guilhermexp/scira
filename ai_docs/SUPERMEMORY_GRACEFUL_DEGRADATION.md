@@ -11,11 +11,13 @@ Implemented graceful degradation for all Supermemory-dependent features to handl
 ## Problem
 
 The application would fail or throw errors when:
+
 - `SUPERMEMORY_API_KEY` environment variable was missing
 - API key was set to 'placeholder' (default in self-hosted setups)
 - Users didn't have Supermemory subscriptions
 
 This affected:
+
 - Memory operations (search, add, delete)
 - Connector integrations (Google Drive, Notion, etc.)
 - Connector search functionality
@@ -30,6 +32,7 @@ const SM_ENABLED = !!SM_KEY && SM_KEY !== 'placeholder';
 ```
 
 This checks:
+
 1. API key exists (`!!SM_KEY`)
 2. API key is not the placeholder value (`SM_KEY !== 'placeholder'`)
 
@@ -40,6 +43,7 @@ This checks:
 #### 1. `lib/connectors.tsx`
 
 **Changes:**
+
 - Added `SM_ENABLED` check at module level
 - Modified `getClient()` to throw error when disabled
 - Added guards to all public functions:
@@ -51,6 +55,7 @@ This checks:
   - `getSyncStatus()`
 
 **Example:**
+
 ```typescript
 export async function getConnection(provider: ConnectorProvider, userId: string) {
   try {
@@ -64,12 +69,14 @@ export async function getConnection(provider: ConnectorProvider, userId: string)
 ```
 
 **Return Values When Disabled:**
+
 - Connection functions: `null`
 - List functions: `[]` (empty array)
 
 #### 2. `lib/memory-actions.ts`
 
 **Changes:**
+
 - Added `SM_ENABLED` check
 - Modified client initialization to be conditional
 - Added guards to all memory operations:
@@ -78,6 +85,7 @@ export async function getConnection(provider: ConnectorProvider, userId: string)
   - `deleteMemory()` - throws error with clear message
 
 **Example:**
+
 ```typescript
 export async function searchMemories(query: string, page = 1, pageSize = 20): Promise<MemoryResponse> {
   const user = await getUser();
@@ -99,11 +107,13 @@ export async function searchMemories(query: string, page = 1, pageSize = 20): Pr
 #### 3. `lib/tools/connectors-search.ts`
 
 **Changes:**
+
 - Added `SM_ENABLED` check
 - Conditional client initialization
 - Modified `execute()` function to return error response when disabled
 
 **Return When Disabled:**
+
 ```typescript
 {
   success: false,
@@ -113,6 +123,7 @@ export async function searchMemories(query: string, page = 1, pageSize = 20): Pr
 ```
 
 **Example:**
+
 ```typescript
 execute: async ({ query, provider = 'all' }) => {
   try {
@@ -127,7 +138,7 @@ execute: async ({ query, provider = 'all' }) => {
   } catch (error) {
     // error handling
   }
-}
+};
 ```
 
 ## Benefits
@@ -160,6 +171,7 @@ SUPERMEMORY_API_KEY=placeholder
 ```
 
 Expected behavior:
+
 - Memory search returns empty results
 - Connector list returns empty array
 - Connector search returns error response
@@ -173,6 +185,7 @@ SUPERMEMORY_API_KEY=your_actual_api_key
 ```
 
 Expected behavior:
+
 - All memory operations work normally
 - Connectors can be created and synced
 - Search returns actual results
@@ -204,6 +217,7 @@ Expected behavior:
 **Lines Removed:** ~16
 
 **Affected Features:**
+
 - Memory search and management
 - Google Drive connector
 - Notion connector
@@ -212,6 +226,7 @@ Expected behavior:
 - OneDrive connector (when implemented)
 
 **User Impact:**
+
 - Self-hosted users can run without Supermemory
 - No breaking changes for users with Supermemory configured
 - Clearer error messages when features are unavailable

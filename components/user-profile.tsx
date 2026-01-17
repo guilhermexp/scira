@@ -32,7 +32,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import Link from 'next/link';
 import { User } from '@/lib/db/schema';
 import dynamic from 'next/dynamic';
-const SettingsDialog = dynamic(() => import('./settings-dialog').then(m => m.SettingsDialog), {
+const SettingsDialog = dynamic(() => import('./settings-dialog').then((m) => m.SettingsDialog), {
   ssr: false,
 });
 import { SettingsIcon, type SettingsIconHandle } from '@/components/ui/settings';

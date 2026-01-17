@@ -42,7 +42,6 @@ const isValidUrl = (str: string) => {
   }
 };
 
-
 interface CodeBlockProps {
   language: string | undefined;
   children: string;
@@ -233,21 +232,25 @@ const CodeBlock: React.FC<CodeBlockProps> = React.memo(
     // Use lazy loading for large code blocks
     if (children.length > 5000) {
       return (
-        <Suspense fallback={
-          <div className="group relative my-5 rounded-md border border-border bg-accent overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-2 bg-accent border-b border-border">
-              <div className="flex items-center gap-2">
-                {language && (
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{language}</span>
-                )}
-                <span className="text-xs text-muted-foreground">{children.split('\n').length} lines</span>
+        <Suspense
+          fallback={
+            <div className="group relative my-5 rounded-md border border-border bg-accent overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2 bg-accent border-b border-border">
+                <div className="flex items-center gap-2">
+                  {language && (
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      {language}
+                    </span>
+                  )}
+                  <span className="text-xs text-muted-foreground">{children.split('\n').length} lines</span>
+                </div>
+              </div>
+              <div className="font-mono text-sm leading-relaxed p-2 text-muted-foreground">
+                <div className="animate-pulse">Loading code block...</div>
               </div>
             </div>
-            <div className="font-mono text-sm leading-relaxed p-2 text-muted-foreground">
-              <div className="animate-pulse">Loading code block...</div>
-            </div>
-          </div>
-        }>
+          }
+        >
           <LazyCodeBlock language={language} elementKey={elementKey}>
             {children}
           </LazyCodeBlock>
@@ -256,7 +259,11 @@ const CodeBlock: React.FC<CodeBlockProps> = React.memo(
     }
 
     // Use synchronous rendering for smaller blocks
-    return <SyncCodeBlock language={language} elementKey={elementKey}>{children}</SyncCodeBlock>;
+    return (
+      <SyncCodeBlock language={language} elementKey={elementKey}>
+        {children}
+      </SyncCodeBlock>
+    );
   },
   (prevProps, nextProps) => {
     return (
@@ -291,7 +298,7 @@ const useProcessedContent = (content: string) => {
         allCodeMatches.push({
           match: match[0],
           index: match.index,
-          length: match[0].length
+          length: match[0].length,
         });
       }
 
@@ -303,14 +310,14 @@ const useProcessedContent = (content: string) => {
 
         // Check if this inline code is inside a triple-backtick block
         const isInsideTripleBacktick = allCodeMatches.some(
-          (m) => matchStart >= m.index && matchEnd <= m.index + m.length
+          (m) => matchStart >= m.index && matchEnd <= m.index + m.length,
         );
 
         if (!isInsideTripleBacktick) {
           allCodeMatches.push({
             match: match[0],
             index: match.index,
-            length: match[0].length
+            length: match[0].length,
           });
         }
       }
@@ -422,10 +429,10 @@ const useProcessedContent = (content: string) => {
             // Match simple mathematical variables (single letter or Greek letters, but not plain numbers)
             /\$[a-zA-ZθΘπΠαβγδεζηλμνξρσςτφχψωΑΒΓΔΕΖΗΛΜΝΞΡΣΤΦΧΨΩ]+\$/g,
             // Match simple single-letter variables (like $ m $, $ b $, $ x $, $ y $)
-            /\$\s*[a-zA-Z]\s*\$/g
+            /\$\s*[a-zA-Z]\s*\$/g,
           ],
           isBlock: false,
-          prefix: '§§§LATEXINLINE_PROTECTED_'
+          prefix: '§§§LATEXINLINE_PROTECTED_',
         },
       ];
 
@@ -495,7 +502,7 @@ const useProcessedContent = (content: string) => {
           rebuilt += modifiedContent.slice(lastPos);
           modifiedContent = rebuilt;
         }
-      } catch { }
+      } catch {}
 
       // Process citations (simplified for performance)
       const refWithUrlRegex =
@@ -513,7 +520,8 @@ const useProcessedContent = (content: string) => {
         const cleanUrl = url.replace(/[.,;:]+$/, '');
         citations.push({ text: fullText.trim(), link: cleanUrl });
 
-        citationProcessed += modifiedContent.slice(lastCitationIndex, match.index) + `[${fullText.trim()}](${cleanUrl})`;
+        citationProcessed +=
+          modifiedContent.slice(lastCitationIndex, match.index) + `[${fullText.trim()}](${cleanUrl})`;
         lastCitationIndex = match.index! + fullMatch.length;
       }
 
@@ -741,185 +749,136 @@ const LinkPreview = React.memo(({ href, title }: { href: string; title?: string 
 
 LinkPreview.displayName = 'LinkPreview';
 
-const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({ content, isUserMessage = false }) => {
-  const { processedContent, citations: extractedCitations, latexBlocks, isProcessing } = useProcessedContent(content);
-  const citationLinks = extractedCitations;
+const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
+  ({ content, isUserMessage = false }) => {
+    const { processedContent, citations: extractedCitations, latexBlocks, isProcessing } = useProcessedContent(content);
+    const citationLinks = extractedCitations;
 
-  // Optimized element key generation using content hash instead of indices
-  const contentHash = useMemo(() => {
-    // Simple hash for stable keys
-    let hash = 0;
-    const str = content.slice(0, 200); // Use first 200 chars for hash
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash = hash & hash;
-    }
-    return Math.abs(hash).toString(36);
-  }, [content]);
+    // Optimized element key generation using content hash instead of indices
+    const contentHash = useMemo(() => {
+      // Simple hash for stable keys
+      let hash = 0;
+      const str = content.slice(0, 200); // Use first 200 chars for hash
+      for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = (hash << 5) - hash + char;
+        hash = hash & hash;
+      }
+      return Math.abs(hash).toString(36);
+    }, [content]);
 
-  // Use closures to maintain counters without re-creating on each render
-  const getElementKey = useMemo(() => {
-    const counters = {
-      paragraph: 0,
-      code: 0,
-      heading: 0,
-      list: 0,
-      listItem: 0,
-      blockquote: 0,
-      table: 0,
-      tableRow: 0,
-      tableCell: 0,
-      link: 0,
-      text: 0,
-      hr: 0,
-    };
+    // Use closures to maintain counters without re-creating on each render
+    const getElementKey = useMemo(() => {
+      const counters = {
+        paragraph: 0,
+        code: 0,
+        heading: 0,
+        list: 0,
+        listItem: 0,
+        blockquote: 0,
+        table: 0,
+        tableRow: 0,
+        tableCell: 0,
+        link: 0,
+        text: 0,
+        hr: 0,
+      };
 
-    return (type: keyof typeof counters, content?: string) => {
-      const count = counters[type]++;
-      const contentPrefix = content ? content.slice(0, 20) : '';
-      return `${contentHash}-${type}-${count}-${contentPrefix}`.replace(/[^a-zA-Z0-9-]/g, '');
-    };
-  }, [contentHash]);
+      return (type: keyof typeof counters, content?: string) => {
+        const count = counters[type]++;
+        const contentPrefix = content ? content.slice(0, 20) : '';
+        return `${contentHash}-${type}-${count}-${contentPrefix}`.replace(/[^a-zA-Z0-9-]/g, '');
+      };
+    }, [contentHash]);
 
-  const renderHoverCard = useCallback(
-    (href: string, text: React.ReactNode, isCitation: boolean = false, citationText?: string) => {
-      const title = citationText || (typeof text === 'string' ? text : '');
+    const renderHoverCard = useCallback(
+      (href: string, text: React.ReactNode, isCitation: boolean = false, citationText?: string) => {
+        const title = citationText || (typeof text === 'string' ? text : '');
 
-      return (
-        <HoverCard openDelay={10}>
-          <HoverCardTrigger asChild>
-            <Link
-              href={href}
-              target="_blank"
-              className={
-                isCitation
-                  ? 'cursor-pointer text-xs no-underline text-primary py-0.5 px-1.25 m-0! bg-primary/10 rounded-sm font-medium inline-flex items-center -translate-y-[1px] leading-none hover:bg-primary/20 focus:outline-none focus:ring-1 focus:ring-primary align-baseline'
-                  : 'text-primary bg-primary/10 no-underline hover:underline font-medium'
-              }
+        return (
+          <HoverCard openDelay={10}>
+            <HoverCardTrigger asChild>
+              <Link
+                href={href}
+                target="_blank"
+                className={
+                  isCitation
+                    ? 'cursor-pointer text-xs no-underline text-primary py-0.5 px-1.25 m-0! bg-primary/10 rounded-sm font-medium inline-flex items-center -translate-y-[1px] leading-none hover:bg-primary/20 focus:outline-none focus:ring-1 focus:ring-primary align-baseline'
+                    : 'text-primary bg-primary/10 no-underline hover:underline font-medium'
+                }
+              >
+                {text}
+              </Link>
+            </HoverCardTrigger>
+            <HoverCardContent
+              side="top"
+              align="start"
+              sideOffset={5}
+              className="w-64 p-0 shadow-lg border border-primary/30 rounded-md overflow-hidden bg-background"
             >
-              {text}
-            </Link>
-          </HoverCardTrigger>
-          <HoverCardContent
-            side="top"
-            align="start"
-            sideOffset={5}
-            className="w-64 p-0 shadow-lg border border-primary/30 rounded-md overflow-hidden bg-background"
-          >
-            <LinkPreview href={href} title={title} />
-          </HoverCardContent>
-        </HoverCard>
-      );
-    },
-    [],
-  );
+              <LinkPreview href={href} title={title} />
+            </HoverCardContent>
+          </HoverCard>
+        );
+      },
+      [],
+    );
 
-  const renderCitation = useCallback(
-    (index: number, citationText: string, href: string, key: string) => {
-      return (
-        <span className="inline-flex items-baseline relative whitespace-normal" key={key}>
-          {renderHoverCard(href, index + 1, true, citationText)}
-        </span>
-      );
-    },
-    [renderHoverCard],
-  );
+    const renderCitation = useCallback(
+      (index: number, citationText: string, href: string, key: string) => {
+        return (
+          <span className="inline-flex items-baseline relative whitespace-normal" key={key}>
+            {renderHoverCard(href, index + 1, true, citationText)}
+          </span>
+        );
+      },
+      [renderHoverCard],
+    );
 
-  const renderer: Partial<ReactRenderer> = useMemo(
-    () => ({
-      text(text: string) {
-        const blockPattern = /§§§LATEXBLOCK_PROTECTED_(\d+)§§§/g;
-        const inlinePattern = /§§§LATEXINLINE_PROTECTED_(\d+)§§§/g;
+    const renderer: Partial<ReactRenderer> = useMemo(
+      () => ({
+        text(text: string) {
+          const blockPattern = /§§§LATEXBLOCK_PROTECTED_(\d+)§§§/g;
+          const inlinePattern = /§§§LATEXINLINE_PROTECTED_(\d+)§§§/g;
 
-        if (!blockPattern.test(text) && !inlinePattern.test(text)) {
-          return text;
-        }
-
-        blockPattern.lastIndex = 0;
-        inlinePattern.lastIndex = 0;
-
-        const components: any[] = [];
-        let lastEnd = 0;
-        const allMatches: Array<{ match: RegExpExecArray; isBlock: boolean }> = [];
-
-        let match;
-        while ((match = blockPattern.exec(text)) !== null) {
-          allMatches.push({ match, isBlock: true });
-        }
-        while ((match = inlinePattern.exec(text)) !== null) {
-          allMatches.push({ match, isBlock: false });
-        }
-
-        allMatches.sort((a, b) => a.match.index - b.match.index);
-
-        allMatches.forEach(({ match, isBlock }) => {
-          const fullMatch = match[0];
-          const start = match.index;
-
-          if (start > lastEnd) {
-            const textContent = text.slice(lastEnd, start);
-            const key = getElementKey('text', textContent);
-            components.push(<span key={key}>{textContent}</span>);
+          if (!blockPattern.test(text) && !inlinePattern.test(text)) {
+            return text;
           }
 
-          const latexBlock = latexBlocks.find((block) => block.id === fullMatch);
-          if (latexBlock) {
-            const key = getElementKey('text', latexBlock.content);
-            if (isBlock) {
-              components.push(
-                <Latex
-                  key={key}
-                  delimiters={[
-                    { left: '$$', right: '$$', display: true },
-                    { left: '\\[', right: '\\]', display: true },
-                  ]}
-                  strict={false}
-                >
-                  {latexBlock.content}
-                </Latex>,
-              );
-            } else {
-              components.push(
-                <Latex
-                  key={key}
-                  delimiters={[
-                    { left: '$', right: '$', display: false },
-                    { left: '\\(', right: '\\)', display: false },
-                  ]}
-                  strict={false}
-                >
-                  {latexBlock.content}
-                </Latex>,
-              );
+          blockPattern.lastIndex = 0;
+          inlinePattern.lastIndex = 0;
+
+          const components: any[] = [];
+          let lastEnd = 0;
+          const allMatches: Array<{ match: RegExpExecArray; isBlock: boolean }> = [];
+
+          let match;
+          while ((match = blockPattern.exec(text)) !== null) {
+            allMatches.push({ match, isBlock: true });
+          }
+          while ((match = inlinePattern.exec(text)) !== null) {
+            allMatches.push({ match, isBlock: false });
+          }
+
+          allMatches.sort((a, b) => a.match.index - b.match.index);
+
+          allMatches.forEach(({ match, isBlock }) => {
+            const fullMatch = match[0];
+            const start = match.index;
+
+            if (start > lastEnd) {
+              const textContent = text.slice(lastEnd, start);
+              const key = getElementKey('text', textContent);
+              components.push(<span key={key}>{textContent}</span>);
             }
-          }
 
-          lastEnd = start + fullMatch.length;
-        });
-
-        if (lastEnd < text.length) {
-          const textContent = text.slice(lastEnd);
-          const key = getElementKey('text', textContent);
-          components.push(<span key={key}>{textContent}</span>);
-        }
-
-        return components.length === 1 ? components[0] : <Fragment>{components}</Fragment>;
-      },
-      hr() {
-        return <></>;
-      },
-      paragraph(children) {
-        const key = getElementKey('paragraph', String(children));
-
-        if (typeof children === 'string') {
-          const blockMatch = children.match(/^§§§LATEXBLOCK_PROTECTED_(\d+)§§§$/);
-          if (blockMatch) {
-            const latexBlock = latexBlocks.find((block) => block.id === children);
-            if (latexBlock && latexBlock.isBlock) {
-              return (
-                <div className="my-6 text-center" key={key}>
+            const latexBlock = latexBlocks.find((block) => block.id === fullMatch);
+            if (latexBlock) {
+              const key = getElementKey('text', latexBlock.content);
+              if (isBlock) {
+                components.push(
                   <Latex
+                    key={key}
                     delimiters={[
                       { left: '$$', right: '$$', display: true },
                       { left: '\\[', right: '\\]', display: true },
@@ -927,291 +886,336 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({ content,
                     strict={false}
                   >
                     {latexBlock.content}
-                  </Latex>
-                </div>
-              );
+                  </Latex>,
+                );
+              } else {
+                components.push(
+                  <Latex
+                    key={key}
+                    delimiters={[
+                      { left: '$', right: '$', display: false },
+                      { left: '\\(', right: '\\)', display: false },
+                    ]}
+                    strict={false}
+                  >
+                    {latexBlock.content}
+                  </Latex>,
+                );
+              }
+            }
+
+            lastEnd = start + fullMatch.length;
+          });
+
+          if (lastEnd < text.length) {
+            const textContent = text.slice(lastEnd);
+            const key = getElementKey('text', textContent);
+            components.push(<span key={key}>{textContent}</span>);
+          }
+
+          return components.length === 1 ? components[0] : <Fragment>{components}</Fragment>;
+        },
+        hr() {
+          return <></>;
+        },
+        paragraph(children) {
+          const key = getElementKey('paragraph', String(children));
+
+          if (typeof children === 'string') {
+            const blockMatch = children.match(/^§§§LATEXBLOCK_PROTECTED_(\d+)§§§$/);
+            if (blockMatch) {
+              const latexBlock = latexBlocks.find((block) => block.id === children);
+              if (latexBlock && latexBlock.isBlock) {
+                return (
+                  <div className="my-6 text-center" key={key}>
+                    <Latex
+                      delimiters={[
+                        { left: '$$', right: '$$', display: true },
+                        { left: '\\[', right: '\\]', display: true },
+                      ]}
+                      strict={false}
+                    >
+                      {latexBlock.content}
+                    </Latex>
+                  </div>
+                );
+              }
             }
           }
-        }
 
-        return (
-          <p
-            key={key}
-            className={`${isUserMessage ? 'leading-relaxed text-foreground !m-0' : ''} my-5 leading-[1.75] text-foreground/95`}
-          >
-            {children}
-          </p>
-        );
-      },
-      code(children, language) {
-        const key = getElementKey('code', String(children));
-        return (
-          <CodeBlock language={language} elementKey={key} key={key}>
-            {String(children)}
-          </CodeBlock>
-        );
-      },
-      codespan(code) {
-        const codeString = typeof code === 'string' ? code : String(code || '');
-        const key = getElementKey('code', codeString);
-        return <InlineCode key={key} elementKey={key} code={codeString} />;
-      },
-      link(href, text) {
-        const key = getElementKey('link', href);
-
-        if (href.startsWith('mailto:')) {
-          const email = href.replace('mailto:', '');
           return (
-            <span key={key} className="break-all">
-              {email}
-            </span>
+            <p
+              key={key}
+              className={`${isUserMessage ? 'leading-relaxed text-foreground !m-0' : ''} my-5 leading-[1.75] text-foreground/95`}
+            >
+              {children}
+            </p>
           );
-        }
+        },
+        code(children, language) {
+          const key = getElementKey('code', String(children));
+          return (
+            <CodeBlock language={language} elementKey={key} key={key}>
+              {String(children)}
+            </CodeBlock>
+          );
+        },
+        codespan(code) {
+          const codeString = typeof code === 'string' ? code : String(code || '');
+          const key = getElementKey('code', codeString);
+          return <InlineCode key={key} elementKey={key} code={codeString} />;
+        },
+        link(href, text) {
+          const key = getElementKey('link', href);
 
-        const linkText = typeof text === 'string' ? text : href;
-
-        // For user messages, keep raw text to avoid accidental linkification changes
-        if (isUserMessage) {
-          if (linkText !== href && linkText !== '') {
+          if (href.startsWith('mailto:')) {
+            const email = href.replace('mailto:', '');
             return (
               <span key={key} className="break-all">
-                {linkText} ({href})
+                {email}
               </span>
             );
           }
+
+          const linkText = typeof text === 'string' ? text : href;
+
+          // For user messages, keep raw text to avoid accidental linkification changes
+          if (isUserMessage) {
+            if (linkText !== href && linkText !== '') {
+              return (
+                <span key={key} className="break-all">
+                  {linkText} ({href})
+                </span>
+              );
+            }
+            return (
+              <span key={key} className="break-all">
+                {href}
+              </span>
+            );
+          }
+
+          // If there's descriptive link text, render a normal anchor with hover preview.
+          // This preserves full text inside tables and prevents truncation to citation chips.
+          if (linkText && linkText !== href) {
+            return renderHoverCard(href, linkText, false);
+          }
+
+          // For bare URLs, render as citation chips
+          let citationIndex = citationLinks.findIndex((link) => link.link === href);
+          if (citationIndex === -1) {
+            citationLinks.push({ text: href, link: href });
+            citationIndex = citationLinks.length - 1;
+          }
+          const citationText = citationLinks[citationIndex].text;
+          return renderCitation(citationIndex, citationText, href, key);
+        },
+        heading(children, level) {
+          const key = getElementKey('heading', String(children));
+          const HeadingTag = `h${level}` as keyof React.JSX.IntrinsicElements;
+          const sizeClasses =
+            {
+              1: 'text-2xl md:text-3xl font-extrabold mt-8 mb-4 border-b border-border/50 pb-2',
+              2: 'text-xl md:text-2xl font-bold mt-7 mb-4',
+              3: 'text-lg md:text-xl font-semibold mt-6 mb-3',
+              4: 'text-base md:text-lg font-semibold mt-5 mb-3',
+              5: 'text-sm md:text-base font-semibold mt-4 mb-2',
+              6: 'text-xs md:text-sm font-semibold mt-4 mb-2',
+            }[level] || '';
+
           return (
-            <span key={key} className="break-all">
-              {href}
-            </span>
+            <HeadingTag key={key} className={`${sizeClasses} text-foreground tracking-tight scroll-mt-20`}>
+              {children}
+            </HeadingTag>
           );
-        }
+        },
+        list(children, ordered) {
+          const key = getElementKey('list');
+          const ListTag = ordered ? 'ol' : 'ul';
+          return (
+            <ListTag
+              key={key}
+              className={cn(
+                'my-6 space-y-3 text-foreground',
+                ordered ? 'pl-8' : 'pl-8 list-disc marker:text-primary/70',
+              )}
+            >
+              {children}
+            </ListTag>
+          );
+        },
+        listItem(children) {
+          const key = getElementKey('listItem');
+          return (
+            <li key={key} className="pl-2 leading-relaxed text-foreground/90">
+              <span className="inline">{children}</span>
+            </li>
+          );
+        },
+        blockquote(children) {
+          const key = getElementKey('blockquote');
+          return (
+            <blockquote
+              key={key}
+              className="my-6 border-l-4 border-primary/30 pl-4 py-2 text-foreground/90 italic bg-muted/50 rounded-r-md"
+            >
+              {children}
+            </blockquote>
+          );
+        },
+        strong(children) {
+          const key = getElementKey('text', String(children));
+          return (
+            <strong key={key} className="font-bold text-foreground">
+              {children}
+            </strong>
+          );
+        },
+        em(children) {
+          const key = getElementKey('text', String(children));
+          return (
+            <em key={key} className="italic text-foreground/95">
+              {children}
+            </em>
+          );
+        },
+        table(children) {
+          const key = getElementKey('table');
+          return <MarkdownTableWithActions key={key}>{children}</MarkdownTableWithActions>;
+        },
+        tableRow(children) {
+          const key = getElementKey('tableRow');
+          return <TableRow key={key}>{children}</TableRow>;
+        },
+        tableCell(children, flags) {
+          const key = getElementKey('tableCell');
+          const alignClass = flags.align ? `text-${flags.align}` : 'text-left';
+          const isHeader = flags.header;
 
-        // If there's descriptive link text, render a normal anchor with hover preview.
-        // This preserves full text inside tables and prevents truncation to citation chips.
-        if (linkText && linkText !== href) {
-          return renderHoverCard(href, linkText, false);
-        }
+          return isHeader ? (
+            <TableHead
+              key={key}
+              className={cn(
+                alignClass,
+                'border-r border-border last:border-r-0 bg-muted/50 font-semibold !p-2 !m-1 !text-wrap',
+              )}
+            >
+              {children}
+            </TableHead>
+          ) : (
+            <TableCell
+              key={key}
+              className={cn(alignClass, 'border-r border-border last:border-r-0 !p-2 !m-1 !text-wrap')}
+            >
+              {children}
+            </TableCell>
+          );
+        },
+        tableHeader(children) {
+          const key = getElementKey('table');
+          return (
+            <TableHeader key={key} className="!p-1 !m-1">
+              {children}
+            </TableHeader>
+          );
+        },
+        tableBody(children) {
+          const key = getElementKey('table');
+          return (
+            <TableBody key={key} className="!text-wrap !m-1">
+              {children}
+            </TableBody>
+          );
+        },
+      }),
+      [latexBlocks, isUserMessage, renderCitation, renderHoverCard, getElementKey, citationLinks],
+    );
 
-        // For bare URLs, render as citation chips
-        let citationIndex = citationLinks.findIndex((link) => link.link === href);
-        if (citationIndex === -1) {
-          citationLinks.push({ text: href, link: href });
-          citationIndex = citationLinks.length - 1;
-        }
-        const citationText = citationLinks[citationIndex].text;
-        return renderCitation(citationIndex, citationText, href, key);
-      },
-      heading(children, level) {
-        const key = getElementKey('heading', String(children));
-        const HeadingTag = `h${level}` as keyof React.JSX.IntrinsicElements;
-        const sizeClasses =
-          {
-            1: 'text-2xl md:text-3xl font-extrabold mt-8 mb-4 border-b border-border/50 pb-2',
-            2: 'text-xl md:text-2xl font-bold mt-7 mb-4',
-            3: 'text-lg md:text-xl font-semibold mt-6 mb-3',
-            4: 'text-base md:text-lg font-semibold mt-5 mb-3',
-            5: 'text-sm md:text-base font-semibold mt-4 mb-2',
-            6: 'text-xs md:text-sm font-semibold mt-4 mb-2',
-          }[level] || '';
-
-        return (
-          <HeadingTag key={key} className={`${sizeClasses} text-foreground tracking-tight scroll-mt-20`}>
-            {children}
-          </HeadingTag>
-        );
-      },
-      list(children, ordered) {
-        const key = getElementKey('list');
-        const ListTag = ordered ? 'ol' : 'ul';
-        return (
-          <ListTag
-            key={key}
-            className={cn(
-              'my-6 space-y-3 text-foreground',
-              ordered ? 'pl-8' : 'pl-8 list-disc marker:text-primary/70'
-            )}
-          >
-            {children}
-          </ListTag>
-        );
-      },
-      listItem(children) {
-        const key = getElementKey('listItem');
-        return (
-          <li key={key} className="pl-2 leading-relaxed text-foreground/90">
-            <span className="inline">{children}</span>
-          </li>
-        );
-      },
-      blockquote(children) {
-        const key = getElementKey('blockquote');
-        return (
-          <blockquote
-            key={key}
-            className="my-6 border-l-4 border-primary/30 pl-4 py-2 text-foreground/90 italic bg-muted/50 rounded-r-md"
-          >
-            {children}
-          </blockquote>
-        );
-      },
-      strong(children) {
-        const key = getElementKey('text', String(children));
-        return (
-          <strong key={key} className="font-bold text-foreground">
-            {children}
-          </strong>
-        );
-      },
-      em(children) {
-        const key = getElementKey('text', String(children));
-        return (
-          <em key={key} className="italic text-foreground/95">
-            {children}
-          </em>
-        );
-      },
-      table(children) {
-        const key = getElementKey('table');
-        return <MarkdownTableWithActions key={key}>{children}</MarkdownTableWithActions>;
-      },
-      tableRow(children) {
-        const key = getElementKey('tableRow');
-        return <TableRow key={key}>{children}</TableRow>;
-      },
-      tableCell(children, flags) {
-        const key = getElementKey('tableCell');
-        const alignClass = flags.align ? `text-${flags.align}` : 'text-left';
-        const isHeader = flags.header;
-
-        return isHeader ? (
-          <TableHead
-            key={key}
-            className={cn(
-              alignClass,
-              'border-r border-border last:border-r-0 bg-muted/50 font-semibold !p-2 !m-1 !text-wrap',
-            )}
-          >
-            {children}
-          </TableHead>
-        ) : (
-          <TableCell
-            key={key}
-            className={cn(alignClass, 'border-r border-border last:border-r-0 !p-2 !m-1 !text-wrap')}
-          >
-            {children}
-          </TableCell>
-        );
-      },
-      tableHeader(children) {
-        const key = getElementKey('table');
-        return (
-          <TableHeader key={key} className="!p-1 !m-1">
-            {children}
-          </TableHeader>
-        );
-      },
-      tableBody(children) {
-        const key = getElementKey('table');
-        return (
-          <TableBody key={key} className="!text-wrap !m-1">
-            {children}
-          </TableBody>
-        );
-      },
-    }),
-    [latexBlocks, isUserMessage, renderCitation, renderHoverCard, getElementKey, citationLinks],
-  );
-
-  // Show a progressive loading state for large content
-  if (isProcessing && content.length > 15000) {
-    return (
-      <div className="markdown-body prose prose-neutral dark:prose-invert max-w-none text-foreground font-sans">
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full"></div>
-            Processing content ({Math.round(content.length / 1024)}KB)...
-          </div>
-          <div className="animate-pulse space-y-2">
-            <div className="h-3 bg-muted rounded w-3/4"></div>
-            <div className="h-3 bg-muted rounded w-full"></div>
-            <div className="h-3 bg-muted rounded w-5/6"></div>
-            <div className="h-8 bg-muted rounded w-2/3"></div>
-            <div className="h-3 bg-muted rounded w-4/5"></div>
+    // Show a progressive loading state for large content
+    if (isProcessing && content.length > 15000) {
+      return (
+        <div className="markdown-body prose prose-neutral dark:prose-invert max-w-none text-foreground font-sans">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full"></div>
+              Processing content ({Math.round(content.length / 1024)}KB)...
+            </div>
+            <div className="animate-pulse space-y-2">
+              <div className="h-3 bg-muted rounded w-3/4"></div>
+              <div className="h-3 bg-muted rounded w-full"></div>
+              <div className="h-3 bg-muted rounded w-5/6"></div>
+              <div className="h-8 bg-muted rounded w-2/3"></div>
+              <div className="h-3 bg-muted rounded w-4/5"></div>
+            </div>
           </div>
         </div>
+      );
+    }
+
+    return (
+      <div className="markdown-body prose prose-neutral dark:prose-invert max-w-none text-foreground font-sans">
+        <Marked renderer={renderer}>{processedContent}</Marked>
       </div>
     );
-  }
-
-  return (
-    <div className="markdown-body prose prose-neutral dark:prose-invert max-w-none text-foreground font-sans">
-      <Marked renderer={renderer}>{processedContent}</Marked>
-    </div>
-  );
-}, (prevProps, nextProps) => {
-  return (
-    prevProps.content === nextProps.content &&
-    prevProps.isUserMessage === nextProps.isUserMessage
-  );
-});
+  },
+  (prevProps, nextProps) => {
+    return prevProps.content === nextProps.content && prevProps.isUserMessage === nextProps.isUserMessage;
+  },
+);
 
 MarkdownRenderer.displayName = 'MarkdownRenderer';
 
 // Virtual scrolling component for very large content
-const VirtualMarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({ content, isUserMessage = false }) => {
-  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 50 });
-  const containerRef = useRef<HTMLDivElement>(null);
+const VirtualMarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
+  ({ content, isUserMessage = false }) => {
+    const [visibleRange, setVisibleRange] = useState({ start: 0, end: 50 });
+    const containerRef = useRef<HTMLDivElement>(null);
 
-  // Split content into chunks for virtual scrolling
-  const contentChunks = useMemo(() => {
-    const lines = content.split('\n');
-    const chunkSize = 20; // Lines per chunk
-    const chunks = [];
+    // Split content into chunks for virtual scrolling
+    const contentChunks = useMemo(() => {
+      const lines = content.split('\n');
+      const chunkSize = 20; // Lines per chunk
+      const chunks = [];
 
-    for (let i = 0; i < lines.length; i += chunkSize) {
-      chunks.push(lines.slice(i, i + chunkSize).join('\n'));
+      for (let i = 0; i < lines.length; i += chunkSize) {
+        chunks.push(lines.slice(i, i + chunkSize).join('\n'));
+      }
+
+      return chunks;
+    }, [content]);
+
+    const handleScroll = useCallback(() => {
+      if (!containerRef.current) return;
+
+      const { scrollTop, clientHeight } = containerRef.current;
+      const lineHeight = 24; // Approximate line height
+      const start = Math.floor(scrollTop / lineHeight);
+      const end = Math.min(start + Math.ceil(clientHeight / lineHeight) + 10, contentChunks.length);
+
+      setVisibleRange({ start: Math.max(0, start - 5), end });
+    }, [contentChunks.length]);
+
+    // Only use virtual scrolling for very large content
+    if (content.length < 50000) {
+      return <MarkdownRenderer content={content} isUserMessage={isUserMessage} />;
     }
 
-    return chunks;
-  }, [content]);
-
-  const handleScroll = useCallback(() => {
-    if (!containerRef.current) return;
-
-    const { scrollTop, clientHeight } = containerRef.current;
-    const lineHeight = 24; // Approximate line height
-    const start = Math.floor(scrollTop / lineHeight);
-    const end = Math.min(start + Math.ceil(clientHeight / lineHeight) + 10, contentChunks.length);
-
-    setVisibleRange({ start: Math.max(0, start - 5), end });
-  }, [contentChunks.length]);
-
-  // Only use virtual scrolling for very large content
-  if (content.length < 50000) {
-    return <MarkdownRenderer content={content} isUserMessage={isUserMessage} />;
-  }
-
-  return (
-    <div
-      ref={containerRef}
-      className="markdown-body prose prose-neutral dark:prose-invert max-w-none text-foreground font-sans max-h-96 overflow-y-auto"
-      onScroll={handleScroll}
-    >
-      {contentChunks.slice(visibleRange.start, visibleRange.end).map((chunk, index) => (
-        <MarkdownRenderer
-          key={`chunk-${visibleRange.start + index}`}
-          content={chunk}
-          isUserMessage={isUserMessage}
-        />
-      ))}
-    </div>
-  );
-}, (prevProps, nextProps) => {
-  return (
-    prevProps.content === nextProps.content &&
-    prevProps.isUserMessage === nextProps.isUserMessage
-  );
-});
+    return (
+      <div
+        ref={containerRef}
+        className="markdown-body prose prose-neutral dark:prose-invert max-w-none text-foreground font-sans max-h-96 overflow-y-auto"
+        onScroll={handleScroll}
+      >
+        {contentChunks.slice(visibleRange.start, visibleRange.end).map((chunk, index) => (
+          <MarkdownRenderer key={`chunk-${visibleRange.start + index}`} content={chunk} isUserMessage={isUserMessage} />
+        ))}
+      </div>
+    );
+  },
+  (prevProps, nextProps) => {
+    return prevProps.content === nextProps.content && prevProps.isUserMessage === nextProps.isUserMessage;
+  },
+);
 
 VirtualMarkdownRenderer.displayName = 'VirtualMarkdownRenderer';
 
@@ -1254,21 +1258,21 @@ const usePerformanceMonitor = (content: string) => {
 };
 
 // Main optimized markdown component with automatic optimization selection
-const OptimizedMarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(({ content, isUserMessage = false }) => {
-  usePerformanceMonitor(content);
+const OptimizedMarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
+  ({ content, isUserMessage = false }) => {
+    usePerformanceMonitor(content);
 
-  // Automatically choose the best rendering strategy based on content size
-  if (content.length > 100000) {
-    return <VirtualMarkdownRenderer content={content} isUserMessage={isUserMessage} />;
-  }
+    // Automatically choose the best rendering strategy based on content size
+    if (content.length > 100000) {
+      return <VirtualMarkdownRenderer content={content} isUserMessage={isUserMessage} />;
+    }
 
-  return <MarkdownRenderer content={content} isUserMessage={isUserMessage} />;
-}, (prevProps, nextProps) => {
-  return (
-    prevProps.content === nextProps.content &&
-    prevProps.isUserMessage === nextProps.isUserMessage
-  );
-});
+    return <MarkdownRenderer content={content} isUserMessage={isUserMessage} />;
+  },
+  (prevProps, nextProps) => {
+    return prevProps.content === nextProps.content && prevProps.isUserMessage === nextProps.isUserMessage;
+  },
+);
 
 OptimizedMarkdownRenderer.displayName = 'OptimizedMarkdownRenderer';
 

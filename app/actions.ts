@@ -2458,9 +2458,7 @@ export async function testLookoutAction({ id }: { id: string }) {
     // Make a POST request to the lookout API endpoint to trigger the run
     const baseUrl =
       process.env.NODE_ENV === 'development'
-        ? (process.env.NGROK_URL?.trim() ||
-            process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-            'http://localhost:3000')
+        ? process.env.NGROK_URL?.trim() || process.env.NEXT_PUBLIC_APP_URL?.trim() || 'http://localhost:3000'
         : 'https://scira.ai';
 
     const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;

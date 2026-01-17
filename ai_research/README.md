@@ -31,6 +31,7 @@ Document research, proof of concepts, technology evaluations, and experimental f
 ## Research Areas
 
 Potential research topics:
+
 - AI model performance comparisons
 - Search algorithm optimizations
 - Database query performance

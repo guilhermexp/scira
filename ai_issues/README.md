@@ -19,6 +19,7 @@ Track bugs, issues, and blockers discovered during development and usage.
 ## Issue Template
 
 When creating new issue files, include:
+
 1. **Title** - Clear, concise description
 2. **Status** - Open, In Progress, Resolved
 3. **Priority** - Critical, High, Medium, Low

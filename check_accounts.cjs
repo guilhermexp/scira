@@ -22,7 +22,10 @@ async function checkAccounts() {
         AND table_schema = 'public'
       ORDER BY column_name;
     `;
-    console.log('Columns:', columns.map(c => c.column_name));
+    console.log(
+      'Columns:',
+      columns.map((c) => c.column_name),
+    );
 
     console.log('\n=== CHECKING ACCOUNTS (NO TYPE) ===');
     const accounts = await sql`
@@ -41,7 +44,6 @@ async function checkAccounts() {
       LIMIT 10;
     `;
     console.log('Verifications found:', JSON.stringify(verifications, null, 2));
-
   } catch (err) {
     console.error('Error:', err.message);
     console.error('Stack:', err.stack);

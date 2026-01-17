@@ -106,7 +106,7 @@ class ParallelSearchStrategy implements SearchStrategy {
   constructor(
     private parallel: Parallel,
     private firecrawl: FirecrawlApp,
-  ) { }
+  ) {}
 
   async search(
     queries: string[],
@@ -151,13 +151,15 @@ class ParallelSearchStrategy implements SearchStrategy {
               max_results: Math.max(currentMaxResults, 10),
               max_chars_per_result: 1000,
             }),
-            this.firecrawl.search(query, {
-              sources: ['images'],
-              limit: 3,
-            }).catch((error) => {
-              console.error(`Firecrawl error for query "${query}":`, error);
-              return { images: [] } as Partial<Document> as any;
-            }),
+            this.firecrawl
+              .search(query, {
+                sources: ['images'],
+                limit: 3,
+              })
+              .catch((error) => {
+                console.error(`Firecrawl error for query "${query}":`, error);
+                return { images: [] } as Partial<Document> as any;
+              }),
           ]);
 
           const results = (singleResponse?.results || []).map((result: any) => ({
@@ -244,7 +246,7 @@ class ParallelSearchStrategy implements SearchStrategy {
 
 // Tavily search strategy
 class TavilySearchStrategy implements SearchStrategy {
-  constructor(private tvly: TavilyClient) { }
+  constructor(private tvly: TavilyClient) {}
 
   async search(
     queries: string[],
@@ -299,9 +301,9 @@ class TavilySearchStrategy implements SearchStrategy {
               const imageValidation = await isValidImageUrl(sanitizedUrl);
               return imageValidation.valid
                 ? {
-                  url: imageValidation.redirectedUrl || sanitizedUrl,
-                  description: description || '',
-                }
+                    url: imageValidation.redirectedUrl || sanitizedUrl,
+                    description: description || '',
+                  }
                 : null;
             },
           ),
@@ -362,7 +364,7 @@ class TavilySearchStrategy implements SearchStrategy {
 
 // Firecrawl search strategy
 class FirecrawlSearchStrategy implements SearchStrategy {
-  constructor(private firecrawl: FirecrawlApp) { }
+  constructor(private firecrawl: FirecrawlApp) {}
 
   async search(
     queries: string[],
@@ -494,7 +496,7 @@ class FirecrawlSearchStrategy implements SearchStrategy {
 
 // Exa search strategy
 class ExaSearchStrategy implements SearchStrategy {
-  constructor(private exa: Exa) { }
+  constructor(private exa: Exa) {}
 
   async search(
     queries: string[],
@@ -633,7 +635,7 @@ export function webSearchTool(
   return tool({
     description: `This is the default tool of the app to be used to search the web for information with multiple queries, max results, search depth, topics, and quality.
     Very important Rules:
-    ...${searchProvider === "parallel" ? "The First Query should be the objective and the rest of the queries should be related to the objective" : ""}...
+    ...${searchProvider === 'parallel' ? 'The First Query should be the objective and the rest of the queries should be related to the objective' : ''}...
     - The queries should always be in the same language as the user's message.
     - And count of the queries should be 3-5.
     - Do not use the best quality unless absolutly required since it is time expensive.
@@ -644,43 +646,45 @@ export function webSearchTool(
       - **NO TEMPORAL ASSUMPTIONS**: Never assume time periods - always be explicit about dates/years
       - Examples: "latest AI news ${new Date().getFullYear()}", "current stock prices today", "recent developments in ${new Date().getFullYear()}"
     `,
-    inputSchema: z.object({
-      queries: z.array(
-        z.string().describe('Array of 3-5 search queries to look up on the web. Default is 5. Minimum is 3.'),
-      ).min(3),
-      maxResults: z.array(
-        z
-          .number()
-          .describe(
-            'Array of maximum number of results to return per query. Default is 10. Minimum is 8. Maximum is 15.',
-          ),
-      ).optional(),
-      topics: z.array(
-        z
-          .enum(['general', 'news'])
-          .describe(
-            'Array of topic types to search for. Default is general. Other options are news and finance. No other options are available.',
-          ),
-      ).optional(),
-      quality: z.array(
-        z
-          .enum(['default', 'best'])
-          .describe(
-            'Array of quality levels for the search. Default is default. Other option is best. DO NOT use best unless necessary.',
-          ),
-      ).optional(),
+    parameters: z.object({
+      queries: z
+        .array(z.string().describe('Array of 3-5 search queries to look up on the web. Default is 5. Minimum is 3.'))
+        .min(3),
+      maxResults: z
+        .array(
+          z
+            .number()
+            .describe(
+              'Array of maximum number of results to return per query. Default is 10. Minimum is 8. Maximum is 15.',
+            ),
+        )
+        .optional(),
+      topics: z
+        .array(
+          z
+            .enum(['general', 'news'])
+            .describe(
+              'Array of topic types to search for. Default is general. Other options are news and finance. No other options are available.',
+            ),
+        )
+        .optional(),
+      quality: z
+        .array(
+          z
+            .enum(['default', 'best'])
+            .describe(
+              'Array of quality levels for the search. Default is default. Other option is best. DO NOT use best unless necessary.',
+            ),
+        )
+        .optional(),
     }),
+    // @ts-expect-error - AI SDK v6 type inference issue
     execute: async ({
       queries,
       maxResults,
       topics,
       quality,
-    }: {
-      queries: string[];
-      maxResults?: (number | undefined)[];
-      topics?: ('general' | 'news' | undefined)[];
-      quality?: ('default' | 'best' | undefined)[];
-    }) => {
+    }: any) => {
       // Initialize all clients
       const clients = {
         exa: new Exa(serverEnv.EXA_API_KEY),

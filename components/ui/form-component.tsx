@@ -1445,13 +1445,20 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
         const descKey = `searchMode.${group.id}.description`;
         const translatedName = t(nameKey);
         let translatedDesc = t(descKey);
-        
+
         // Handle web description with provider name
         if (group.id === 'web') {
-          const providerName = searchProvider === 'parallel' ? 'Parallel AI' : searchProvider === 'exa' ? 'Exa' : searchProvider === 'tavily' ? 'Tavily' : 'Firecrawl';
+          const providerName =
+            searchProvider === 'parallel'
+              ? 'Parallel AI'
+              : searchProvider === 'exa'
+                ? 'Exa'
+                : searchProvider === 'tavily'
+                  ? 'Tavily'
+                  : 'Firecrawl';
           translatedDesc = t(descKey, { provider: providerName });
         }
-        
+
         return {
           ...group,
           name: translatedName !== nameKey ? translatedName : group.name,
@@ -1622,9 +1629,7 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                 )}
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1 pr-4">
-                  {isMounted && (
-                    <HugeiconsIcon icon={group.icon} size={30} color="currentColor" strokeWidth={2} />
-                  )}
+                  {isMounted && <HugeiconsIcon icon={group.icon} size={30} color="currentColor" strokeWidth={2} />}
                   <div className="flex flex-col min-w-0 flex-1">
                     <div className="flex items-center gap-1">
                       <span className="font-medium truncate text-[11px] text-foreground">{group.name}</span>
@@ -1697,7 +1702,9 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                           </div>
                         )}
                         <div className="flex items-center gap-1">
-                          <p className="font-semibold text-xs">{t('searchMode.active', { name: selectedGroupData.name })}</p>
+                          <p className="font-semibold text-xs">
+                            {t('searchMode.active', { name: selectedGroupData.name })}
+                          </p>
                           {/* Self-hosted: no PRO label */}
                         </div>
                       </div>
@@ -1798,7 +1805,9 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                           </div>
                         )}
                         <div className="flex items-center gap-1">
-                          <p className="font-semibold text-xs">{t('searchMode.active', { name: selectedGroupData.name })}</p>
+                          <p className="font-semibold text-xs">
+                            {t('searchMode.active', { name: selectedGroupData.name })}
+                          </p>
                           {/* Self-hosted: no PRO label */}
                         </div>
                       </div>
@@ -1840,9 +1849,7 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                       : 'text-muted-foreground hover:bg-accent',
                 )}
               >
-                {isMounted && (
-                  <HugeiconsIcon icon={AtomicPowerIcon} size={30} color="currentColor" strokeWidth={2} />
-                )}
+                {isMounted && <HugeiconsIcon icon={AtomicPowerIcon} size={30} color="currentColor" strokeWidth={2} />}
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="max-w-[220px] p-2">
@@ -1859,12 +1866,14 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                     )}
                   </div>
                   <p className="font-semibold text-xs">
-                    {isMounted && isExtreme ? t('searchMode.extreme.active') : session ? t('searchMode.extreme.title') : t('searchMode.signInRequired')}
+                    {isMounted && isExtreme
+                      ? t('searchMode.extreme.active')
+                      : session
+                        ? t('searchMode.extreme.title')
+                        : t('searchMode.signInRequired')}
                   </p>
                 </div>
-                <p className="text-[11px] leading-snug text-secondary">
-                  {t('searchMode.extreme.description.tooltip')}
-                </p>
+                <p className="text-[11px] leading-snug text-secondary">{t('searchMode.extreme.description.tooltip')}</p>
                 {/* Self-hosted: no upsell */}
               </div>
             </TooltipContent>
@@ -1908,7 +1917,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const isCompositionActive = useRef(false);
   const { t } = useLanguage();
   const [isClient, setIsClient] = useState(false);
-  
+
   useEffect(() => {
     setIsClient(true);
   }, []);

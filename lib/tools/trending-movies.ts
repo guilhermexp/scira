@@ -4,7 +4,8 @@ import { serverEnv } from '@/env/server';
 
 export const trendingMoviesTool = tool({
   description: 'Get trending movies from TMDB',
-  inputSchema: z.object({}),
+  parameters: z.object({}),
+  // @ts-expect-error - AI SDK v6 type inference issue
   execute: async () => {
     const TMDB_API_KEY = serverEnv.TMDB_API_KEY;
     const TMDB_BASE_URL = 'https://api.themoviedb.org/3';

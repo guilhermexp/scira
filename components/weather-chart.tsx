@@ -472,7 +472,7 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
             <ChartContainer config={chartConfig} className="aspect-auto! h-[180px] sm:h-[200px]">
               <ResponsiveContainer width="100%">
                 <LineChart
-                  data={chartData.filter(d => d && d.minTemp !== undefined && d.maxTemp !== undefined)}
+                  data={chartData.filter((d) => d && d.minTemp !== undefined && d.maxTemp !== undefined)}
                   margin={{ top: 5, right: 5, left: 0, bottom: 0 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.2)" />
@@ -516,40 +516,40 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
                 {chartData
                   .filter((day) => day && day.minTemp !== undefined && day.maxTemp !== undefined)
                   .map((day, index) => (
-                  <div
-                    key={index}
-                    className="flex flex-col items-center min-w-[60px] sm:min-w-[70px] p-1.5 sm:p-2 mx-0.5"
-                  >
-                    <div className="text-xs font-medium text-neutral-800 dark:text-neutral-200">
-                      {index === 0
-                        ? 'Today'
-                        : index === 1
-                          ? 'Tmrw'
-                          : new Date(day.date).toLocaleDateString(undefined, { weekday: 'short' })}
-                    </div>
-
-                    <Image
-                      src={getWeatherIconUrl(day.icon)}
-                      alt={day.description}
-                      className="h-8 w-8 my-1"
-                      width={32}
-                      height={32}
-                      unoptimized
-                    />
-
-                    <div className="flex items-center gap-1 text-xs">
-                      <span className="font-medium text-rose-500 dark:text-rose-400">{day.maxTemp}°</span>
-                      <span className="text-neutral-400 dark:text-neutral-500">{day.minTemp}°</span>
-                    </div>
-
-                    {day.pop > 20 && (
-                      <div className="mt-1 flex items-center gap-0.5 text-[10px] text-blue-500 dark:text-blue-400">
-                        <Droplets className="h-3 w-3" />
-                        {day.pop}%
+                    <div
+                      key={index}
+                      className="flex flex-col items-center min-w-[60px] sm:min-w-[70px] p-1.5 sm:p-2 mx-0.5"
+                    >
+                      <div className="text-xs font-medium text-neutral-800 dark:text-neutral-200">
+                        {index === 0
+                          ? 'Today'
+                          : index === 1
+                            ? 'Tmrw'
+                            : new Date(day.date).toLocaleDateString(undefined, { weekday: 'short' })}
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      <Image
+                        src={getWeatherIconUrl(day.icon)}
+                        alt={day.description}
+                        className="h-8 w-8 my-1"
+                        width={32}
+                        height={32}
+                        unoptimized
+                      />
+
+                      <div className="flex items-center gap-1 text-xs">
+                        <span className="font-medium text-rose-500 dark:text-rose-400">{day.maxTemp}°</span>
+                        <span className="text-neutral-400 dark:text-neutral-500">{day.minTemp}°</span>
+                      </div>
+
+                      {day.pop > 20 && (
+                        <div className="mt-1 flex items-center gap-0.5 text-[10px] text-blue-500 dark:text-blue-400">
+                          <Droplets className="h-3 w-3" />
+                          {day.pop}%
+                        </div>
+                      )}
+                    </div>
+                  ))}
               </div>
             </div>
           </TabsContent>
@@ -657,23 +657,23 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
                   {hourlyDataByDay[selectedDay]
                     .filter((item) => item && item.timestamp !== undefined && item.temp !== undefined)
                     .map((item, i) => (
-                    <div key={i} className="flex flex-col items-center px-1 min-w-[40px]">
-                      <div className="text-[10px] text-neutral-500 dark:text-neutral-400">
-                        {formatTime(item.timestamp)}
+                      <div key={i} className="flex flex-col items-center px-1 min-w-[40px]">
+                        <div className="text-[10px] text-neutral-500 dark:text-neutral-400">
+                          {formatTime(item.timestamp)}
+                        </div>
+                        <Image
+                          src={getWeatherIconUrl(item.icon)}
+                          alt={item.description}
+                          className="h-6 w-6"
+                          width={24}
+                          height={24}
+                          unoptimized
+                        />
+                        <div className="text-[10px] font-medium text-neutral-800 dark:text-neutral-200">
+                          {item.temp}°C
+                        </div>
                       </div>
-                      <Image
-                        src={getWeatherIconUrl(item.icon)}
-                        alt={item.description}
-                        className="h-6 w-6"
-                        width={24}
-                        height={24}
-                        unoptimized
-                      />
-                      <div className="text-[10px] font-medium text-neutral-800 dark:text-neutral-200">
-                        {item.temp}°C
-                      </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </div>
             )}
@@ -701,7 +701,10 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
                 <div className="h-[180px] sm:h-[200px] mb-4">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
-                      data={dailyForecast.filter((d: ProcessedDailyForecast) => d && d.minTemp !== undefined && d.maxTemp !== undefined && d.pop !== undefined)}
+                      data={dailyForecast.filter(
+                        (d: ProcessedDailyForecast) =>
+                          d && d.minTemp !== undefined && d.maxTemp !== undefined && d.pop !== undefined,
+                      )}
                       margin={{ top: 5, right: 5, left: 0, bottom: 5 }}
                     >
                       <defs>
@@ -841,71 +844,75 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
                 <div className="max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-300 dark:scrollbar-thumb-neutral-700 scrollbar-track-transparent pr-1">
                   <div className="space-y-2">
                     {dailyForecast
-                      .filter((day: ProcessedDailyForecast) => day && day.minTemp !== undefined && day.maxTemp !== undefined)
+                      .filter(
+                        (day: ProcessedDailyForecast) => day && day.minTemp !== undefined && day.maxTemp !== undefined,
+                      )
                       .map((day: ProcessedDailyForecast, index: number) => (
-                      <div
-                        key={day.timestamp}
-                        className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800"
-                      >
-                        <div className="flex items-center gap-2 sm:gap-3 flex-1">
-                          <div className="w-8 sm:w-10 text-center flex-shrink-0">
-                            <div className="text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                              {index === 0
-                                ? 'Today'
-                                : index === 1
-                                  ? 'Tmrw'
-                                  : new Date(day.timestamp * 1000).toLocaleDateString(undefined, { weekday: 'short' })}
-                            </div>
-                            <div className="text-[10px] text-neutral-500 dark:text-neutral-500">
-                              {new Date(day.timestamp * 1000).toLocaleDateString(undefined, { day: 'numeric' })}
-                            </div>
-                          </div>
-
-                          <div className="w-8 sm:w-10 flex-shrink-0">
-                            <Image
-                              src={getWeatherIconUrl(day.icon)}
-                              alt={day.description}
-                              className="h-10 w-10"
-                              width={40}
-                              height={40}
-                              unoptimized
-                            />
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs capitalize text-neutral-600 dark:text-neutral-400 truncate">
-                              {day.description}
-                            </div>
-                            {day.pop > 20 && (
-                              <div className="text-[10px] text-blue-500 dark:text-blue-400 flex items-center gap-0.5">
-                                <Droplets className="h-3 w-3" />
-                                {day.pop}% chance of rain
+                        <div
+                          key={day.timestamp}
+                          className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800"
+                        >
+                          <div className="flex items-center gap-2 sm:gap-3 flex-1">
+                            <div className="w-8 sm:w-10 text-center flex-shrink-0">
+                              <div className="text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                                {index === 0
+                                  ? 'Today'
+                                  : index === 1
+                                    ? 'Tmrw'
+                                    : new Date(day.timestamp * 1000).toLocaleDateString(undefined, {
+                                        weekday: 'short',
+                                      })}
                               </div>
-                            )}
+                              <div className="text-[10px] text-neutral-500 dark:text-neutral-500">
+                                {new Date(day.timestamp * 1000).toLocaleDateString(undefined, { day: 'numeric' })}
+                              </div>
+                            </div>
+
+                            <div className="w-8 sm:w-10 flex-shrink-0">
+                              <Image
+                                src={getWeatherIconUrl(day.icon)}
+                                alt={day.description}
+                                className="h-10 w-10"
+                                width={40}
+                                height={40}
+                                unoptimized
+                              />
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs capitalize text-neutral-600 dark:text-neutral-400 truncate">
+                                {day.description}
+                              </div>
+                              {day.pop > 20 && (
+                                <div className="text-[10px] text-blue-500 dark:text-blue-400 flex items-center gap-0.5">
+                                  <Droplets className="h-3 w-3" />
+                                  {day.pop}% chance of rain
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                            <div className="text-right">
+                              <div className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
+                                {day.maxTemp}°
+                              </div>
+                              <div className="text-xs text-neutral-500 dark:text-neutral-400">{day.minTemp}°</div>
+                            </div>
+
+                            <div className="border-l border-neutral-200 dark:border-neutral-700 pl-2 flex flex-col items-end">
+                              <div className="text-[10px] text-neutral-500 flex items-center">
+                                <Wind className="h-3 w-3 mr-0.5 text-blue-500 dark:text-blue-400" />
+                                {day.windSpeed}
+                              </div>
+                              <div className="text-[10px] text-neutral-500 flex items-center">
+                                <Droplets className="h-3 w-3 mr-0.5 text-sky-500 dark:text-sky-400" />
+                                {day.humidity}%
+                              </div>
+                            </div>
                           </div>
                         </div>
-
-                        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                          <div className="text-right">
-                            <div className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
-                              {day.maxTemp}°
-                            </div>
-                            <div className="text-xs text-neutral-500 dark:text-neutral-400">{day.minTemp}°</div>
-                          </div>
-
-                          <div className="border-l border-neutral-200 dark:border-neutral-700 pl-2 flex flex-col items-end">
-                            <div className="text-[10px] text-neutral-500 flex items-center">
-                              <Wind className="h-3 w-3 mr-0.5 text-blue-500 dark:text-blue-400" />
-                              {day.windSpeed}
-                            </div>
-                            <div className="text-[10px] text-neutral-500 flex items-center">
-                              <Droplets className="h-3 w-3 mr-0.5 text-sky-500 dark:text-sky-400" />
-                              {day.humidity}%
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 </div>
               </div>
@@ -995,7 +1002,9 @@ const WeatherChart: React.FC<WeatherChartProps> = React.memo(({ result }) => {
                         <div className="h-[180px] sm:h-[200px]">
                           <ResponsiveContainer width="100%" height="100%">
                             <AreaChart
-                              data={airPollutionForecast.slice(0, 24).filter((item: any) => item && item.main && item.main.aqi !== undefined)}
+                              data={airPollutionForecast
+                                .slice(0, 24)
+                                .filter((item: any) => item && item.main && item.main.aqi !== undefined)}
                               margin={{ top: 5, right: 5, left: 0, bottom: 5 }}
                             >
                               <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.2)" />

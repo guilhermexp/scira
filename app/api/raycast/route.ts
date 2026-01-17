@@ -98,7 +98,7 @@ export async function POST(req: Request) {
     toolChoice: 'auto',
     experimental_activeTools: activeTools,
     tools: {
-      web_search: webSearchTool(undefined, "exa"),
+      web_search: webSearchTool(undefined, 'exa'),
       x_search: xSearchTool,
     },
   });

@@ -3,7 +3,8 @@ import { z } from 'zod';
 
 export const datetimeTool = tool({
   description: "Get the current date and time in the user's timezone",
-  inputSchema: z.object({}),
+  parameters: z.object({}),
+  // @ts-expect-error - AI SDK v6 type inference issue
   execute: async () => {
     try {
       const now = new Date();

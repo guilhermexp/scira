@@ -30,7 +30,6 @@ async function checkUsers() {
       LIMIT 10;
     `;
     console.log('Sessions found:', JSON.stringify(sessions, null, 2));
-
   } catch (err) {
     console.error('Error:', err.message);
     console.error('Stack:', err.stack);

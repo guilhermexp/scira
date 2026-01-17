@@ -5,11 +5,12 @@ import { DEFAULT_MODEL, scira } from '@/ai/providers';
 
 export const textTranslateTool = tool({
   description: 'Translate text from one language to another.',
-  inputSchema: z.object({
+  parameters: z.object({
     text: z.string().describe('The text to translate.'),
     to: z.string().describe('The language to translate to in the format of ISO 639-1.'),
   }),
-  execute: async ({ text, to }: { text: string; to: string }) => {
+  // @ts-expect-error - AI SDK v6 type inference issue
+  execute: async ({ text, to }) => {
     const { object: translation } = await generateObject({
       model: scira.languageModel(DEFAULT_MODEL),
       system: `You are a helpful assistant that translates text from one language to another.`,

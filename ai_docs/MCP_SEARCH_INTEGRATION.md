@@ -11,6 +11,7 @@ Re-enabled the Model Context Protocol (MCP) search functionality that was previo
 ## What is MCP?
 
 Model Context Protocol (MCP) is a standardized protocol for AI model context management. The MCP search tool allows users to:
+
 - Search for MCP servers in the Smithery Registry
 - Discover available context providers
 - Find tools and integrations for AI applications
@@ -45,7 +46,7 @@ export type ChatTools = {
   // ... other tools
   mcp_search: mcpSearchTool;
   // ... more tools
-}
+};
 ```
 
 3. **`app/api/search/route.ts`**
@@ -94,9 +95,11 @@ The MCP search tool is located in `lib/tools/mcp-search.ts` and provides:
 **Description:** Search for Model Context Protocol servers in Smithery Registry
 
 **Parameters:**
+
 - `query` (string) - Search query for finding MCP servers
 
 **Response:** JSON array of MCP servers with:
+
 - Server name
 - Description
 - Repository URL
@@ -120,6 +123,7 @@ Users can now use MCP search in the web search group:
 ### Search Groups
 
 MCP search is available in the **Web** group (`app/actions.ts:267`):
+
 - Web search
 - URL content retrieval
 - Maps and location
@@ -130,6 +134,7 @@ MCP search is available in the **Web** group (`app/actions.ts:267`):
 ### API Route
 
 Integrated into main search endpoint (`app/api/search/route.ts:516`):
+
 - Available to all authenticated users
 - No special permissions required
 - Part of standard tool set
@@ -137,6 +142,7 @@ Integrated into main search endpoint (`app/api/search/route.ts:516`):
 ## Why Was It Disabled?
 
 The tool was previously commented out (lines with `//`), likely for one of these reasons:
+
 - Testing/debugging purposes
 - API rate limiting concerns
 - Feature flag for gradual rollout
@@ -144,6 +150,7 @@ The tool was previously commented out (lines with `//`), likely for one of these
 ## Why Re-enable Now?
 
 Re-enabled because:
+
 1. Self-hosted instance has no rate limit concerns
 2. Useful feature for developers working with MCP
 3. No known issues with the implementation
@@ -157,6 +164,7 @@ To verify MCP search is working:
 2. Navigate to `http://localhost:8931`
 3. Select "Web" search group
 4. Test queries:
+
    ```
    User: "Find MCP servers for filesystem"
    Expected: Tool call to mcp_search with query about filesystem
@@ -173,6 +181,7 @@ To verify MCP search is working:
 ## Dependencies
 
 **API Key Required:**
+
 ```bash
 SMITHERY_API_KEY=your_key_here
 ```
@@ -180,12 +189,14 @@ SMITHERY_API_KEY=your_key_here
 Set in `.env.local` for local development.
 
 **External Service:**
+
 - Smithery Registry API
 - Documentation: https://smithery.ai
 
 ## Error Handling
 
 The tool should handle:
+
 - Missing API key (graceful error message)
 - Network failures (retry logic)
 - Invalid queries (validation)
@@ -194,6 +205,7 @@ The tool should handle:
 ## Future Enhancements
 
 Potential improvements:
+
 1. **Caching** - Cache popular MCP server searches
 2. **Filtering** - Add filters by category, language, popularity
 3. **Favorites** - Let users save favorite MCP servers
@@ -213,10 +225,12 @@ Potential improvements:
 **User-Facing:** Yes
 
 **Affected Features:**
+
 - Web search group now includes MCP search
 - Users can discover MCP servers via chat interface
 - Developers can find context providers for AI applications
 
 **No Breaking Changes:**
+
 - Existing functionality unchanged
 - Purely additive feature

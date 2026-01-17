@@ -13,6 +13,7 @@ Changed the default web search provider from 'parallel' to 'tavily' for improved
 ### File: `lib/tools/web-search.ts`
 
 **Line 631:**
+
 ```typescript
 // Before
 searchProvider: 'exa' | 'parallel' | 'tavily' | 'firecrawl' = 'parallel',
@@ -80,15 +81,15 @@ searchProvider: 'exa' | 'parallel' | 'tavily' | 'firecrawl' = 'tavily',
 
 ### When to Use Each Provider
 
-| Use Case | Recommended Provider |
-|----------|---------------------|
-| General questions | `tavily` (default) |
-| Current news | `tavily` |
-| Research papers | `exa` |
-| Similar content | `exa` |
-| Maximum coverage | `parallel` |
-| Deep scraping | `firecrawl` |
-| Data extraction | `firecrawl` |
+| Use Case          | Recommended Provider |
+| ----------------- | -------------------- |
+| General questions | `tavily` (default)   |
+| Current news      | `tavily`             |
+| Research papers   | `exa`                |
+| Similar content   | `exa`                |
+| Maximum coverage  | `parallel`           |
+| Deep scraping     | `firecrawl`          |
+| Data extraction   | `firecrawl`          |
 
 ## Implementation Details
 
@@ -98,7 +99,7 @@ searchProvider: 'exa' | 'parallel' | 'tavily' | 'firecrawl' = 'tavily',
 export function webSearchTool(
   dataStream?: UIMessageStreamWriter<ChatMessage> | undefined,
   searchProvider: 'exa' | 'parallel' | 'tavily' | 'firecrawl' = 'tavily',
-)
+);
 ```
 
 ### How It's Used
@@ -138,11 +139,13 @@ const tools = {
 ### Environment Variables
 
 **Required for Tavily (new default):**
+
 ```bash
 TAVILY_API_KEY=your_tavily_api_key
 ```
 
 **Optional (for other providers):**
+
 ```bash
 EXA_API_KEY=your_exa_api_key
 FIRECRAWL_API_KEY=your_firecrawl_api_key
@@ -160,12 +163,14 @@ FIRECRAWL_API_KEY=your_firecrawl_api_key
 ### Verify the Change
 
 1. **Ensure Tavily API Key is Set:**
+
 ```bash
 # In .env.local
 TAVILY_API_KEY=your_actual_key
 ```
 
 2. **Start Development Server:**
+
 ```bash
 npm run dev
 ```
@@ -188,11 +193,13 @@ npm run dev
 ### Expected Behavior
 
 **Before (Parallel Mode):**
+
 - Multiple API calls visible in Network tab
 - Longer response times
 - Results aggregated from multiple sources
 
 **After (Tavily Mode):**
+
 - Single API call to Tavily
 - Faster response times
 - Clean, focused results
@@ -203,7 +210,7 @@ To compare providers:
 
 ```typescript
 // Test in dev console or create test file
-const testQuery = "Latest AI developments";
+const testQuery = 'Latest AI developments';
 
 // Tavily (default)
 const tavilyResults = await webSearchTool(undefined, 'tavily');
@@ -222,12 +229,14 @@ const parallelResults = await webSearchTool(undefined, 'parallel');
 ### User Experience
 
 **Positive Impacts:**
+
 - ✅ Faster search results
 - ✅ Lower latency
 - ✅ More predictable performance
 - ✅ Better general-purpose results
 
 **Potential Drawbacks:**
+
 - ⚠️ Less comprehensive than parallel mode
 - ⚠️ Single provider dependency
 - ⚠️ May miss niche sources
@@ -235,6 +244,7 @@ const parallelResults = await webSearchTool(undefined, 'parallel');
 ### Cost Implications
 
 For self-hosted users:
+
 - **Reduced API Calls:** 1 call vs. multiple per search
 - **Lower Costs:** Single provider usage
 - **Predictable Billing:** Easier to estimate costs
@@ -242,6 +252,7 @@ For self-hosted users:
 ### Performance Metrics
 
 Expected improvements:
+
 - **Time to First Result:** 50-70% faster
 - **Total Search Time:** 40-60% faster
 - **API Calls per Search:** Reduced from 2-3 to 1
@@ -266,6 +277,7 @@ Expected improvements:
 ### Backward Compatibility
 
 **Fully backward compatible:**
+
 - Other providers still available
 - Can explicitly specify provider
 - No breaking changes to API
@@ -275,11 +287,13 @@ Expected improvements:
 If issues arise with Tavily:
 
 1. **Revert Default in `lib/tools/web-search.ts`:**
+
 ```typescript
 searchProvider: 'exa' | 'parallel' | 'tavily' | 'firecrawl' = 'parallel',
 ```
 
 2. **Or Override Per-Call:**
+
 ```typescript
 // In app/api/search/route.ts
 const tools = {
@@ -288,6 +302,7 @@ const tools = {
 ```
 
 3. **Restart Server:**
+
 ```bash
 npm run dev
 ```
@@ -299,23 +314,25 @@ npm run dev
 **Endpoint:** https://api.tavily.com/search
 **Response Format:** JSON
 **Features:**
+
 - Real-time web search
 - News and current events
 - Fact-checking capabilities
 - Source credibility scoring
 
 **Rate Limits:**
+
 - Varies by plan
 - Check Tavily dashboard for current limits
 
 ### Performance Characteristics
 
-| Provider | Avg Latency | Coverage | Best For |
-|----------|-------------|----------|----------|
-| Tavily | ~1-2s | High | General queries |
-| Exa | ~1-3s | Medium | Semantic search |
-| Parallel | ~3-5s | Very High | Comprehensive |
-| Firecrawl | ~2-4s | Deep | Specific sites |
+| Provider  | Avg Latency | Coverage  | Best For        |
+| --------- | ----------- | --------- | --------------- |
+| Tavily    | ~1-2s       | High      | General queries |
+| Exa       | ~1-3s       | Medium    | Semantic search |
+| Parallel  | ~3-5s       | Very High | Comprehensive   |
+| Firecrawl | ~2-4s       | Deep      | Specific sites  |
 
 ## Future Enhancements
 
@@ -352,6 +369,7 @@ Potential improvements:
 ## Monitoring
 
 Track these metrics:
+
 - Search success rate
 - Average response time
 - API error rates
@@ -367,16 +385,19 @@ Track these metrics:
 **API Keys Required:** TAVILY_API_KEY (new requirement)
 
 **Benefits:**
+
 - ⚡ Faster search responses
 - 💰 Lower API costs
 - 🎯 Better general-purpose results
 - 🔧 Easier to maintain and debug
 
 **Migration Required:**
+
 - ✅ Add TAVILY_API_KEY to environment
 - ✅ Test searches work correctly
 - ✅ Monitor performance
 
 **Risks:**
+
 - ⚠️ Single provider dependency (mitigated by other providers still available)
 - ⚠️ Users without Tavily key need to set it up

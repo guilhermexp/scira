@@ -104,9 +104,7 @@ const SignInButton = ({ provider, loading, setLoading }: SignInButtonProps) => {
                 </svg>
               )}
             </div>
-            <span className="text-sm font-medium">
-              Continue with {providerName}
-            </span>
+            <span className="text-sm font-medium">Continue with {providerName}</span>
           </>
         )}
       </div>
@@ -362,9 +360,7 @@ export function SignInPromptDialog({ open, onOpenChange }: SignInPromptDialogPro
             )}
           </Button>
         </form>
-        <p className="text-xs text-muted-foreground/80">
-          {t('auth.magicLinkDescription')}
-        </p>
+        <p className="text-xs text-muted-foreground/80">{t('auth.magicLinkDescription')}</p>
       </TabsContent>
     </Tabs>
   );
@@ -384,7 +380,6 @@ export function SignInPromptDialog({ open, onOpenChange }: SignInPromptDialogPro
       <Button variant="ghost" onClick={() => onOpenChange(false)} className="w-full h-10 font-normal text-sm">
         Continue without account
       </Button>
-
     </>
   );
 
@@ -404,7 +399,6 @@ export function SignInPromptDialog({ open, onOpenChange }: SignInPromptDialogPro
             <Button variant="ghost" onClick={() => onOpenChange(false)} className="w-full h-10 font-normal text-sm">
               {t('auth.continueWithoutAccount')}
             </Button>
-
           </div>
         </DrawerContent>
       </Drawer>

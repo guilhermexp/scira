@@ -19,7 +19,7 @@ import { suggestQuestions, updateChatVisibility, updateChatAllowContinuation } f
 import { ChatDialogs } from '@/components/chat-dialogs';
 import Messages from '@/components/messages';
 import dynamic from 'next/dynamic';
-const Navbar = dynamic(() => import('@/components/navbar').then(m => m.Navbar), {
+const Navbar = dynamic(() => import('@/components/navbar').then((m) => m.Navbar), {
   ssr: false,
 });
 import { Button } from '@/components/ui/button';
@@ -184,9 +184,7 @@ const ChatInterface = memo(
       // If current model requires pro but user is not pro, switch to default
       // Also prevent infinite loops by ensuring we're not already on the default model
       if (currentModelRequiresPro && !isUserPro && selectedModel !== DEFAULT_MODEL) {
-        console.log(
-          `Auto-switching from pro model '${selectedModel}' to '${DEFAULT_MODEL}' - user lost pro access`,
-        );
+        console.log(`Auto-switching from pro model '${selectedModel}' to '${DEFAULT_MODEL}' - user lost pro access`);
         setSelectedModel(DEFAULT_MODEL);
 
         // Show a toast notification to inform the user
@@ -369,7 +367,6 @@ const ChatInterface = memo(
       }
     }, [status]);
 
-
     useEffect(() => {
       if (user && status === 'streaming' && messages.length > 0) {
         console.log('[chatId]:', chatId);
@@ -475,16 +472,9 @@ const ChatInterface = memo(
     useEffect(() => {
       dispatch({
         type: 'SET_ANY_DIALOG_OPEN',
-        payload:
-          chatState.commandDialogOpen ||
-          chatState.showSignInPrompt ||
-          chatState.showAnnouncementDialog,
+        payload: chatState.commandDialogOpen || chatState.showSignInPrompt || chatState.showAnnouncementDialog,
       });
-    }, [
-      chatState.commandDialogOpen,
-      chatState.showSignInPrompt,
-      chatState.showAnnouncementDialog,
-    ]);
+    }, [chatState.commandDialogOpen, chatState.showSignInPrompt, chatState.showAnnouncementDialog]);
 
     // Keyboard shortcut for command dialog
     useEffect(() => {
@@ -652,12 +642,12 @@ const ChatInterface = memo(
           setAnyDialogOpen={(open) => dispatch({ type: 'SET_ANY_DIALOG_OPEN', payload: open })}
         />
 
-
         <div
-          className={`w-full p-2 sm:p-4 relative ${status === 'ready' && messages.length === 0
+          className={`w-full p-2 sm:p-4 relative ${
+            status === 'ready' && messages.length === 0
               ? 'flex-1 !flex !flex-col !items-center !justify-center' // Center everything when no messages
               : '!mt-20 sm:!mt-16 flex !flex-col' // Add top margin when showing messages
-            }`}
+          }`}
         >
           <div className={`w-full max-w-[95%] sm:max-w-2xl space-y-6 p-0 mx-auto transition-all duration-300`}>
             {status === 'ready' && messages.length === 0 && (
@@ -744,7 +734,10 @@ const ChatInterface = memo(
           </div>
 
           {/* Single Form Component with dynamic positioning */}
-          {((user && isOwner) || (!isOwner && chatState.allowContinuation) || !initialChatId || (!user && chatState.selectedVisibilityType === 'private')) &&
+          {((user && isOwner) ||
+            (!isOwner && chatState.allowContinuation) ||
+            !initialChatId ||
+            (!user && chatState.selectedVisibilityType === 'private')) &&
             !isLimitBlocked && (
               <div
                 className={cn(
@@ -793,7 +786,10 @@ const ChatInterface = memo(
             )}
 
           {/* Form backdrop overlay - hides content below form when in submitted mode */}
-          {((user && isOwner) || (!isOwner && chatState.allowContinuation) || !initialChatId || (!user && chatState.selectedVisibilityType === 'private')) &&
+          {((user && isOwner) ||
+            (!isOwner && chatState.allowContinuation) ||
+            !initialChatId ||
+            (!user && chatState.selectedVisibilityType === 'private')) &&
             !isLimitBlocked &&
             (messages.length > 0 || chatState.hasSubmitted) && (
               <div

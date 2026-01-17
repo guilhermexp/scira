@@ -544,16 +544,16 @@ export function PreferencesSection({
               <div className="space-y-2.5">
                 <Select value={language} onValueChange={(value) => setLanguage(value as 'en' | 'pt')}>
                   <SelectTrigger className="w-full">
-                    <span>{language === 'pt' ? t('settings.language.portuguese') : t('settings.language.english')}</span>
+                    <span>
+                      {language === 'pt' ? t('settings.language.portuguese') : t('settings.language.english')}
+                    </span>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="en">{t('settings.language.english')}</SelectItem>
                     <SelectItem value="pt">{t('settings.language.portuguese')}</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  {t('settings.language.note')}
-                </p>
+                <p className="text-xs text-muted-foreground leading-relaxed">{t('settings.language.note')}</p>
               </div>
             </div>
           </div>
@@ -842,7 +842,9 @@ export function UsageSection({ user }: any) {
 
         <div className={cn('bg-muted/50 rounded-lg space-y-1', isMobile ? 'p-3' : 'p-3')}>
           <div className="flex items-center justify-between">
-            <span className={cn('text-muted-foreground', isMobile ? 'text-[11px]' : 'text-xs')}>{t('usage.extreme')}</span>
+            <span className={cn('text-muted-foreground', isMobile ? 'text-[11px]' : 'text-xs')}>
+              {t('usage.extreme')}
+            </span>
             <LightningIcon className={isMobile ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
           </div>
           {usageLoading ? (
@@ -1066,32 +1068,37 @@ export function SubscriptionSection({ subscriptionData, isProUser, user }: any) 
   const paymentHistory = user?.paymentHistory || null;
   const dodoProStatus = user?.dodoProStatus || null;
 
+  // SELF-HOSTED: Polar payments disabled - commenting out order fetching
   useEffect(() => {
-    const fetchPolarOrders = async () => {
-      try {
-        setOrdersLoading(true);
+    // const fetchPolarOrders = async () => {
+    //   try {
+    //     setOrdersLoading(true);
+    //
+    //     // Only fetch Polar orders (DodoPayments data comes from user cache)
+    //     const ordersResponse = await authClient.customer.orders
+    //       .list({
+    //         query: {
+    //           page: 1,
+    //           limit: 10,
+    //           productBillingType: 'recurring',
+    //         },
+    //       })
+    //       .catch(() => ({ data: null }));
+    //
+    //     setOrders(ordersResponse.data);
+    //   } catch (error) {
+    //     console.log('Failed to fetch Polar orders:', error);
+    //     setOrders(null);
+    //   } finally {
+    //     setOrdersLoading(false);
+    //   }
+    // };
+    //
+    // fetchPolarOrders();
 
-        // Only fetch Polar orders (DodoPayments data comes from user cache)
-        const ordersResponse = await authClient.customer.orders
-          .list({
-            query: {
-              page: 1,
-              limit: 10,
-              productBillingType: 'recurring',
-            },
-          })
-          .catch(() => ({ data: null }));
-
-        setOrders(ordersResponse.data);
-      } catch (error) {
-        console.log('Failed to fetch Polar orders:', error);
-        setOrders(null);
-      } finally {
-        setOrdersLoading(false);
-      }
-    };
-
-    fetchPolarOrders();
+    // Self-hosted: no orders to fetch, set to null immediately
+    setOrders(null);
+    setOrdersLoading(false);
   }, []);
 
   const handleManageSubscription = async () => {

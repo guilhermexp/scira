@@ -427,7 +427,12 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
               </AvatarFallback>
             </Avatar>
           ) : (
-            <HugeiconsIcon icon={UserCircleIcon} size={24} className="size-7 flex-shrink-0 self-start" suppressHydrationWarning />
+            <HugeiconsIcon
+              icon={UserCircleIcon}
+              size={24}
+              className="size-7 flex-shrink-0 self-start"
+              suppressHydrationWarning
+            />
           )}
           <div className="flex-1 grow min-w-0 bg-accent/80 rounded-2xl p-2 relative">
             <Textarea
@@ -484,10 +489,10 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
                 disabled={
                   isSubmitting ||
                   draftContent.trim() ===
-                  message.parts
-                    ?.map((part) => (part.type === 'text' ? part.text : ''))
-                    .join('')
-                    .trim()
+                    message.parts
+                      ?.map((part) => (part.type === 'text' ? part.text : ''))
+                      .join('')
+                      .trim()
                 }
               >
                 {isSubmitting ? (
@@ -633,14 +638,18 @@ export const Message: React.FC<MessageProps> = ({
                         <div
                           key={`user-${index}-${partIndex}`}
                           ref={messageContentRef}
-                          className={`mt-2 prose prose-sm sm:prose-base prose-neutral dark:prose-invert prose-p:my-1 sm:prose-p:my-2 prose-p:mt-0 sm:prose-p:mt-0 prose-pre:my-1 sm:prose-pre:my-2 prose-code:before:hidden prose-code:after:hidden [&>*]:!font-be-vietnam-pro font-be-vietnam-pro font-normal max-w-none ${getDynamicFontSize(part.text)} text-foreground dark:text-foreground overflow-hidden relative ${!isExpanded && exceedsMaxHeight ? 'max-h-[120px]' : ''
-                            }`}
+                          className={`mt-2 prose prose-sm sm:prose-base prose-neutral dark:prose-invert prose-p:my-1 sm:prose-p:my-2 prose-p:mt-0 sm:prose-p:mt-0 prose-pre:my-1 sm:prose-pre:my-2 prose-code:before:hidden prose-code:after:hidden [&>*]:!font-be-vietnam-pro font-be-vietnam-pro font-normal max-w-none ${getDynamicFontSize(part.text)} text-foreground dark:text-foreground overflow-hidden relative ${
+                            !isExpanded && exceedsMaxHeight ? 'max-h-[120px]' : ''
+                          }`}
                         >
                           <div
                             className={`flex ${shouldTopAlignUser ? 'items-start' : 'items-center'} justify-start gap-2`}
                           >
                             {user ? (
-                              <Avatar className="size-7 rounded-md !p-0 !m-0 flex-shrink-0 self-start" suppressHydrationWarning>
+                              <Avatar
+                                className="size-7 rounded-md !p-0 !m-0 flex-shrink-0 self-start"
+                                suppressHydrationWarning
+                              >
                                 <AvatarImage
                                   src={user.image ?? ''}
                                   alt={user.name ?? ''}
@@ -691,14 +700,18 @@ export const Message: React.FC<MessageProps> = ({
                           ?.map((part) => (part.type === 'text' ? part.text : ''))
                           .join('')
                           .trim() || '',
-                      )} text-foreground dark:text-foreground overflow-hidden relative ${!isExpanded && exceedsMaxHeight ? 'max-h-[120px]' : ''
-                        }`}
+                      )} text-foreground dark:text-foreground overflow-hidden relative ${
+                        !isExpanded && exceedsMaxHeight ? 'max-h-[120px]' : ''
+                      }`}
                     >
                       <div
                         className={`flex ${shouldTopAlignUser ? 'items-start' : 'items-center'} justify-start gap-2`}
                       >
                         {user ? (
-                          <Avatar className="size-7 rounded-md !p-0 !m-0 flex-shrink-0 self-start" suppressHydrationWarning>
+                          <Avatar
+                            className="size-7 rounded-md !p-0 !m-0 flex-shrink-0 self-start"
+                            suppressHydrationWarning
+                          >
                             <AvatarImage
                               src={user.image ?? ''}
                               alt={user.name ?? ''}
@@ -709,7 +722,12 @@ export const Message: React.FC<MessageProps> = ({
                             </AvatarFallback>
                           </Avatar>
                         ) : (
-                          <HugeiconsIcon icon={UserCircleIcon} size={24} className="size-7 flex-shrink-0 self-start" suppressHydrationWarning />
+                          <HugeiconsIcon
+                            icon={UserCircleIcon}
+                            size={24}
+                            className="size-7 flex-shrink-0 self-start"
+                            suppressHydrationWarning
+                          />
                         )}
                         <div className="flex-1 grow min-w-0 bg-accent/80 rounded-2xl p-2">
                           <MarkdownRenderer
@@ -782,10 +800,11 @@ export const Message: React.FC<MessageProps> = ({
                         );
                         toast.success('Copied to clipboard');
                       }}
-                      className={`h-7 w-7 ${(!user || !isOwner) && selectedVisibilityType === 'public'
-                        ? 'rounded-md'
-                        : 'rounded-r-md rounded-l-none'
-                        } text-muted-foreground dark:text-muted-foreground hover:text-primary hover:bg-muted dark:hover:bg-muted transition-colors`}
+                      className={`h-7 w-7 ${
+                        (!user || !isOwner) && selectedVisibilityType === 'public'
+                          ? 'rounded-md'
+                          : 'rounded-r-md rounded-l-none'
+                      } text-muted-foreground dark:text-muted-foreground hover:text-primary hover:bg-muted dark:hover:bg-muted transition-colors`}
                       aria-label="Copy message"
                     >
                       <HugeiconsIcon icon={Copy01Icon} size={24} className="flex-shrink-0 pr-1 size-6" />
@@ -1144,10 +1163,11 @@ export const EditableAttachmentsBadge = ({
                     <button
                       key={idx}
                       onClick={() => setSelectedIndex(idx)}
-                      className={`relative h-10 w-10 rounded-md overflow-hidden shrink-0 transition-all ${selectedIndex === idx
-                        ? 'ring-2 ring-primary ring-offset-1 ring-offset-background'
-                        : 'opacity-70 hover:opacity-100'
-                        }`}
+                      className={`relative h-10 w-10 rounded-md overflow-hidden shrink-0 transition-all ${
+                        selectedIndex === idx
+                          ? 'ring-2 ring-primary ring-offset-1 ring-offset-background'
+                          : 'opacity-70 hover:opacity-100'
+                      }`}
                     >
                       {isPdf(attachment) ? (
                         <div className="h-full w-full flex items-center justify-center bg-neutral-100 dark:bg-neutral-800">
@@ -1430,10 +1450,11 @@ export const AttachmentsBadge = ({ attachments }: { attachments: Attachment[] })
                     <button
                       key={idx}
                       onClick={() => setSelectedIndex(idx)}
-                      className={`relative h-10 w-10 rounded-md overflow-hidden shrink-0 transition-all ${selectedIndex === idx
-                        ? 'ring-2 ring-primary ring-offset-1 ring-offset-background'
-                        : 'opacity-70 hover:opacity-100'
-                        }`}
+                      className={`relative h-10 w-10 rounded-md overflow-hidden shrink-0 transition-all ${
+                        selectedIndex === idx
+                          ? 'ring-2 ring-primary ring-offset-1 ring-offset-background'
+                          : 'opacity-70 hover:opacity-100'
+                      }`}
                     >
                       {isPdf(attachment) ? (
                         <div className="h-full w-full flex items-center justify-center bg-muted dark:bg-muted">

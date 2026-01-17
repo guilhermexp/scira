@@ -62,18 +62,14 @@ export const LookoutAnnouncementDialog = React.memo(({ open, onOpenChange }: Loo
               <DialogTitle className="text-white text-xl sm:text-2xl font-bold tracking-tight">
                 {t('lookout.introducing')}
               </DialogTitle>
-              <DialogDescription className="text-white/80 text-sm mt-1">
-                {t('lookout.description')}
-              </DialogDescription>
+              <DialogDescription className="text-white/80 text-sm mt-1">{t('lookout.description')}</DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         <div className="px-6 py-6 space-y-6">
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              {t('lookout.setupDescription')}
-            </p>
+            <p className="text-sm text-muted-foreground leading-relaxed">{t('lookout.setupDescription')}</p>
 
             <div className="space-y-3">
               <div className="flex items-center gap-4">

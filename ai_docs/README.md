@@ -9,6 +9,7 @@ Comprehensive technical documentation for developers working on this self-hosted
 ## File Organization
 
 Documentation is organized by topic/feature:
+
 - Architecture documents
 - Setup and configuration guides
 - Development guides

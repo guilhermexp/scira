@@ -60,12 +60,7 @@ export function ShareButton({
         } else {
           return (
             <>
-              <HugeiconsIcon
-                icon={Share03Icon}
-                size={14}
-                color="currentColor"
-                strokeWidth={2}
-              />
+              <HugeiconsIcon icon={Share03Icon} size={14} color="currentColor" strokeWidth={2} />
               <span className="text-sm font-medium">Share</span>
             </>
           );
@@ -104,9 +99,7 @@ export function ShareButton({
           variant: selectedVisibilityType === 'public' ? ('secondary' as const) : ('ghost' as const),
           size: 'sm' as const,
           className: `${className} !h-8 px-3 gap-2 font-medium transition-all ${
-            selectedVisibilityType === 'public' 
-              ? 'bg-primary/5 hover:bg-primary/10 border-primary/20' 
-              : ''
+            selectedVisibilityType === 'public' ? 'bg-primary/5 hover:bg-primary/10 border-primary/20' : ''
           }`,
         };
       case 'button':

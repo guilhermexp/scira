@@ -48,7 +48,6 @@ async function checkDefaults() {
       ORDER BY version;
     `;
     console.log(JSON.stringify(migrationResult, null, 2));
-
   } catch (err) {
     console.error('Error:', err.message);
     console.error('Stack:', err.stack);

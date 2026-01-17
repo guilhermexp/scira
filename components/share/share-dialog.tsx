@@ -181,7 +181,7 @@ export function ShareDialog({
               <div className="group relative overflow-hidden rounded-lg border bg-muted/40 transition-colors hover:bg-muted/60">
                 <div className="flex items-center gap-2 px-3.5 py-2.5">
                   <div className="flex-1 min-w-0 relative">
-                    <code 
+                    <code
                       className="text-[13px] text-foreground/70 block font-medium pr-12"
                       style={{
                         maskImage: 'linear-gradient(to right, black 70%, transparent 100%)',
@@ -196,10 +196,8 @@ export function ShareDialog({
                     variant="ghost"
                     onClick={handleCopyLink}
                     className={cn(
-                      "h-8 px-3 shrink-0 font-medium text-xs transition-all absolute right-2",
-                      copied 
-                        ? "text-green-600 dark:text-green-500" 
-                        : "hover:bg-background/80"
+                      'h-8 px-3 shrink-0 font-medium text-xs transition-all absolute right-2',
+                      copied ? 'text-green-600 dark:text-green-500' : 'hover:bg-background/80',
                     )}
                   >
                     {copied ? (
@@ -220,12 +218,7 @@ export function ShareDialog({
               {/* Social Share - Streamlined */}
               <div className="flex items-center gap-2">
                 {typeof navigator !== 'undefined' && 'share' in navigator && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleNativeShare}
-                    className="flex-1 h-9 font-medium"
-                  >
+                  <Button variant="outline" size="sm" onClick={handleNativeShare} className="flex-1 h-9 font-medium">
                     <HugeiconsIcon icon={Share03Icon} size={15} strokeWidth={2} className="mr-2" />
                     Share
                   </Button>
@@ -265,9 +258,7 @@ export function ShareDialog({
                   <label htmlFor="allow-continuation" className="text-sm font-medium text-foreground cursor-pointer">
                     Allow visitors to continue chat
                   </label>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Let others add messages to this conversation
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Let others add messages to this conversation</p>
                 </div>
                 <Switch
                   id="allow-continuation"
@@ -289,12 +280,7 @@ export function ShareDialog({
                   <LockIcon size={14} className="mr-1.5" />
                   Make Private
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onOpenChange(false)}
-                  className="h-8 text-xs -mr-2"
-                >
+                <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)} className="h-8 text-xs -mr-2">
                   Done
                 </Button>
               </div>
@@ -308,9 +294,7 @@ export function ShareDialog({
                     <GlobeIcon size={18} className="text-muted-foreground" />
                   </div>
                 </div>
-                <p className="text-sm font-medium text-foreground mb-1.5">
-                  Share this conversation
-                </p>
+                <p className="text-sm font-medium text-foreground mb-1.5">Share this conversation</p>
                 <p className="text-xs text-muted-foreground leading-relaxed max-w-[280px] mx-auto">
                   Create a public link that anyone can access
                 </p>
@@ -318,15 +302,11 @@ export function ShareDialog({
 
               {/* Actions */}
               <div className="flex gap-2.5 pt-1">
-                <Button 
-                  variant="outline" 
-                  onClick={() => onOpenChange(false)}
-                  className="flex-1 h-10"
-                >
+                <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 h-10">
                   Cancel
                 </Button>
-                <Button 
-                  onClick={handleShareAndCopy} 
+                <Button
+                  onClick={handleShareAndCopy}
                   disabled={isChangingVisibility}
                   className="flex-1 h-10 font-medium"
                 >

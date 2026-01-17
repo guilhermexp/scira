@@ -5,12 +5,13 @@ import { serverEnv } from '@/env/server';
 
 export const currencyConverterTool = tool({
   description: 'Convert currency from one to another using Valyu forex data',
-  inputSchema: z.object({
+  parameters: z.object({
     from: z.string().describe('The source currency code.'),
     to: z.string().describe('The target currency code.'),
     amount: z.number().describe('The amount to convert. Default is 1.'),
   }),
-  execute: async ({ from, to, amount }: { from: string; to: string; amount: number }) => {
+  // @ts-expect-error - AI SDK v6 type inference issue
+  execute: async ({ from, to, amount }) => {
     const valyu = new Valyu(serverEnv.VALYU_API_KEY);
 
     type ForexResult = {

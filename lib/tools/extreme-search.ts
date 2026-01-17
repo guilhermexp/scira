@@ -639,7 +639,9 @@ ${JSON.stringify(plan)}
             const result = {
               content: text,
               citations: citations,
-              sources: allSources.filter((source): source is { text: string; link: string; title: string } => source !== null),
+              sources: allSources.filter(
+                (source): source is { text: string; link: string; title: string } => source !== null,
+              ),
               dateRange: `${searchStartDate} to ${searchEndDate}`,
               handles: xHandles || [],
             };
@@ -733,13 +735,14 @@ ${JSON.stringify(plan)}
 export function extremeSearchTool(dataStream: UIMessageStreamWriter<ChatMessage> | undefined) {
   return tool({
     description: 'Use this tool to conduct an extreme search on a given topic.',
-    inputSchema: z.object({
+    parameters: z.object({
       prompt: z
         .string()
         .describe(
           "This should take the user's exact prompt. Extract from the context but do not infer or change in any way.",
         ),
     }),
+    // @ts-expect-error - AI SDK v6 type inference issue
     execute: async ({ prompt }) => {
       console.log({ prompt });
 

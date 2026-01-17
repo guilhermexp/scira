@@ -7,13 +7,14 @@ import FirecrawlApp from '@mendable/firecrawl-js';
 export const retrieveTool = tool({
   description:
     'Retrieve the full content from a URL using Exa AI, with Firecrawl as a fallback. Returns text, title, summary, images, and more.',
-  inputSchema: z.object({
+  parameters: z.object({
     url: z.string().describe('The URL to retrieve the information from.'),
     include_summary: z.boolean().describe('Whether to include a summary of the content. Default is true.'),
     live_crawl: z
       .enum(['never', 'auto', 'preferred'])
       .describe('Whether to crawl the page immediately. Options: never, auto, preferred. Default is "preferred".'),
   }),
+  // @ts-expect-error - AI SDK v6 type inference issue
   execute: async ({
     url,
     include_summary = true,

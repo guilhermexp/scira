@@ -354,7 +354,6 @@ export default function AuthCard({ title, description, mode = 'sign-in' }: AuthC
         </Tabs>
 
         <div className="pt-4 space-y-4">
-
           <p className="text-sm text-center text-muted-foreground">
             {mode === 'sign-in' ? (
               <>

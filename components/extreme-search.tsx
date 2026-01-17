@@ -9,14 +9,7 @@ import type { extremeSearchTool, Research } from '@/lib/tools/extreme-search';
 import type { UIToolInvocation } from 'ai';
 import React, { useEffect, useState, memo, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  ChevronDown,
-  ChevronRight,
-  Search,
-  Target,
-  Zap,
-  FlaskConical,
-} from 'lucide-react';
+import { ChevronDown, ChevronRight, Search, Target, Zap, FlaskConical } from 'lucide-react';
 
 // Custom minimal icons
 const Icons = {
@@ -892,9 +885,7 @@ const ExtremeSourceCard: React.FC<{
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2 mb-1">
-          <h3 className="font-medium text-sm text-foreground line-clamp-1">
-            {source.title || hostname}
-          </h3>
+          <h3 className="font-medium text-sm text-foreground line-clamp-1">{source.title || hostname}</h3>
           <Icons.ArrowUpRight className="w-3 h-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
         <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-1.5">
@@ -927,7 +918,9 @@ const ExtremeSourcesSheet: React.FC<{
 
   return (
     <SheetWrapper open={open} onOpenChange={onOpenChange}>
-      <SheetContentWrapper className={cn(isMobile ? 'h-[85vh]' : 'w-[600px] sm:max-w-[600px]', 'p-0 bg-background border-border')}>
+      <SheetContentWrapper
+        className={cn(isMobile ? 'h-[85vh]' : 'w-[600px] sm:max-w-[600px]', 'p-0 bg-background border-border')}
+      >
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="px-6 py-5 border-b border-border">
@@ -2151,9 +2144,7 @@ const ExtremeSearchComponent = ({
 
           {researchProcessOpen && (
             <div className="border-t border-border">
-              <div className="p-3 max-h-[300px] overflow-y-auto">
-                {renderTimeline()}
-              </div>
+              <div className="p-3 max-h-[300px] overflow-y-auto">{renderTimeline()}</div>
             </div>
           )}
         </div>
@@ -2167,7 +2158,13 @@ const ExtremeSearchComponent = ({
             >
               <div className="flex items-center gap-2">
                 <div className="p-1.5 rounded-md bg-muted">
-                  <svg className="h-3.5 w-3.5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+                  <svg
+                    className="h-3.5 w-3.5 text-muted-foreground"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                  >
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -2178,7 +2175,9 @@ const ExtremeSearchComponent = ({
                 <h3 className="font-medium text-sm text-foreground">Visualizations</h3>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">{allCharts.length} {allCharts.length === 1 ? 'chart' : 'charts'}</span>
+                <span className="text-xs text-muted-foreground">
+                  {allCharts.length} {allCharts.length === 1 ? 'chart' : 'charts'}
+                </span>
                 <ChevronDown
                   className={cn(
                     'h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200',
@@ -2392,11 +2391,7 @@ const ExtremeSearchComponent = ({
 
         {/* Show timeline when items are available */}
         {(searchQueries.length > 0 || codeExecutions.length > 0 || xSearchExecutions.length > 0) && (
-          <div
-            ref={timelineRef}
-            className="max-h-[300px] overflow-y-auto pr-1"
-            onScroll={markManualScroll}
-          >
+          <div ref={timelineRef} className="max-h-[300px] overflow-y-auto pr-1" onScroll={markManualScroll}>
             {renderTimeline()}
           </div>
         )}

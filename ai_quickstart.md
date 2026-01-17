@@ -1,6 +1,7 @@
 # 🤖 AI Quick Start - Scira Self-Hosted Instance
 
 ## ⚠️ IMPORTANT: READ THIS FIRST
+
 This is a **SELF-HOSTED FORK** of Scira, not the upstream version. All modifications are specific to self-hosting with personal API keys.
 
 ---
@@ -22,6 +23,7 @@ Scira is an advanced AI-powered research and search platform that aggregates mul
 **You are working on a SELF-HOSTED instance with the following characteristics:**
 
 ### Key Differences from Upstream:
+
 1. **NO PAYMENT SYSTEMS** - All payment integrations (Polar, DodoPayments) are disabled
 2. **NO RATE LIMITS** - Unlimited usage, no message caps
 3. **NO SUBSCRIPTION TIERS** - Everything is "Pro" by default
@@ -33,11 +35,13 @@ Scira is an advanced AI-powered research and search platform that aggregates mul
 ## 🔧 Recent Modifications (Self-Hosting Setup)
 
 ### 1. **Authentication & Payment Removal**
+
 - **Location**: `lib/auth.ts`
 - **Changes**: Commented out Polar and DodoPayments plugins (lines 116-252, 253-430)
 - **Reason**: Self-hosted uses own APIs, no need for payment processing
 
 ### 2. **Subscription System Override**
+
 - **Location**: `lib/subscription.ts`
 - **Changes**: All functions return Pro/Active status
   - `getComprehensiveProStatus()` → Always returns `{ isProUser: true, source: 'polar' }`
@@ -47,11 +51,13 @@ Scira is an advanced AI-powered research and search platform that aggregates mul
   - `getSubscriptionDetails()` → Returns unlimited subscription until 2099
 
 ### 3. **Environment Variables**
+
 - **Location**: `env/server.ts`
 - **Changes**: Made most env vars optional with 'placeholder' defaults
 - **Required**: Only DATABASE_URL, BETTER_AUTH_SECRET, GITHUB_CLIENT_ID/SECRET
 
 ### 4. **User Context Override**
+
 - **Location**: `hooks/use-cached-user-data.tsx`
 - **Changes**:
   - `isProUser` → hardcoded `true`
@@ -59,6 +65,7 @@ Scira is an advanced AI-powered research and search platform that aggregates mul
   - `hasActiveSubscription` → hardcoded `true`
 
 ### 5. **UI Components**
+
 - **Location**: `components/ui/form-component.tsx`
 - **Changes**:
   - Disabled all upgrade dialogs (lines 536, 600-603, 824-828, 2504-2508)
@@ -66,6 +73,7 @@ Scira is an advanced AI-powered research and search platform that aggregates mul
   - Enhance feature always available
 
 ### 6. **API Route**
+
 - **Location**: `app/api/search/route.ts`
 - **Changes**:
   - Line 152: Disabled Pro subscription check
@@ -73,11 +81,13 @@ Scira is an advanced AI-powered research and search platform that aggregates mul
   - No message limits applied
 
 ### 7. **Database Configuration**
+
 - **Location**: `lib/db/index.ts`
 - **Changes**: Removed Upstash cache, uses direct Neon connection
 - **Note**: Read replicas disabled for development
 
 ### 8. **Port Configuration**
+
 - **Location**: `package.json`
 - **Scripts**: `"dev": "next dev -p 8931"`
 - **All References**: Changed from 3000 → 8931
@@ -172,7 +182,8 @@ node -e "/* check db query */"  # See package.json for examples
 ```
 - NUNCA FALE QUE ALGO ESTA FUNCIONANDO, ANTES TER CERTEZA E DE TESTAR USANDO DEVTOOLS.
 ```
-*(Never say something is working before being sure and testing using devtools)*
+
+_(Never say something is working before being sure and testing using devtools)_
 
 ---
 
@@ -199,6 +210,7 @@ node -e "/* check db query */"  # See package.json for examples
 ## ⚡ TLDR for AI
 
 You're working on a **SELF-HOSTED Scira fork** where:
+
 - Everything is FREE and UNLIMITED
 - No payments, no subscriptions, no limits
 - User provides their own API keys

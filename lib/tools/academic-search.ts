@@ -5,18 +5,23 @@ import { serverEnv } from '@/env/server';
 
 export const academicSearchTool = tool({
   description: 'Search academic papers and research with multiple queries.',
-  inputSchema: z.object({
-    queries: z.array(z.string()).describe('Array of search queries for academic papers. Minimum 1, recommended 3-5.').min(1).max(5),
+  parameters: z.object({
+    queries: z
+      .array(z.string())
+      .describe('Array of search queries for academic papers. Minimum 1, recommended 3-5.')
+      .min(1)
+      .max(5),
     maxResults: z.array(z.number()).optional().describe('Array of maximum results per query. Default is 20 per query.'),
   }),
-  execute: async ({ queries, maxResults }: { queries: string[]; maxResults?: number[] }) => {
+  // @ts-expect-error - AI SDK v6 type inference issue
+  execute: async ({ queries, maxResults }) => {
     try {
       const exa = new Exa(serverEnv.EXA_API_KEY as string);
 
       console.log('Academic search queries:', queries);
       console.log('Max results:', maxResults);
 
-      const searchPromises = queries.map(async (query, index) => {
+      const searchPromises = queries.map(async (query: any, index: number) => {
         const currentMaxResults = maxResults?.[index] || maxResults?.[0] || 20;
 
         try {

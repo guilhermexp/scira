@@ -91,7 +91,9 @@ const Navbar = memo(
                 className="rounded-lg bg-accent hover:bg-accent/80 group transition-all hover:scale-105 pointer-events-auto"
               >
                 <PlusIcon size={16} className="group-hover:rotate-90 transition-all" />
-                <span className="text-sm ml-1.5 group-hover:block hidden animate-in fade-in duration-300">{t('navbar.new')}</span>
+                <span className="text-sm ml-1.5 group-hover:block hidden animate-in fade-in duration-300">
+                  {t('navbar.new')}
+                </span>
               </Button>
             </Link>
 

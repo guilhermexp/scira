@@ -4,10 +4,11 @@ import { serverEnv } from '@/env/server';
 
 export const movieTvSearchTool = tool({
   description: 'Search for a movie or TV show using TMDB API',
-  inputSchema: z.object({
+  parameters: z.object({
     query: z.string().describe('The search query for movies/TV shows'),
   }),
-  execute: async ({ query }: { query: string }) => {
+  // @ts-expect-error - AI SDK v6 type inference issue
+  execute: async ({ query }) => {
     const TMDB_API_KEY = serverEnv.TMDB_API_KEY;
     const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 

@@ -143,25 +143,25 @@
 ```mermaid
 flowchart TD
     T1_1[1.1 Create middleware] --> T1_2[1.2 Test redirects]
-    
+
     T2_1[2.1 Remove subscription tab] --> T2_2[2.2 Remove SubscriptionSection]
     T2_3[2.3 Update ConnectorsSection]
-    
+
     T3_1[3.1 Remove ProUpgradeScreen]
     T3_2[3.2 Remove XQLProUpgradeScreen]
     T3_3[3.3 Update chat interface]
-    
+
     T4_1[4.1 Remove pricing from about]
     T4_2[4.2 Remove Pro badges]
     T4_3[4.3 Remove Pro from models]
     T1_1 --> T4_4[4.4 Clean navigation]
-    
+
     T1_1 --> T5_1[5.1 Delete pricing dir]
     T4_4 --> T5_1
     T1_1 --> T5_2[5.2 Delete checkout dir]
     T3_1 --> T5_3[5.3 Delete ProUpgradeScreen]
     T3_2 --> T5_4[5.4 Delete XQLProUpgradeScreen]
-    
+
     T1_2 --> T6_1[6.1 Full testing]
     T2_2 --> T6_1
     T2_3 --> T6_1
@@ -176,9 +176,9 @@ flowchart TD
     T5_2 --> T6_1
     T5_3 --> T6_1
     T5_4 --> T6_1
-    
+
     T6_1 --> T6_2[6.2 Copy test files]
-    
+
     style T1_1 fill:#e1f5fe
     style T2_1 fill:#e1f5fe
     style T2_3 fill:#e1f5fe
@@ -189,9 +189,12 @@ flowchart TD
 ```
 
 ## Total Tasks: 16
+
 Estimated Time: 4-6 hours
 Success Metrics: All subscription/payment UI removed, all features remain fully functional, no console errors
+
 <!-- ORCHESTRATOR-TASKS-SYNC START -->
+
 ## Orchestrator Task Status
 
 - [x] **1.1** — Task 1.1
@@ -266,4 +269,4 @@ Success Metrics: All subscription/payment UI removed, all features remain fully 
   - Status: completed
   - Atualizado: 2025-11-02T20:55:30.873656+00:00
   - Assistente: Codex — comando: cd /Users/guilhermevarela/Public/scira-repo && codex --dangerously-bypass-approvals-and-sandbox
-<!-- ORCHESTRATOR-TASKS-SYNC END -->
+  <!-- ORCHESTRATOR-TASKS-SYNC END -->

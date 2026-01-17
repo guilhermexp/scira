@@ -72,9 +72,7 @@ const AcademicSourceCard: React.FC<{
         <div className="flex-1 min-w-0 space-y-1">
           {/* Title */}
           <div className="flex items-baseline gap-1.5">
-            <h3 className="font-medium text-[13px] text-foreground line-clamp-1 flex-1">
-              {paper.title}
-            </h3>
+            <h3 className="font-medium text-[13px] text-foreground line-clamp-1 flex-1">{paper.title}</h3>
             <ArrowUpRight className="w-3 h-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
 
@@ -146,12 +144,8 @@ const AcademicPapersSheet: React.FC<{
               <div key={searchIndex} className="border-b border-neutral-200 dark:border-neutral-800 last:border-0">
                 <div className="px-6 py-3 bg-neutral-50 dark:bg-neutral-900/50 border-b border-neutral-200/60 dark:border-neutral-800/60">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                      {search.query}
-                    </span>
-                    <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                      {search.results.length}
-                    </span>
+                    <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{search.query}</span>
+                    <span className="text-xs text-neutral-500 dark:text-neutral-400">{search.results.length}</span>
                   </div>
                 </div>
 
@@ -178,14 +172,18 @@ const AcademicPapersCard = ({ results, response, args }: AcademicPapersProps) =>
   // Normalize args to ensure required arrays for UI rendering
   const normalizedArgs = React.useMemo<NormalizedAcademicSearchArgs>(
     () => ({
-      queries: args ? (Array.isArray(args.queries) ? args.queries : [args.queries ?? '']).filter(
-        (q): q is string => typeof q === 'string' && q.length > 0
-      ) : [],
-      maxResults: args ? (Array.isArray(args.maxResults) ? args.maxResults : [args.maxResults ?? 20]).filter(
-        (n): n is number => typeof n === 'number'
-      ) : [],
+      queries: args
+        ? (Array.isArray(args.queries) ? args.queries : [args.queries ?? '']).filter(
+            (q): q is string => typeof q === 'string' && q.length > 0,
+          )
+        : [],
+      maxResults: args
+        ? (Array.isArray(args.maxResults) ? args.maxResults : [args.maxResults ?? 20]).filter(
+            (n): n is number => typeof n === 'number',
+          )
+        : [],
     }),
-    [args]
+    [args],
   );
 
   // Support both old format (results) and new format (response)
@@ -235,7 +233,7 @@ const AcademicPapersCard = ({ results, response, args }: AcademicPapersProps) =>
             <ChevronDown
               className={cn(
                 'h-3.5 w-3.5 text-muted-foreground transition-transform duration-200',
-                isExpanded && 'rotate-180'
+                isExpanded && 'rotate-180',
               )}
             />
           </div>
@@ -248,7 +246,7 @@ const AcademicPapersCard = ({ results, response, args }: AcademicPapersProps) =>
             {searches.length > 1 && normalizedArgs.queries.length > 0 && (
               <div className="px-3 pt-2.5 pb-2 flex gap-1.5 overflow-x-auto no-scrollbar border-b border-border">
                 {searches.map((search, i) => (
-                  <span 
+                  <span
                     key={i}
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] shrink-0 border bg-muted border-border text-foreground font-medium"
                   >

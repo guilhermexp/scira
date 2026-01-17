@@ -67,9 +67,7 @@ export const chat = pgTable('chat', {
   visibility: varchar('visibility', { enum: ['public', 'private'] })
     .notNull()
     .default('private'),
-  allowContinuation: boolean('allow_continuation')
-    .notNull()
-    .default(true),
+  allowContinuation: boolean('allow_continuation').notNull().default(true),
 });
 
 export const message = pgTable('message', {

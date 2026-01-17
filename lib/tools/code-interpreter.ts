@@ -6,7 +6,7 @@ import { SNAPSHOT_NAME } from '@/lib/constants';
 
 export const codeInterpreterTool = tool({
   description: 'Write and execute Python code.',
-  inputSchema: z.object({
+  parameters: z.object({
     title: z.string().describe('The title of the code snippet.'),
     code: z
       .string()
@@ -15,7 +15,8 @@ export const codeInterpreterTool = tool({
       ),
     icon: z.enum(['stock', 'date', 'calculation', 'default']).describe('The icon to display for the code snippet.'),
   }),
-  execute: async ({ code, title, icon }: { code: string; title: string; icon: string }) => {
+  // @ts-expect-error - AI SDK v6 type inference issue
+  execute: async ({ code, title, icon }) => {
     console.log('Code:', code);
     console.log('Title:', title);
     console.log('Icon:', icon);

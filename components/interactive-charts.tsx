@@ -188,19 +188,19 @@ const InteractiveChart = React.memo(
                 return {
                   name: e.label,
                   value: e.angle,
-                itemStyle: {
-                  color: colorSet[0],
-                },
-                emphasis: {
                   itemStyle: {
-                    color: colorSet[1],
-                    shadowBlur: 10,
-                    shadowOffsetX: 0,
-                    shadowColor: 'rgba(0, 0, 0, 0.2)',
+                    color: colorSet[0],
                   },
-                },
-              };
-            }),
+                  emphasis: {
+                    itemStyle: {
+                      color: colorSet[1],
+                      shadowBlur: 10,
+                      shadowOffsetX: 0,
+                      shadowColor: 'rgba(0, 0, 0, 0.2)',
+                    },
+                  },
+                };
+              }),
             label: {
               show: !isMobile,
               position: 'outside',

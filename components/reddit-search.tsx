@@ -130,12 +130,10 @@ const RedditSourceCard: React.FC<{
         <div className="flex-1 min-w-0 space-y-1">
           {/* Title and Subreddit */}
           <div className="flex items-baseline gap-1.5">
-            <h3 className="font-medium text-[13px] text-foreground line-clamp-1 flex-1">
-              {result.title}
-            </h3>
+            <h3 className="font-medium text-[13px] text-foreground line-clamp-1 flex-1">{result.title}</h3>
             <Icons.ExternalLink className="w-3 h-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
-          
+
           {/* Metadata */}
           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <span className="px-1.5 py-0.5 rounded-sm bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 font-medium">
@@ -207,12 +205,8 @@ const RedditSourcesSheet: React.FC<{
               <div key={searchIndex} className="border-b border-border last:border-0">
                 <div className="px-5 py-2.5 bg-muted/40 border-b border-border/60">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-foreground">
-                      {search.query}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">
-                      {search.results.length}
-                    </span>
+                    <span className="text-xs font-medium text-foreground">{search.query}</span>
+                    <span className="text-[10px] text-muted-foreground">{search.results.length}</span>
                   </div>
                 </div>
 
@@ -268,10 +262,7 @@ const SearchLoadingState = () => {
           {/* Skeleton items */}
           <div className="space-y-px">
             {[...Array(3)].map((_, i) => (
-              <div
-                key={i}
-                className="py-2.5 px-3 border-b border-border last:border-0"
-              >
+              <div key={i} className="py-2.5 px-3 border-b border-border last:border-0">
                 <div className="flex items-start gap-2.5">
                   <div className="w-4 h-4 mt-0.5 rounded-full bg-orange-50 dark:bg-orange-900/20 animate-pulse flex items-center justify-center">
                     <RedditLogoIcon className="h-2.5 w-2.5 text-orange-500/30" />
@@ -303,17 +294,16 @@ const RedditSearch: React.FC<{
   const normalizedArgs = React.useMemo<NormalizedRedditSearchArgs>(
     () => ({
       queries: (Array.isArray(args.queries) ? args.queries : [args.queries ?? '']).filter(
-        (q): q is string => typeof q === 'string' && q.length > 0
+        (q): q is string => typeof q === 'string' && q.length > 0,
       ),
       maxResults: (Array.isArray(args.maxResults) ? args.maxResults : [args.maxResults ?? 20]).filter(
-        (n): n is number => typeof n === 'number'
+        (n): n is number => typeof n === 'number',
       ),
       timeRange: (Array.isArray(args.timeRange) ? args.timeRange : [args.timeRange ?? 'week']).filter(
-        (t): t is 'day' | 'week' | 'month' | 'year' => 
-          t === 'day' || t === 'week' || t === 'month' || t === 'year'
+        (t): t is 'day' | 'week' | 'month' | 'year' => t === 'day' || t === 'week' || t === 'month' || t === 'year',
       ),
     }),
-    [args]
+    [args],
   );
 
   if (!result) {
@@ -323,12 +313,13 @@ const RedditSearch: React.FC<{
   const allResults = result.searches.flatMap((search) => search.results);
   const totalResults = allResults.length;
 
-  const formatTimeRange = (timeRange: string) => ({
-    day: 'past 24 hours',
-    week: 'past week',
-    month: 'past month',
-    year: 'past year',
-  }[timeRange] || timeRange);
+  const formatTimeRange = (timeRange: string) =>
+    ({
+      day: 'past 24 hours',
+      week: 'past week',
+      month: 'past month',
+      year: 'past year',
+    })[timeRange] || timeRange;
 
   return (
     <div className="w-full my-3">
@@ -363,7 +354,7 @@ const RedditSearch: React.FC<{
             <Icons.ChevronDown
               className={cn(
                 'h-3.5 w-3.5 text-muted-foreground transition-transform duration-200',
-                isExpanded && 'rotate-180'
+                isExpanded && 'rotate-180',
               )}
             />
           </div>
@@ -377,16 +368,14 @@ const RedditSearch: React.FC<{
               {result.searches.map((search, i) => {
                 const currentTimeRange = normalizedArgs.timeRange[i] || 'week';
                 return (
-                  <span 
+                  <span
                     key={i}
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] shrink-0 border bg-muted border-border text-foreground font-medium"
                   >
                     <Icons.Check className="w-2.5 h-2.5" />
                     <span>{search.query}</span>
                     <span className="text-muted-foreground">•</span>
-                    <span className="text-orange-600 dark:text-orange-400">
-                      {formatTimeRange(currentTimeRange)}
-                    </span>
+                    <span className="text-orange-600 dark:text-orange-400">{formatTimeRange(currentTimeRange)}</span>
                   </span>
                 );
               })}

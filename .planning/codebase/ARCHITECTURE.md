@@ -21,6 +21,7 @@ Scira is a **Next.js 15 App Router monolithic architecture** with clear separati
 React components using Shadcn/UI and Lucide icons.
 
 **Key Components:**
+
 - `chat-interface.tsx` - Main chat UI
 - `extreme-search.tsx`, `crypto-charts.tsx`, `flight-tracker.tsx` - Feature-specific components
 - `message-parts/` - Message rendering components (2,343 lines)
@@ -28,6 +29,7 @@ React components using Shadcn/UI and Lucide icons.
 - `ui/` - Base UI components (49 Shadcn components)
 
 **Size Concerns:**
+
 - `ui/form-component.tsx` - 3,490 lines (model switcher)
 - `message-parts/index.tsx` - 2,343 lines (tool rendering)
 - `interactive-stock-chart.tsx` - 2,420 lines (chart visualization)
@@ -37,6 +39,7 @@ React components using Shadcn/UI and Lucide icons.
 Route handlers for server-to-client communication.
 
 **Key Routes:**
+
 - `app/api/search/route.ts` - Main chat/search endpoint with streaming
 - `app/api/search/[id]/stream/route.ts` - Stream resumption
 - `app/api/auth/[...all]/route.ts` - Better Auth integration
@@ -50,6 +53,7 @@ Route handlers for server-to-client communication.
 'use server' marked async functions for client-to-server mutations (2,661 lines).
 
 **Categories:**
+
 - **Auth:** `getCurrentUser()`, `getLightweightUser()`
 - **Chat CRUD:** `getChatsByUserId()`, `deleteChatById()`, `updateChatVisibilityById()`
 - **Messages:** `deleteMessagesByChatIdAfterTimestamp()`
@@ -63,6 +67,7 @@ Route handlers for server-to-client communication.
 Core utilities and services.
 
 **Structure:**
+
 - **Authentication:** `lib/auth.ts` (476 lines), `lib/auth-utils.ts`, `lib/auth-client.ts`
 - **Database:** `lib/db/schema.ts`, `lib/db/queries.ts` (600+ lines), `lib/db/chat-queries.ts`
 - **Tools/Integrations:** `lib/tools/` (25 tool files)
@@ -79,6 +84,7 @@ Core utilities and services.
 Multi-provider AI model configuration using Vercel AI SDK.
 
 **Supported Providers:**
+
 - xAI (Grok models: 4, 4-fast, 3, 3-mini, Code)
 - OpenAI (GPT-5 family, O3, O4-mini, etc.)
 - Google (Gemini 2.5 Flash/Pro via gateway)
@@ -94,6 +100,7 @@ Multi-provider AI model configuration using Vercel AI SDK.
 Vercel AI SDK `tool()` pattern with 25 tools exported.
 
 **Tool Categories:**
+
 - **Search:** webSearchTool, xSearchTool, academicSearchTool, redditSearchTool, youtubeSearchTool, extremeSearchTool, mcpSearchTool
 - **Finance:** stockChartTool, currencyConverterTool, coinDataTool, coinOhlcTool
 - **Entertainment:** movieTvSearchTool, trendingMoviesTool, trendingTvTool
@@ -107,6 +114,7 @@ Vercel AI SDK `tool()` pattern with 25 tools exported.
 PostgreSQL via Neon + Drizzle ORM.
 
 **Schema Tables:**
+
 - user, session, account, verification
 - chat, message, stream
 - extremeSearchUsage, messageUsage
@@ -160,9 +168,13 @@ PostgreSQL via Neon + Drizzle ORM.
 
 ```typescript
 export const webSearchTool = tool({
-  description: "...",
-  parameters: z.object({ /* Zod schema */ }),
-  execute: async ({ param1, param2 }) => { /* implementation */ }
+  description: '...',
+  parameters: z.object({
+    /* Zod schema */
+  }),
+  execute: async ({ param1, param2 }) => {
+    /* implementation */
+  },
 });
 ```
 
@@ -201,18 +213,14 @@ const SM_ENABLED = !!SM_KEY && SM_KEY !== 'placeholder';
 
 ```typescript
 export async function getUser(email: string): Promise<User[]> {
-  return await db
-    .select()
-    .from(user)
-    .where(eq(user.email, email))
-    .limit(1)
-    .$withCache();
+  return await db.select().from(user).where(eq(user.email, email)).limit(1).$withCache();
 }
 ```
 
 ## Module Boundaries
 
 ### Authentication Boundary
+
 - `lib/auth.ts` → Better Auth initialization
 - `lib/auth-utils.ts` → Server-side auth utilities
 - `lib/auth-client.ts` → Client-side auth helpers
@@ -220,23 +228,27 @@ export async function getUser(email: string): Promise<User[]> {
 - Isolated from tools and search logic
 
 ### Search/Tool Boundary
+
 - `app/api/search/route.ts` → Main orchestrator
 - `lib/tools/` → Individual tool implementations
 - `ai/providers.ts` → Model configuration
 - Tools are composed at request time
 
 ### Database Boundary
+
 - `lib/db/schema.ts` → Schema definitions only
 - `lib/db/queries.ts` → All database operations
 - `lib/db/index.ts` → Neon connection
 - Centralized access pattern prevents direct DB calls elsewhere
 
 ### Caching Boundary
+
 - `lib/performance-cache.ts` → Upstash Redis wrapper with fallback
 - Used by queries for result caching
 - Optional dependency (graceful degradation)
 
 ### UI Component Boundary
+
 - `/components` → Pure UI, no business logic
 - `/app` → Page layouts and route logic
 - Clear separation prevents tightly coupled components
@@ -244,6 +256,7 @@ export async function getUser(email: string): Promise<User[]> {
 ## Entry Points
 
 ### Application Entry Points
+
 - `app/layout.tsx` - Root layout with providers (Metadata, Fonts, Theme)
 - `app/providers.tsx` - Context providers (QueryClient, Theme, UserContext, DataStream)
 - `app/(search)/page.tsx` - Main search page with `ChatInterface`
@@ -253,11 +266,13 @@ export async function getUser(email: string): Promise<User[]> {
 - `package.json` - Entry script: `npm run dev` (port 8931)
 
 ### API Entry Points
+
 - `app/api/search/route.ts` - Main streaming chat/search endpoint
 - `app/api/auth/[...all]/route.ts` - Better Auth routes
 - `app/api/upload/route.ts` - File uploads
 
 ### Server Actions Entry Point
+
 - `app/actions.ts` - All server-side mutations
 
 ## Self-Hosting Modifications

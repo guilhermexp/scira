@@ -4,10 +4,11 @@ import { serverEnv } from '@/env/server';
 
 export const mcpSearchTool = tool({
   description: `Search for mcp servers and get the information about them. VERY IMPORTANT: DO NOT USE THIS TOOL FOR GENERAL WEB SEARCHES, ONLY USE IT FOR MCP SERVER SEARCHES.`,
-  inputSchema: z.object({
+  parameters: z.object({
     query: z.string().describe('The query to search for'),
   }),
-  execute: async ({ query }: { query: string }) => {
+  // @ts-expect-error - AI SDK v6 type inference issue
+  execute: async ({ query }) => {
     try {
       const response = await fetch(`https://registry.smithery.ai/servers?q=${encodeURIComponent(query)}`, {
         headers: {

@@ -81,7 +81,7 @@
   }
 
   .markdown-body ol > li::before {
-    content: counter(item) ".";
+    content: counter(item) '.';
     font-weight: 600;
     color: hsl(var(--primary));
     display: inline-block;
@@ -106,11 +106,11 @@
 
   /* Nested list styling */
   .markdown-body ol ol > li::before {
-    content: counter(item, lower-alpha) ".";
+    content: counter(item, lower-alpha) '.';
   }
 
   .markdown-body ol ol ol > li::before {
-    content: counter(item, lower-roman) ".";
+    content: counter(item, lower-roman) '.';
   }
 
   /* Better spacing for paragraphs within list items */
@@ -183,7 +183,6 @@
     height: 220px;
     overflow: hidden;
   }
-  
 
   .tweet-wrapper [data-theme] {
     margin: 0 !important;
@@ -192,7 +191,9 @@
     box-shadow: none !important;
     background: hsl(var(--card)) !important;
     height: 100%;
-    transition: border-color 0.2s ease, background-color 0.2s ease;
+    transition:
+      border-color 0.2s ease,
+      background-color 0.2s ease;
   }
 
   .tweet-wrapper [data-theme]:hover {
@@ -288,14 +289,14 @@
   /* Sugar-high syntax highlighting - Light theme */
   --sh-identifier: oklch(0.35 0.02 250);
   --sh-keyword: oklch(0.55 0.15 25);
-  --sh-string: oklch(0.50 0.12 160);
+  --sh-string: oklch(0.5 0.12 160);
   --sh-class: oklch(0.55 0.14 280);
-  --sh-property: oklch(0.50 0.12 240);
-  --sh-entity: oklch(0.48 0.10 200);
+  --sh-property: oklch(0.5 0.12 240);
+  --sh-entity: oklch(0.48 0.1 200);
   --sh-jsxliterals: oklch(0.52 0.13 330);
   --sh-sign: oklch(0.45 0.03 250);
   --sh-comment: oklch(0.55 0.02 250);
-  
+
   --font-be-vietnam-pro: 'Be Vietnam Pro';
   --background: oklch(0.9821 0 0);
   --foreground: oklch(0.2435 0 0);
@@ -351,9 +352,9 @@
   --sh-property: oklch(0.75 0.14 240);
   --sh-entity: oklch(0.73 0.12 200);
   --sh-jsxliterals: oklch(0.76 0.14 330);
-  --sh-sign: oklch(0.70 0.04 250);
+  --sh-sign: oklch(0.7 0.04 250);
   --sh-comment: oklch(0.55 0.03 250);
-  
+
   --font-be-vietnam-pro: 'Be Vietnam Pro';
   --background: oklch(0 0 0);
   --foreground: oklch(0.9491 0 0);

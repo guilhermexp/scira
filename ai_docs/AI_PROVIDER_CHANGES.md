@@ -13,6 +13,7 @@ Changed the AI provider for the `scira-name` model from Anannas (Llama) to xAI (
 ### File: `ai/providers.ts`
 
 **Line 39:**
+
 ```typescript
 // Before
 'scira-name': anannas.chat('meta-llama/llama-3.3-70b-instruct'),
@@ -50,6 +51,7 @@ Changed the AI provider for the `scira-name` model from Anannas (Llama) to xAI (
 ### Models Using xAI (After Change)
 
 The Scira provider now uses xAI for these models:
+
 - `scira-default`: `grok-4-fast-non-reasoning`
 - `scira-name`: `grok-4-fast-non-reasoning` ← **Changed**
 - `scira-grok-3-mini`: `grok-3-mini`
@@ -63,10 +65,10 @@ The Scira provider now uses xAI for these models:
 
 ### Provider Distribution
 
-| Provider | Models | Percentage |
-|----------|--------|------------|
-| xAI      | 6      | 86%        |
-| Groq     | 1      | 14%        |
+| Provider | Models | Percentage   |
+| -------- | ------ | ------------ |
+| xAI      | 6      | 86%          |
+| Groq     | 1      | 14%          |
 | Anannas  | 0      | 0% (removed) |
 
 ## Configuration Requirements
@@ -74,16 +76,19 @@ The Scira provider now uses xAI for these models:
 ### Environment Variables Needed
 
 **Required:**
+
 ```bash
 XAI_API_KEY=your_xai_api_key
 ```
 
 **Optional (for other models):**
+
 ```bash
 GROQ_API_KEY=your_groq_api_key
 ```
 
 **No Longer Needed:**
+
 ```bash
 # ANANNAS_API_KEY - Can be removed if not used elsewhere
 ```
@@ -93,6 +98,7 @@ GROQ_API_KEY=your_groq_api_key
 ### Verify the Change
 
 1. **Start Development Server:**
+
 ```bash
 npm run dev
 ```
@@ -115,11 +121,13 @@ npm run dev
 ### Expected Behavior
 
 **Before:**
+
 - `scira-name` would use Llama 3.3 70B via Anannas
 - Different response characteristics
 - Potentially different latency
 
 **After:**
+
 - `scira-name` uses Grok 4 Fast via xAI
 - Consistent with default model
 - Faster response times
@@ -130,11 +138,13 @@ npm run dev
 ### Latency
 
 **Grok 4 Fast Characteristics:**
+
 - Optimized for low-latency responses
 - "Fast" variant trades some capability for speed
 - "Non-reasoning" variant is even faster (no chain-of-thought)
 
 **Expected Improvement:**
+
 - Reduced time-to-first-token
 - Faster overall completion
 - Better user experience for quick tasks
@@ -142,6 +152,7 @@ npm run dev
 ### Cost Considerations
 
 Self-hosted instance uses owner's API key:
+
 - xAI pricing may differ from Anannas
 - Grok 4 Fast designed to be cost-effective
 - Monitor usage in xAI dashboard
@@ -156,6 +167,7 @@ Self-hosted instance uses owner's API key:
 
 2. **Remove Anannas Key (Optional):**
    - If no other models use Anannas, can remove:
+
    ```bash
    # Can delete this line from .env.local
    # ANANNAS_API_KEY=...
@@ -169,6 +181,7 @@ Self-hosted instance uses owner's API key:
 ### For Upstream Integration
 
 If merging back to upstream:
+
 - Consider making provider configurable
 - Add environment variable for provider selection
 - Document the change in upstream changelog
@@ -178,16 +191,19 @@ If merging back to upstream:
 If needed to revert:
 
 1. **Edit `ai/providers.ts` line 39:**
+
 ```typescript
 'scira-name': anannas.chat('meta-llama/llama-3.3-70b-instruct'),
 ```
 
 2. **Restore Anannas API Key:**
+
 ```bash
 ANANNAS_API_KEY=your_anannas_key
 ```
 
 3. **Restart Server:**
+
 ```bash
 npm run dev
 ```
@@ -198,15 +214,15 @@ npm run dev
 
 All models in the `scira` custom provider (`ai/providers.ts:35-46`):
 
-| Model Name | Provider | Actual Model |
-|------------|----------|--------------|
-| scira-default | xAI | grok-4-fast-non-reasoning |
-| scira-nano | Groq | llama-3.3-70b-versatile |
-| scira-name | xAI | grok-4-fast-non-reasoning ⭐ |
-| scira-grok-3-mini | xAI | grok-3-mini |
-| scira-grok-3 | xAI | grok-3 |
-| scira-grok-4 | xAI | grok-4 |
-| scira-grok-4-fast | xAI | grok-4-fast-non-reasoning |
+| Model Name        | Provider | Actual Model                 |
+| ----------------- | -------- | ---------------------------- |
+| scira-default     | xAI      | grok-4-fast-non-reasoning    |
+| scira-nano        | Groq     | llama-3.3-70b-versatile      |
+| scira-name        | xAI      | grok-4-fast-non-reasoning ⭐ |
+| scira-grok-3-mini | xAI      | grok-3-mini                  |
+| scira-grok-3      | xAI      | grok-3                       |
+| scira-grok-4      | xAI      | grok-4                       |
+| scira-grok-4-fast | xAI      | grok-4-fast-non-reasoning    |
 
 ⭐ = Changed in this update
 
@@ -250,10 +266,12 @@ All models in the `scira` custom provider (`ai/providers.ts:35-46`):
 **API Keys Deprecated:** Anannas (for this model)
 
 **Benefits:**
+
 - Improved consistency across Scira models
 - Faster response times
 - Simplified provider management
 - Better reliability
 
 **Risks:**
+
 - None identified (xAI already used for other models)

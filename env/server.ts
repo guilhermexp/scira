@@ -37,7 +37,7 @@ export const serverEnv = createEnv({
     POLAR_WEBHOOK_SECRET: z.string().default('placeholder'),
     DODO_PAYMENTS_API_KEY: z.string().default('placeholder'),
     DODO_PAYMENTS_WEBHOOK_SECRET: z.string().default('placeholder'),
-                    DAYTONA_API_KEY: z.string().default('placeholder'),
+    DAYTONA_API_KEY: z.string().default('placeholder'),
     REDIS_URL: z.string().default('redis://localhost:6379'),
     UPSTASH_REDIS_REST_URL: z.string().default('placeholder'),
     UPSTASH_REDIS_REST_TOKEN: z.string().default('placeholder'),

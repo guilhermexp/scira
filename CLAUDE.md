@@ -9,11 +9,13 @@
 **THIS IS A SELF-HOSTED FORK** - Not the upstream Scira project. All modifications are specific to self-hosting with personal API keys.
 
 ### Owner's Prime Directive
+
 > **NUNCA FALE QUE ALGO ESTA FUNCIONANDO, ANTES TER CERTEZA E DE TESTAR USANDO DEVTOOLS.**
 >
-> *(Never say something is working before being sure and testing using DevTools)*
+> _(Never say something is working before being sure and testing using DevTools)_
 
 **Always verify functionality before claiming success:**
+
 - Use browser DevTools (Console, Network, Application tabs)
 - Test in the actual running application
 - Verify API responses and data flow
@@ -29,6 +31,7 @@
 Scira is a minimalistic AI-powered search engine that aggregates multiple AI models and search capabilities into a single interface.
 
 ### Key Features
+
 - Multi-model AI chat (50+ models)
 - Advanced web search (Exa, Tavily, Firecrawl)
 - X (Twitter) and Reddit search
@@ -41,6 +44,7 @@ Scira is a minimalistic AI-powered search engine that aggregates multiple AI mod
 ## Technology Stack
 
 ### Core Framework
+
 - **Frontend:** Next.js 15 (App Router), React, TypeScript
 - **Styling:** Tailwind CSS 4.x, Shadcn/UI components
 - **Database:** Neon PostgreSQL with Drizzle ORM
@@ -48,6 +52,7 @@ Scira is a minimalistic AI-powered search engine that aggregates multiple AI mod
 - **AI Integration:** Vercel AI SDK
 
 ### AI Providers
+
 - **xAI:** Grok 4, Grok 3, Grok 3 Mini, Grok 2 Vision
 - **Google:** Gemini 2.5 Flash, Gemini 2.5 Pro
 - **Anthropic:** Claude 4 Sonnet
@@ -56,6 +61,7 @@ Scira is a minimalistic AI-powered search engine that aggregates multiple AI mod
 - **Novita AI:** Additional inference
 
 ### External Services
+
 - **Search:** Exa AI, Tavily, Firecrawl
 - **Memory:** Supermemory (optional)
 - **Connectors:** Supermemory connectors API
@@ -70,6 +76,7 @@ Scira is a minimalistic AI-powered search engine that aggregates multiple AI mod
 ### Required Environment Variables
 
 **Critical (must be set):**
+
 ```bash
 DATABASE_URL=postgresql://user:pass@host:5432/db
 BETTER_AUTH_SECRET=your_secret_here
@@ -78,6 +85,7 @@ GITHUB_CLIENT_SECRET=your_github_client_secret
 ```
 
 **AI Providers (at least one required):**
+
 ```bash
 XAI_API_KEY=your_xai_key
 OPENAI_API_KEY=your_openai_key
@@ -87,6 +95,7 @@ GROQ_API_KEY=your_groq_key
 ```
 
 **Optional Features:**
+
 ```bash
 SUPERMEMORY_API_KEY=placeholder  # Set to real key to enable
 TAVILY_API_KEY=your_tavily_key
@@ -192,11 +201,13 @@ This fork has been modified to remove payment barriers and enable full self-host
 ### Git Workflow
 
 **Branch Naming:**
+
 - Feature: `feat/description`
 - Fix: `fix/description`
 - Chore: `chore/description`
 
 **Commit Messages:**
+
 - Use conventional commits: `type(scope): description`
 - Examples:
   - `feat(search): add MCP search integration`
@@ -204,6 +215,7 @@ This fork has been modified to remove payment barriers and enable full self-host
   - `refactor(ai): change default provider to Tavily`
 
 **Never:**
+
 - Force push to main
 - Commit without testing
 - Include API keys or secrets
@@ -255,11 +267,12 @@ Tools are located in `lib/tools/`:
 6. Update types in `lib/types.ts`
 
 Example tool structure:
+
 ```typescript
 export const myTool = tool({
-  description: "What this tool does",
+  description: 'What this tool does',
   parameters: z.object({
-    query: z.string().describe("Parameter description"),
+    query: z.string().describe('Parameter description'),
   }),
   execute: async ({ query }) => {
     // Implementation
@@ -294,6 +307,7 @@ export function featureFunction() {
 ```
 
 Apply this pattern to:
+
 - Supermemory connectors
 - Memory operations
 - Optional search providers
@@ -319,6 +333,7 @@ Apply this pattern to:
 ### Issue: Database Connection Fails
 
 **Solution:**
+
 ```bash
 # Check DATABASE_URL is set
 echo $DATABASE_URL
@@ -333,6 +348,7 @@ npx drizzle-kit push
 ### Issue: Port Already in Use
 
 **Solution:**
+
 ```bash
 # Find process on port 8931
 lsof -i :8931
@@ -404,24 +420,28 @@ Before marking any task complete:
 ## Key Integration Points
 
 ### Frontend-Backend Communication
+
 - API routes in `app/api/`
 - Server actions in `app/actions.ts`
 - Client components make fetch requests
 - Streaming responses for AI chat
 
 ### Database Access
+
 - Schema in `lib/db/schema.ts`
 - Queries using Drizzle ORM
 - Migrations via `drizzle-kit`
 - Direct Neon connection (no pooling in dev)
 
 ### AI Model Integration
+
 - Provider configs in `ai/providers.ts`
 - Vercel AI SDK for streaming
 - Tool system for extended capabilities
 - Multiple providers for redundancy
 
 ### Authentication Flow
+
 - Better Auth library
 - OAuth providers (GitHub, Google, Twitter)
 - Session management
@@ -480,9 +500,9 @@ When working on this codebase:
 
 ## Updates Log
 
-| Date | Update | By |
-|------|--------|-----|
-| 2025-11-03 | Initial CLAUDE.md creation | Claude Code Documentation Agent |
+| Date       | Update                           | By                              |
+| ---------- | -------------------------------- | ------------------------------- |
+| 2025-11-03 | Initial CLAUDE.md creation       | Claude Code Documentation Agent |
 | 2025-11-03 | Added AI documentation structure | Claude Code Documentation Agent |
 
 ## Quick Reference

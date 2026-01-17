@@ -4,11 +4,12 @@ import { z } from 'zod';
 export const greetingTool = (timezone?: string) =>
   tool({
     description: 'Generate a professional greeting for the user',
-    inputSchema: z.object({
+    parameters: z.object({
       name: z.string().optional().describe('User name to personalize the greeting'),
       style: z.enum(['professional', 'casual', 'formal']).optional().describe('Greeting style'),
       includeTimeOfDay: z.boolean().optional().describe('Whether to include time-specific greeting'),
     }),
+    // @ts-expect-error - AI SDK v6 type inference issue
     execute: async ({ name, style = 'professional', includeTimeOfDay = true }) => {
       const now = new Date();
 
@@ -71,7 +72,7 @@ export const greetingTool = (timezone?: string) =>
       ];
 
       // Random selection
-      const randomFrom = <T,>(array: readonly T[]) => array[Math.floor(Math.random() * array.length)];
+      const randomFrom = <T>(array: readonly T[]) => array[Math.floor(Math.random() * array.length)];
 
       const selectedStyle = (style || 'professional') as keyof typeof styleGreetings;
       const mainGreeting = randomFrom(styleGreetings[selectedStyle]);

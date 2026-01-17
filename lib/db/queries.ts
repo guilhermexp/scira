@@ -23,12 +23,7 @@ type VisibilityType = 'public' | 'private';
 
 export async function getUser(email: string): Promise<Array<User>> {
   try {
-    return await db
-      .select()
-      .from(user)
-      .where(eq(user.email, email))
-      .limit(1)
-      .$withCache();
+    return await db.select().from(user).where(eq(user.email, email)).limit(1).$withCache();
   } catch (error) {
     throw new ChatSDKError('bad_request:database', 'Failed to get user by email');
   }
@@ -36,12 +31,7 @@ export async function getUser(email: string): Promise<Array<User>> {
 
 export async function getUserById(id: string): Promise<User | null> {
   try {
-    const [selectedUser] = await db
-      .select()
-      .from(user)
-      .where(eq(user.id, id))
-      .limit(1)
-      .$withCache();
+    const [selectedUser] = await db.select().from(user).where(eq(user.id, id)).limit(1).$withCache();
     return selectedUser || null;
   } catch (error) {
     throw new ChatSDKError('bad_request:database', 'Failed to get user by id');
@@ -144,12 +134,7 @@ export async function getChatById({ id }: { id: string }) {
   try {
     console.log('🔍 [DB-DETAIL] getChatById: Starting cached query...');
     const cacheQueryStart = Date.now();
-    const [selectedChat] = await db
-      .select()
-      .from(chat)
-      .where(eq(chat.id, id))
-      .limit(1)
-      .$withCache();
+    const [selectedChat] = await db.select().from(chat).where(eq(chat.id, id)).limit(1).$withCache();
     const cacheQueryTime = (Date.now() - cacheQueryStart) / 1000;
     console.log(`⏱️  [DB-DETAIL] getChatById: Cached query took ${cacheQueryTime.toFixed(2)}s`);
     return selectedChat;
@@ -216,11 +201,7 @@ export async function getMessagesByChatId({
 
 export async function getMessageById({ id }: { id: string }) {
   try {
-    return await db
-      .select()
-      .from(message)
-      .where(eq(message.id, id))
-      .limit(1);
+    return await db.select().from(message).where(eq(message.id, id)).limit(1);
   } catch (error) {
     throw new ChatSDKError('bad_request:database', 'Failed to get message by id');
   }
@@ -648,11 +629,7 @@ export async function getPaymentsByUserId({ userId }: { userId: string }) {
 
 export async function getPaymentById({ paymentId }: { paymentId: string }) {
   try {
-    const [selectedPayment] = await db
-      .select()
-      .from(payment)
-      .where(eq(payment.id, paymentId))
-      .limit(1);
+    const [selectedPayment] = await db.select().from(payment).where(eq(payment.id, paymentId)).limit(1);
     return selectedPayment;
   } catch (error) {
     throw new ChatSDKError('bad_request:database', 'Failed to get payment by id');
@@ -819,11 +796,7 @@ export async function getLookoutsByUserId({ userId }: { userId: string }) {
 export async function getLookoutById({ id }: { id: string }) {
   try {
     console.log('🔍 Looking up lookout with ID:', id);
-    const [selectedLookout] = await db
-      .select()
-      .from(lookout)
-      .where(eq(lookout.id, id))
-      .limit(1);
+    const [selectedLookout] = await db.select().from(lookout).where(eq(lookout.id, id)).limit(1);
 
     if (selectedLookout) {
       console.log('✅ Found lookout:', selectedLookout.id, selectedLookout.title);

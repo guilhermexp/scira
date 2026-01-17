@@ -5,11 +5,19 @@ import { serverEnv } from '@/env/server';
 
 export const redditSearchTool = tool({
   description: 'Search Reddit content using Tavily API with multiple queries.',
-  inputSchema: z.object({
-    queries: z.array(z.string().max(200)).describe('Array of search queries to execute on Reddit. Minimum 1, recommended 3-5.').min(1).max(5),
+  parameters: z.object({
+    queries: z
+      .array(z.string().max(200))
+      .describe('Array of search queries to execute on Reddit. Minimum 1, recommended 3-5.')
+      .min(1)
+      .max(5),
     maxResults: z.array(z.number()).optional().describe('Array of maximum results per query. Default is 20 per query.'),
-    timeRange: z.array(z.enum(['day', 'week', 'month', 'year'])).optional().describe('Array of time ranges for each Reddit search query.'),
+    timeRange: z
+      .array(z.enum(['day', 'week', 'month', 'year']))
+      .optional()
+      .describe('Array of time ranges for each Reddit search query.'),
   }),
+  // @ts-expect-error - AI SDK v6 type inference issue
   execute: async ({
     queries,
     maxResults,
