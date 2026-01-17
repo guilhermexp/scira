@@ -129,7 +129,7 @@ export async function POST(req: Request) {
 
     const result = streamText({
         model: scira.languageModel('scira-grok-4-fast'),
-        messages: convertToModelMessages(messages),
+        messages: await convertToModelMessages(messages),
         stopWhen: hasToolCall('xql'),
         onAbort: ({ steps }) => {
             console.log('Stream aborted after', steps.length, 'steps');

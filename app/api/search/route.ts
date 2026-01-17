@@ -327,7 +327,7 @@ export async function POST(req: Request) {
 
       const result = streamText({
         model: scira.languageModel(model),
-        messages: convertToModelMessages(messages),
+        messages: await convertToModelMessages(messages),
         ...getModelParameters(model),
         stopWhen: stepCountIs(5),
         onAbort: ({ steps }) => {

@@ -17,6 +17,12 @@ export const serverEnv = createEnv({
     ANTHROPIC_API_KEY: z.string().default('placeholder'),
     GROQ_API_KEY: z.string().default('placeholder'),
     GOOGLE_GENERATIVE_AI_API_KEY: z.string().default('placeholder'),
+    NOVITA_API_KEY: z.string().default('placeholder'),
+    BASETEN_API_KEY: z.string().default('placeholder'),
+    HF_TOKEN: z.string().default('placeholder'),
+    ANANNAS_API_KEY: z.string().default('placeholder'),
+    MISTRAL_API_KEY: z.string().default('placeholder'),
+    COHERE_API_KEY: z.string().default('placeholder'),
 
     // Optional auth providers
     GOOGLE_CLIENT_ID: z.string().default('placeholder'),

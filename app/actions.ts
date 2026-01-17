@@ -4,7 +4,7 @@
 import { geolocation } from '@vercel/functions';
 import { serverEnv } from '@/env/server';
 import { SearchGroupId } from '@/lib/utils';
-import { generateObject, UIMessage, generateText } from 'ai';
+import { generateObject, UIMessage, generateText, Output } from 'ai';
 import type { ModelMessage } from 'ai';
 import { z } from 'zod';
 import { getUser } from '@/lib/auth-utils';
@@ -93,12 +93,12 @@ export async function suggestQuestions(history: any[]) {
 
   console.log(history);
 
-  const { object } = await generateObject({
+  const { output } = await generateText({
     model: scira.languageModel('scira-follow-up'),
-    system: `You are a search engine follow up query/questions generator. You MUST create EXACTLY 3 questions for the search engine based on the conversation history.
+    system: `You are a search engine follow up query/questions generator. You MUST create between 3 and 5 questions for the search engine based on the conversation history.
 
 ### Question Generation Guidelines:
-- Create exactly 3 questions that are open-ended and encourage further discussion
+- Create 3-5 questions that are open-ended and encourage further discussion
 - Questions must be concise (5-10 words each) but specific and contextually relevant
 - Each question must contain specific nouns, entities, or clear context markers
 - NEVER use pronouns (he, she, him, his, her, etc.) - always use proper nouns from the context
@@ -131,20 +131,19 @@ export async function suggestQuestions(history: any[]) {
 - Questions must be diverse and not redundant
 - Do not include instructions or meta-commentary in the questions`,
     messages: history,
-    schema: z.object({
-      questions: z
-        .array(z.string().max(150))
-        .describe('The generated questions based on the message history.')
-        .min(3)
-        .max(3),
+    output: Output.object({
+      schema: z.object({
+        questions: z
+          .array(z.string().max(150))
+          .describe('The generated questions based on the message history.')
+          .min(3)
+          .max(5),
+      }),
     }),
-    experimental_repairText: async ({ text }) => {
-      return jsonrepair(text);
-    },
   });
 
   return {
-    questions: object.questions,
+    questions: output.questions,
   };
 }
 

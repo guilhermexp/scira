@@ -1,11 +1,12 @@
 import { wrapLanguageModel, customProvider, extractReasoningMiddleware, gateway } from 'ai';
 
-import { createOpenAI, openai } from '@ai-sdk/openai';
-import { xai } from '@ai-sdk/xai';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import { openai } from '@ai-sdk/openai';
+import { createXai } from '@ai-sdk/xai';
 import { groq } from '@ai-sdk/groq';
 import { mistral } from '@ai-sdk/mistral';
 import { google } from '@ai-sdk/google';
-import { anthropic } from "@ai-sdk/anthropic";
+import { anthropic } from '@ai-sdk/anthropic';
 import { cohere } from '@ai-sdk/cohere';
 
 const middleware = extractReasoningMiddleware({
@@ -17,12 +18,20 @@ const middlewareWithStartWithReasoning = extractReasoningMiddleware({
   startWithReasoning: true,
 });
 
-const huggingface = createOpenAI({
+const huggingface = createOpenAICompatible({
+  name: 'huggingface',
   baseURL: 'https://router.huggingface.co/v1',
   apiKey: process.env.HF_TOKEN,
 });
 
-const anannas = createOpenAI({
+const novita = createOpenAICompatible({
+  name: 'novita',
+  baseURL: 'https://api.novita.ai/openai',
+  apiKey: process.env.NOVITA_API_KEY,
+});
+
+const anannas = createOpenAICompatible({
+  name: 'anannas',
   baseURL: 'https://api.anannas.ai/v1',
   apiKey: process.env.ANANNAS_API_KEY,
   headers: {
@@ -32,14 +41,31 @@ const anannas = createOpenAI({
   },
 });
 
+const xai = createXai({
+  apiKey: process.env.XAI_API_KEY,
+  baseURL: 'https://us-east-1.api.x.ai/v1',
+});
+
+const xaiEU = createXai({
+  apiKey: process.env.XAI_API_KEY,
+  baseURL: 'https://eu-west-1.api.x.ai/v1',
+});
+
+const baseten = createOpenAICompatible({
+  name: 'baseten',
+  baseURL: 'https://inference.baseten.co/v1',
+  apiKey: process.env.BASETEN_API_KEY,
+});
+
 export const LEGACY_DEFAULT_MODEL = 'scira-default' as const;
 export const DEFAULT_MODEL = 'scira-grok-4-fast-think' as const;
 
 export const scira = customProvider({
   languageModels: {
-    [LEGACY_DEFAULT_MODEL]: xai('grok-4-fast-non-reasoning'),
+    'scira-default': xai('grok-4-1-fast-non-reasoning'),
+    'scira-grok4.1-fast-thinking': xai('grok-4-1-fast'),
     'scira-nano': groq('llama-3.3-70b-versatile'),
-    'scira-name': xai('grok-4-fast-non-reasoning'),
+    'scira-name': gateway('google/gemini-2.5-flash-lite-preview-09-2025'),
     'scira-grok-3-mini': xai('grok-3-mini'),
     'scira-grok-3': xai('grok-3'),
     'scira-grok-4': xai('grok-4'),
@@ -47,15 +73,22 @@ export const scira = customProvider({
     'scira-grok-4-fast-think': xai('grok-4-fast'),
     'scira-code': xai('grok-code-fast-1'),
     'scira-enhance': groq('moonshotai/kimi-k2-instruct-0905'),
-    'scira-follow-up': xai('grok-4-fast-non-reasoning'),
-    'scira-qwen-4b': huggingface.chat('Qwen/Qwen3-4B-Instruct-2507:nscale'),
+    'scira-follow-up': xaiEU('grok-4-1-fast-non-reasoning'),
+    'scira-qwen-4b': huggingface.chatModel('Qwen/Qwen3-4B-Instruct-2507:nscale'),
     'scira-qwen-4b-thinking': wrapLanguageModel({
-      model: huggingface.chat('Qwen/Qwen3-4B-Thinking-2507:nscale'),
+      model: huggingface.chatModel('Qwen/Qwen3-4B-Thinking-2507:nscale'),
       middleware: [middlewareWithStartWithReasoning],
     }),
     'scira-gpt-4.1-nano': openai('gpt-4.1-nano'),
     'scira-gpt-4.1-mini': openai('gpt-4.1-mini'),
     'scira-gpt-4.1': openai('gpt-4.1'),
+    'scira-gpt-5.1': openai('gpt-5.1'),
+    'scira-gpt-5.1-thinking': openai('gpt-5.1'),
+    'scira-gpt-5.2': openai('gpt-5.2'),
+    'scira-gpt-5.2-thinking': openai('gpt-5.2'),
+    'scira-gpt-5.1-codex': openai('gpt-5.1-codex'),
+    'scira-gpt-5.1-codex-mini': openai('gpt-5.1-codex-mini'),
+    'scira-gpt-5.1-codex-max': openai('gpt-5.1-codex-max'),
     'scira-gpt5': openai('gpt-5'),
     'scira-gpt5-medium': openai('gpt-5'),
     'scira-gpt5-mini': openai('gpt-5-mini'),
@@ -81,29 +114,29 @@ export const scira = customProvider({
       middleware,
     }),
     'scira-deepseek-r1': wrapLanguageModel({
-      model: anannas.chat('deepseek/deepseek-r1'),
+      model: anannas.chatModel('deepseek/deepseek-r1'),
       middleware,
     }),
     'scira-deepseek-r1-0528': wrapLanguageModel({
-      model: anannas.chat('deepseek/deepseek-r1-0528'),
+      model: anannas.chatModel('deepseek/deepseek-r1-0528'),
       middleware,
     }),
-    'scira-qwen-coder': huggingface.chat('Qwen/Qwen3-Coder-480B-A35B-Instruct:cerebras'),
-    'scira-qwen-30': huggingface.chat('Qwen/Qwen3-30B-A3B-Instruct-2507:nebius'),
+    'scira-qwen-coder': huggingface.chatModel('Qwen/Qwen3-Coder-480B-A35B-Instruct:cerebras'),
+    'scira-qwen-30': huggingface.chatModel('Qwen/Qwen3-30B-A3B-Instruct-2507:nebius'),
     'scira-qwen-30-think': wrapLanguageModel({
-      model: huggingface.chat('Qwen/Qwen3-30B-A3B-Thinking-2507:nebius'),
+      model: huggingface.chatModel('Qwen/Qwen3-30B-A3B-Thinking-2507:nebius'),
       middleware,
     }),
-    'scira-qwen-3-next': huggingface.chat('Qwen/Qwen3-Next-80B-A3B-Instruct:hyperbolic'),
+    'scira-qwen-3-next': huggingface.chatModel('Qwen/Qwen3-Next-80B-A3B-Instruct:hyperbolic'),
     'scira-qwen-3-next-think': wrapLanguageModel({
-      model: huggingface.chat('Qwen/Qwen3-Next-80B-A3B-Thinking:hyperbolic'),
+      model: huggingface.chatModel('Qwen/Qwen3-Next-80B-A3B-Thinking:hyperbolic'),
       middleware: [middlewareWithStartWithReasoning],
     }),
     'scira-qwen-3-max': gateway('alibaba/qwen3-max'),
     'scira-qwen-3-max-preview': gateway('alibaba/qwen3-max-preview'),
-    'scira-qwen-235': huggingface.chat('Qwen/Qwen3-235B-A22B-Instruct-2507:fireworks-ai'),
+    'scira-qwen-235': huggingface.chatModel('Qwen/Qwen3-235B-A22B-Instruct-2507:fireworks-ai'),
     'scira-qwen-235-think': wrapLanguageModel({
-      model: huggingface.chat('Qwen/Qwen3-235B-A22B-Thinking-2507:fireworks-ai'),
+      model: huggingface.chatModel('Qwen/Qwen3-235B-A22B-Thinking-2507:fireworks-ai'),
       middleware: [middlewareWithStartWithReasoning],
     }),
     'scira-glm-air': gateway('zai/glm-4.5-air'),
@@ -112,13 +145,13 @@ export const scira = customProvider({
       middleware,
     }),
     'scira-glm-4.6': wrapLanguageModel({
-      model: huggingface.chat('zai-org/GLM-4.6:novita'),
+      model: huggingface.chatModel('zai-org/GLM-4.6:novita'),
       middleware,
     }),
     'scira-cmd-a': cohere('command-a-03-2025'),
     'scira-cmd-a-think': cohere('command-a-reasoning-08-2025'),
     'scira-kimi-k2-v2': groq('moonshotai/kimi-k2-instruct-0905'),
-    'scira-haiku': anannas.chat('anthropic/claude-3-5-haiku-20241022'),
+    'scira-haiku': anannas.chatModel('anthropic/claude-3-5-haiku-20241022'),
     'scira-mistral-medium': mistral('mistral-medium-2508'),
     'scira-magistral-small': mistral('magistral-small-2509'),
     'scira-magistral-medium': mistral('magistral-medium-2509'),

@@ -194,7 +194,7 @@ export async function POST(req: Request) {
         // Start streaming
         const result = streamText({
           model: scira.languageModel('scira-grok-4-fast-think'),
-          messages: convertToModelMessages([userMessage]),
+          messages: await convertToModelMessages([userMessage]),
           stopWhen: stepCountIs(2),
           maxRetries: 10,
           activeTools: ['extreme_search'],

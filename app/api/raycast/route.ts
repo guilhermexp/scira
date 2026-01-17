@@ -93,7 +93,7 @@ export async function POST(req: Request) {
     model: scira.languageModel(model),
     system: systemPrompt,
     stopWhen: stepCountIs(2),
-    messages: convertToModelMessages(messages),
+    messages: await convertToModelMessages(messages),
     temperature: 0,
     toolChoice: 'auto',
     experimental_activeTools: activeTools,
