@@ -30,7 +30,6 @@ import {
   getConnectorSyncStatusAction,
 } from '@/app/actions';
 import { SEARCH_LIMITS } from '@/lib/constants';
-import { authClient } from '@/lib/auth-client';
 import {
   MagnifyingGlassIcon,
   LightningIcon,
@@ -1213,24 +1212,24 @@ export function SubscriptionSection({ subscriptionData, isProUser, user }: any) 
           {isExpiringSoon && (
             <div
               className={cn(
-                'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg',
+                'bg-neutral-50 dark:bg-neutral-900/40 border border-neutral-200 dark:border-neutral-700 rounded-lg',
                 isMobile ? 'p-3' : 'p-4',
               )}
             >
               <div className="flex items-start gap-2">
-                <div className={cn('bg-yellow-100 dark:bg-yellow-900/40 rounded', isMobile ? 'p-1' : 'p-1.5')}>
+                <div className={cn('bg-neutral-100 dark:bg-neutral-800 rounded', isMobile ? 'p-1' : 'p-1.5')}>
                   <HugeiconsIcon
                     icon={Crown02Icon}
                     size={isMobile ? 14 : 16}
                     color="currentColor"
                     strokeWidth={1.5}
-                    className={cn('text-yellow-600 dark:text-yellow-500')}
+                    className={cn('text-neutral-600 dark:text-neutral-400')}
                   />
                 </div>
                 <div className="flex-1">
                   <h4
                     className={cn(
-                      'font-semibold text-yellow-800 dark:text-yellow-200',
+                      'font-semibold text-neutral-800 dark:text-neutral-200',
                       isMobile ? 'text-xs' : 'text-sm',
                     )}
                   >
@@ -1238,7 +1237,7 @@ export function SubscriptionSection({ subscriptionData, isProUser, user }: any) 
                   </h4>
                   <p
                     className={cn(
-                      'text-yellow-700 dark:text-yellow-300',
+                      'text-neutral-600 dark:text-neutral-400',
                       isMobile ? 'text-[11px] mt-1' : 'text-xs mt-1',
                     )}
                   >
@@ -1462,7 +1461,7 @@ export function MemoriesSection() {
                       <div className="px-1.5 py-0.5 bg-muted/50 rounded text-[9px] font-medium">{memory.type}</div>
                     )}
                     {memory.status && memory.status !== 'done' && (
-                      <div className="px-1.5 py-0.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded text-[9px] font-medium">
+                      <div className="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 rounded text-[9px] font-medium">
                         {memory.status}
                       </div>
                     )}
@@ -1804,7 +1803,7 @@ export function ConnectorsSection({ user }: { user: any }) {
                           ) : connectionStatus?.documentCount !== undefined ? (
                             connectionStatus.documentCount === 0 ? (
                               <span
-                                className="text-amber-600 dark:text-amber-400"
+                                className="text-muted-foreground"
                                 title="Documents are being synced from your account"
                               >
                                 Syncing...
@@ -1815,7 +1814,7 @@ export function ConnectorsSection({ user }: { user: any }) {
                           ) : connection?.metadata?.pageToken ? (
                             connection.metadata.pageToken === 0 ? (
                               <span
-                                className="text-amber-600 dark:text-amber-400"
+                                className="text-muted-foreground"
                                 title="Documents are being synced from your account"
                               >
                                 Syncing...

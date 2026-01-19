@@ -329,7 +329,7 @@ const YouTubeCard: React.FC<YouTubeCardProps> = ({ video, index }) => {
                                           return (
                                             <>
                                               {time.substring(0, index)}
-                                              <mark className="bg-yellow-200 dark:bg-yellow-900/50 px-1 py-0.5 rounded">
+                                              <mark className="bg-neutral-200 dark:bg-neutral-700 px-1 py-0.5 rounded">
                                                 {time.substring(index, index + searchTerm.length)}
                                               </mark>
                                               {time.substring(index + searchTerm.length)}
@@ -352,7 +352,7 @@ const YouTubeCard: React.FC<YouTubeCardProps> = ({ video, index }) => {
                                             return (
                                               <>
                                                 {description.substring(0, index)}
-                                                <mark className="bg-yellow-200 dark:bg-yellow-900/50 px-1 py-0.5 rounded">
+                                                <mark className="bg-neutral-200 dark:bg-neutral-700 px-1 py-0.5 rounded">
                                                   {description.substring(index, index + searchTerm.length)}
                                                 </mark>
                                                 {description.substring(index + searchTerm.length)}
@@ -439,7 +439,7 @@ const YouTubeCard: React.FC<YouTubeCardProps> = ({ video, index }) => {
                                     <span className="text-neutral-600 dark:text-neutral-400">
                                       {line.substring(0, index)}
                                     </span>
-                                    <mark className="bg-yellow-200 dark:bg-yellow-900/50 px-1 py-0.5 rounded">
+                                    <mark className="bg-neutral-200 dark:bg-neutral-700 px-1 py-0.5 rounded">
                                       {line.substring(index, index + searchTerm.length)}
                                     </mark>
                                     <span className="text-neutral-600 dark:text-neutral-400">

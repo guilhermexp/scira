@@ -2233,7 +2233,7 @@ export const InteractiveStockChart = React.memo(
                                     <div className="flex items-center gap-1.5 mb-1">
                                       <Badge
                                         variant="secondary"
-                                        className="rounded-full px-1.5 py-0 text-[9px] font-medium bg-amber-100/70 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+                                        className="rounded-full px-1.5 py-0 text-[9px] font-medium bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400"
                                       >
                                         Financial
                                       </Badge>

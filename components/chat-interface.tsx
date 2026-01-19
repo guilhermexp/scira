@@ -22,6 +22,9 @@ import dynamic from 'next/dynamic';
 const Navbar = dynamic(() => import('@/components/navbar').then((m) => m.Navbar), {
   ssr: false,
 });
+const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
+  ssr: false,
+});
 import { Button } from '@/components/ui/button';
 import FormComponent from '@/components/ui/form-component';
 
@@ -598,7 +601,14 @@ const ChatInterface = memo(
     );
 
     return (
-      <div className="flex flex-col font-sans! items-center h-screen bg-background text-foreground transition-all duration-500 w-full overflow-x-hidden !scrollbar-thin !scrollbar-thumb-muted-foreground dark:!scrollbar-thumb-muted-foreground !scrollbar-track-transparent hover:!scrollbar-thumb-foreground dark:!hover:scrollbar-thumb-foreground">
+      <div className="flex flex-col font-sans! items-center h-screen bg-background text-foreground transition-all duration-500 w-full overflow-x-hidden !scrollbar-thin !scrollbar-thumb-muted-foreground dark:!scrollbar-thumb-muted-foreground !scrollbar-track-transparent hover:!scrollbar-thumb-foreground dark:!hover:scrollbar-thumb-foreground relative">
+        {/* Map Background - Fixed position, behind all content */}
+        <div className="fixed inset-0 w-full h-full z-0 opacity-30">
+          <MapContainer />
+        </div>
+
+        {/* Main content - positioned above the map */}
+        <div className="relative z-10 flex flex-col items-center w-full h-full">
         <Navbar
           isDialogOpen={chatState.anyDialogOpen}
           chatId={initialChatId || (messages.length > 0 ? chatId : null)}
@@ -645,21 +655,11 @@ const ChatInterface = memo(
         <div
           className={`w-full p-2 sm:p-4 relative ${
             status === 'ready' && messages.length === 0
-              ? 'flex-1 !flex !flex-col !items-center !justify-center' // Center everything when no messages
+              ? 'flex-1 !flex !flex-col !items-center !justify-center -mt-8' // Center everything when no messages
               : '!mt-20 sm:!mt-16 flex !flex-col' // Add top margin when showing messages
           }`}
         >
           <div className={`w-full max-w-[95%] sm:max-w-2xl space-y-6 p-0 mx-auto transition-all duration-300`}>
-            {status === 'ready' && messages.length === 0 && (
-              <div className="text-center m-0 mb-2">
-                <div className="inline-flex items-center gap-3">
-                  <h1 className="text-4xl sm:text-5xl !mb-0 text-foreground dark:text-foreground font-be-vietnam-pro! font-light tracking-tighter">
-                    scira
-                  </h1>
-                  {/* Self-hosted: no pro badge */}
-                </div>
-              </div>
-            )}
 
             {/* Show initial limit exceeded message */}
             {status === 'ready' && messages.length === 0 && isLimitBlocked && (
@@ -827,6 +827,7 @@ const ChatInterface = memo(
               </div>
             </div>
           )}
+        </div>
         </div>
       </div>
     );

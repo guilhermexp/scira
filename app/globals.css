@@ -298,38 +298,39 @@
   --sh-comment: oklch(0.55 0.02 250);
 
   --font-be-vietnam-pro: 'Be Vietnam Pro';
-  --background: oklch(0.9821 0 0);
-  --foreground: oklch(0.2435 0 0);
-  --card: oklch(0.9911 0 0);
-  --card-foreground: oklch(0.2435 0 0);
-  --popover: oklch(0.9911 0 0);
-  --popover-foreground: oklch(0.2435 0 0);
-  --primary: oklch(0.4341 0.0392 41.9938);
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.92 0.0651 74.3695);
-  --secondary-foreground: oklch(0.3499 0.0685 40.8288);
-  --muted: oklch(0.9521 0 0);
-  --muted-foreground: oklch(0.5032 0 0);
-  --accent: oklch(0.931 0 0);
-  --accent-foreground: oklch(0.2435 0 0);
-  --destructive: oklch(0.6271 0.1936 33.339);
-  --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.8822 0 0);
-  --input: oklch(0.8822 0 0);
-  --ring: oklch(0.4341 0.0392 41.9938);
-  --chart-1: oklch(0.4341 0.0392 41.9938);
-  --chart-2: oklch(0.92 0.0651 74.3695);
-  --chart-3: oklch(0.931 0 0);
-  --chart-4: oklch(0.9367 0.0523 75.5009);
-  --chart-5: oklch(0.4338 0.0437 41.6746);
-  --sidebar: oklch(0.9881 0 0);
-  --sidebar-foreground: oklch(0.2645 0 0);
-  --sidebar-primary: oklch(0.325 0 0);
-  --sidebar-primary-foreground: oklch(0.9881 0 0);
-  --sidebar-accent: oklch(0.9761 0 0);
-  --sidebar-accent-foreground: oklch(0.325 0 0);
-  --sidebar-border: oklch(0.9401 0 0);
-  --sidebar-ring: oklch(0.7731 0 0);
+  /* Light theme - Neutral grayscale (liquidglass style) */
+  --background: oklch(0.985 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(0.995 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(0.995 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.925 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.945 0 0);
+  --muted-foreground: oklch(0.465 0 0);
+  --accent: oklch(0.925 0 0);
+  --accent-foreground: oklch(0.145 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.885 0 0);
+  --input: oklch(0.885 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.205 0 0);
+  --chart-2: oklch(0.385 0 0);
+  --chart-3: oklch(0.565 0 0);
+  --chart-4: oklch(0.745 0 0);
+  --chart-5: oklch(0.865 0 0);
+  --sidebar: oklch(0.975 0 0);
+  --sidebar-foreground: oklch(0.265 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.945 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.905 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
   --radius: 1rem;
   --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
   --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
@@ -629,3 +630,55 @@ body {
 }
 
 /* Sugar-high syntax highlighting styles */
+
+/* Vercel Design System Colors for DottedMap */
+:root {
+  --ds-background-100: #ffffff;
+  --ds-background-200: #fafafa;
+  --ds-gray-100: #f5f5f5;
+  --ds-gray-200: #e5e5e5;
+  --ds-gray-300: #d4d4d4;
+  --ds-gray-400: #a3a3a3;
+  --ds-gray-500: #737373;
+  --ds-gray-600: #525252;
+  --ds-gray-700: #404040;
+  --ds-gray-800: #262626;
+  --ds-gray-900: #737373;
+  --ds-gray-1000: #0a0a0a;
+  --ds-gray-alpha-100: rgba(0, 0, 0, 0.05);
+  --ds-gray-alpha-200: rgba(0, 0, 0, 0.1);
+  --ds-gray-alpha-400: rgba(0, 0, 0, 0.2);
+  --ds-gray-alpha-600: rgba(0, 0, 0, 0.4);
+}
+
+.dark {
+  --ds-background-100: #000000;
+  --ds-background-200: #171717;
+  --ds-gray-100: #262626;
+  --ds-gray-200: #333333;
+  --ds-gray-300: #404040;
+  --ds-gray-400: #525252;
+  --ds-gray-500: #737373;
+  --ds-gray-600: #a3a3a3;
+  --ds-gray-700: #d4d4d4;
+  --ds-gray-800: #e5e5e5;
+  --ds-gray-900: #a1a1aa;
+  --ds-gray-1000: #fafafa;
+  --ds-gray-alpha-100: rgba(255, 255, 255, 0.05);
+  --ds-gray-alpha-200: rgba(255, 255, 255, 0.1);
+  --ds-gray-alpha-400: rgba(255, 255, 255, 0.2);
+  --ds-gray-alpha-600: rgba(255, 255, 255, 0.4);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.rsm-svg {
+  width: 100%;
+  height: auto;
+}
+
+.rsm-geographies path {
+  transition: fill 0.15s ease;
+}

@@ -109,11 +109,11 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
             size={16}
             color="currentColor"
             strokeWidth={1.5}
-            className="text-amber-500 dark:text-amber-300"
+            className="text-neutral-600 dark:text-neutral-400"
           />
         );
       case 'warning':
-        return <AlertCircle className="h-4 w-4 text-orange-500 dark:text-orange-300" />;
+        return <AlertCircle className="h-4 w-4 text-neutral-500 dark:text-neutral-400" />;
       default:
         return <AlertCircle className="h-4 w-4 text-red-500 dark:text-red-300" />;
     }
@@ -419,21 +419,14 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
         className="w-full"
       >
         <div className="flex items-start gap-2">
-          {user ? (
-            <Avatar className="size-7 rounded-md !p-0 !m-0 flex-shrink-0 self-start" suppressHydrationWarning>
-              <AvatarImage src={user.image ?? ''} alt={user.name ?? ''} className="rounded-md !p-0 !m-0 size-7" />
-              <AvatarFallback className="rounded-md text-sm p-0 m-0 size-7">
-                {(user.name || user.email || '?').charAt(0)}
-              </AvatarFallback>
-            </Avatar>
-          ) : (
-            <HugeiconsIcon
-              icon={UserCircleIcon}
-              size={24}
-              className="size-7 flex-shrink-0 self-start"
-              suppressHydrationWarning
-            />
-          )}
+          <Avatar className="size-7 rounded-md !p-0 !m-0 flex-shrink-0 self-start" suppressHydrationWarning>
+            {user?.image && (
+              <AvatarImage src={user.image} alt={user.name ?? ''} className="rounded-md !p-0 !m-0 size-7" />
+            )}
+            <AvatarFallback className="rounded-md text-sm p-0 m-0 size-7" suppressHydrationWarning>
+              {user ? (user.name || user.email || '?').charAt(0) : '?'}
+            </AvatarFallback>
+          </Avatar>
           <div className="flex-1 grow min-w-0 bg-accent/80 rounded-2xl p-2 relative">
             <Textarea
               ref={textareaRef}
@@ -645,28 +638,21 @@ export const Message: React.FC<MessageProps> = ({
                           <div
                             className={`flex ${shouldTopAlignUser ? 'items-start' : 'items-center'} justify-start gap-2`}
                           >
-                            {user ? (
-                              <Avatar
-                                className="size-7 rounded-md !p-0 !m-0 flex-shrink-0 self-start"
-                                suppressHydrationWarning
-                              >
+                            <Avatar
+                              className="size-7 rounded-md !p-0 !m-0 flex-shrink-0 self-start"
+                              suppressHydrationWarning
+                            >
+                              {user?.image && (
                                 <AvatarImage
-                                  src={user.image ?? ''}
+                                  src={user.image}
                                   alt={user.name ?? ''}
-                                  className="rounded-md !p-0 !m-0 size-7 "
+                                  className="rounded-md !p-0 !m-0 size-7"
                                 />
-                                <AvatarFallback className="rounded-md text-sm p-0 m-0 size-7">
-                                  {(user.name || user.email || '?').charAt(0)}
-                                </AvatarFallback>
-                              </Avatar>
-                            ) : (
-                              <HugeiconsIcon
-                                icon={UserCircleIcon}
-                                size={24}
-                                className="size-7 flex-shrink-0 self-start"
-                                suppressHydrationWarning
-                              />
-                            )}
+                              )}
+                              <AvatarFallback className="rounded-md text-sm p-0 m-0 size-7" suppressHydrationWarning>
+                                {user ? (user.name || user.email || '?').charAt(0) : '?'}
+                              </AvatarFallback>
+                            </Avatar>
                             <div className="flex-1 grow min-w-0 bg-accent/80 rounded-2xl p-2">
                               <MarkdownRenderer content={part.text} isUserMessage={true} />
                               {message.parts?.filter((part) => part.type === 'file') &&

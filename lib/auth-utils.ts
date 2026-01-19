@@ -1,40 +1,70 @@
-import { auth } from '@/lib/auth';
+import { auth as clerkAuth, currentUser } from '@clerk/nextjs/server';
 import { config } from 'dotenv';
 import { headers } from 'next/headers';
-import { User } from './db/schema';
-import { sessionCache, extractSessionToken, createSessionKey } from './performance-cache';
+import { User, user as userTable } from './db/schema';
+import { db } from './db';
+import { eq } from 'drizzle-orm';
 
 config({
   path: '.env.local',
 });
 
 export const getSession = async () => {
-  const requestHeaders = await headers();
-  const sessionToken = extractSessionToken(requestHeaders);
+  const { userId } = await clerkAuth();
+  const clerkUser = await currentUser();
 
-  // Try cache first (only if we have a session token)
-  if (sessionToken) {
-    const cacheKey = createSessionKey(sessionToken);
-    const cached = sessionCache.get(cacheKey);
-    if (cached) {
-      return cached;
-    }
+  if (!userId || !clerkUser) {
+    return null;
   }
 
-  const session = await auth.api.getSession({
-    headers: requestHeaders,
-  });
-
-  // Only cache valid sessions with users
-  if (sessionToken && session?.user) {
-    const cacheKey = createSessionKey(sessionToken);
-    sessionCache.set(cacheKey, session);
-  }
-
-  return session;
+  return {
+    user: {
+      id: userId,
+      email: clerkUser.primaryEmailAddress?.emailAddress || '',
+      name: `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || clerkUser.primaryEmailAddress?.emailAddress.split('@')[0] || '',
+      image: clerkUser.imageUrl || null,
+    },
+  };
 };
 
 export const getUser = async (): Promise<User | null> => {
-  const session = await getSession();
-  return session?.user as User | null;
+  const { userId } = await clerkAuth();
+
+  if (!userId) {
+    return null;
+  }
+
+  const clerkUser = await currentUser();
+
+  if (!clerkUser || !clerkUser.primaryEmailAddress?.emailAddress) {
+    return null;
+  }
+
+  const userEmail = clerkUser.primaryEmailAddress.emailAddress;
+
+  // Try to find user by email in local DB
+  let localUser = await db
+    .select()
+    .from(userTable)
+    .where(eq(userTable.email, userEmail))
+    .limit(1)
+    .then((rows) => rows[0]);
+
+  // If user doesn't exist, create them
+  if (!localUser) {
+    const newUser = {
+      id: userId,
+      email: userEmail,
+      emailVerified: clerkUser.emailAddresses.some((e) => e.verification?.status === 'verified'),
+      name: `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || userEmail.split('@')[0],
+      image: clerkUser.imageUrl || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    await db.insert(userTable).values(newUser).onConflictDoNothing();
+    localUser = newUser;
+  }
+
+  return localUser as User;
 };

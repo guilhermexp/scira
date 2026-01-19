@@ -7,6 +7,7 @@ import { Be_Vietnam_Pro, Inter, Baumans } from 'next/font/google';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { Toaster } from '@/components/ui/sonner';
 import { ClientAnalytics } from '@/components/client-analytics';
+import { ClerkProvider } from '@clerk/nextjs';
 // import { Databuddy } from '@databuddy/sdk';
 
 import { Providers } from './providers';
@@ -119,20 +120,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${inter.variable} ${beVietnamPro.variable} ${baumans.variable} font-sans antialiased`}
-        suppressHydrationWarning
-      >
-        <NuqsAdapter>
-          <Providers>
-            <Toaster position="top-center" />
-            {children}
-          </Providers>
-        </NuqsAdapter>
-        {/* <Databuddy clientId={process.env.DATABUDDY_CLIENT_ID!} enableBatching={true} trackSessions={true} /> */}
-        <ClientAnalytics />
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en" suppressHydrationWarning>
+        <body
+          className={`${inter.variable} ${beVietnamPro.variable} ${baumans.variable} font-sans antialiased`}
+          suppressHydrationWarning
+        >
+          <NuqsAdapter>
+            <Providers>
+              <Toaster position="top-center" />
+              {children}
+            </Providers>
+          </NuqsAdapter>
+          {/* <Databuddy clientId={process.env.DATABUDDY_CLIENT_ID!} enableBatching={true} trackSessions={true} /> */}
+          <ClientAnalytics />
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

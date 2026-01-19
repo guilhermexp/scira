@@ -27,7 +27,7 @@ import { track } from '@vercel/analytics';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Kbd, KbdGroup } from '@/components/ui/kbd';
 import { ComprehensiveUserData } from '@/hooks/use-user-data';
-import { useSession } from '@/lib/auth-client';
+import { useUser as useClerkUser } from '@clerk/nextjs';
 import { checkImageModeration, enhancePrompt, getUserCountryCode } from '@/app/actions';
 import { LockIcon, Eye, Brain, FilePdf } from '@phosphor-icons/react';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -1421,7 +1421,7 @@ ConnectorSelector.displayName = 'ConnectorSelector';
 
 const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
   ({ selectedGroup, onGroupSelect, status, onOpenSettings, isProUser }) => {
-    const { data: session } = useSession();
+    const { isSignedIn } = useClerkUser();
     const { t } = useLanguage();
     const [open, setOpen] = useState(false);
     const isMobile = useIsMobile();
@@ -1472,12 +1472,12 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
       () =>
         dynamicSearchGroups.filter((group) => {
           if (!group.show) return false;
-          if ('requireAuth' in group && group.requireAuth && !session) return false;
+          if ('requireAuth' in group && group.requireAuth && !isSignedIn) return false;
           // Don't filter out Pro-only groups, show them with Pro indicator
           if (group.id === 'extreme') return false; // Exclude extreme from dropdown
           return true;
         }),
-      [dynamicSearchGroups, session],
+      [dynamicSearchGroups, isSignedIn],
     );
 
     // Persisted order for groups - must match settings-dialog.tsx
@@ -1516,7 +1516,7 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
         }
       } else {
         // Check if user is authenticated before allowing extreme mode
-        if (!session) {
+        if (!isSignedIn) {
           // Redirect to sign in page
           window.location.href = '/sign-in';
           return;
@@ -1528,7 +1528,7 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
           onGroupSelect(extremeGroup as any);
         }
       }
-    }, [isExtreme, onGroupSelect, dynamicSearchGroups, session]);
+    }, [isExtreme, onGroupSelect, dynamicSearchGroups, isSignedIn]);
 
     // Shared handler for group selection
     const handleGroupSelect = useCallback(
@@ -1545,7 +1545,7 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
           }
 
           // Check if connectors group is selected but no connectors are connected
-          if (selectedGroup.id === 'connectors' && session && onOpenSettings && isProUser) {
+          if (selectedGroup.id === 'connectors' && isSignedIn &&onOpenSettings && isProUser) {
             try {
               const { listUserConnectorsAction } = await import('@/app/actions');
               const result = await listUserConnectorsAction();
@@ -1565,7 +1565,7 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
           setOpen(false);
         }
       },
-      [visibleGroups, isProUser, onOpenSettings, session, onGroupSelect],
+      [visibleGroups, isProUser, onOpenSettings, isSignedIn, onGroupSelect],
     );
 
     // Handle opening the dropdown/drawer
@@ -1844,7 +1844,7 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                   'flex items-center gap-1.5 px-3 h-6 rounded-md transition-all',
                   isMounted && isExtreme
                     ? 'bg-accent text-foreground hover:bg-accent/80'
-                    : !session
+                    : !isSignedIn
                       ? 'text-muted-foreground/50 cursor-pointer'
                       : 'text-muted-foreground hover:bg-accent',
                 )}
@@ -1868,7 +1868,7 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                   <p className="font-semibold text-xs">
                     {isMounted && isExtreme
                       ? t('searchMode.extreme.active')
-                      : session
+                      : isSignedIn
                         ? t('searchMode.extreme.title')
                         : t('searchMode.signInRequired')}
                   </p>
@@ -3015,12 +3015,12 @@ const FormComponent: React.FC<FormComponentProps> = ({
           {/* Form container */}
           <div className="relative">
             {/* Shadow-like background blur effect */}
-            <div className="absolute -inset-1 rounded-[26px] bg-white/10 dark:bg-white/5 blur-2xl pointer-events-none z-[5]" />
+            <div className="absolute -inset-1 rounded-[26px] bg-white/5 blur-3xl pointer-events-none z-[5]" />
             <div
               className={cn(
-                'relative rounded-[26px] border border-white/10 bg-[rgba(16,16,18,0.95)] text-white/90 shadow-[0_25px_90px_rgba(0,0,0,0.55)] transition-all duration-200',
+                'relative rounded-[26px] border border-white/10 bg-black/40 backdrop-blur-2xl text-white/90 shadow-[0_25px_90px_rgba(0,0,0,0.7)] transition-all duration-200',
                 'focus-within:border-white/30 focus-within:ring-2 focus-within:ring-white/10',
-                (isEnhancing || isTypewriting) && 'bg-[rgba(21,21,24,0.95)]',
+                (isEnhancing || isTypewriting) && 'bg-black/50',
               )}
             >
               {isRecording ? (
@@ -3126,7 +3126,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
               <div
                 className={cn(
                   'flex justify-between items-center rounded-t-none rounded-b-[26px]',
-                  'border-t border-white/10 bg-white/5 backdrop-blur-sm',
+                  'bg-black/30 backdrop-blur-xl',
                   'px-3 py-2.5 md:px-4 md:py-3 gap-2 shadow-none text-white/80',
                   'transition-all duration-200',
                   (isEnhancing || isTypewriting) && 'pointer-events-none opacity-70',

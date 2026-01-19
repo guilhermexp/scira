@@ -554,18 +554,18 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                   return (
                     <div
                       key={`${messageIndex}-${partIndex}-tool`}
-                      className="w-full my-4 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950"
+                      className="w-full my-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50"
                     >
                       <div className="p-4">
                         <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900 flex items-center justify-center">
-                            <MapPin className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
+                            <MapPin className="h-4 w-4 text-neutral-600 dark:text-neutral-400" />
                           </div>
                           <div className="flex-1">
-                            <h3 className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                            <h3 className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                               No locations found
                             </h3>
-                            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                            <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
                               Try searching with different keywords or check the spelling.
                             </p>
                           </div>
@@ -1009,7 +1009,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                   <ExtremeSearch
                     key={`${messageIndex}-${partIndex}-tool`}
                     // @ts-ignore - Complex type intersection resolved to never
-                    toolInvocation={{ toolName: 'extreme_search', input: (part.input as any), result: (part.output as any) }}
+                    toolInvocation={part as any}
                     annotations={
                       (annotations?.filter(
                         (annotation) => annotation.type === 'data-extreme_search',
@@ -1311,17 +1311,17 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                 const { results, count } = (part.output as any);
                 if (!results || results.length === 0) {
                   return (
-                    <div className="w-full my-4 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950">
+                    <div className="w-full my-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50">
                       <div className="p-4">
                         <div className="flex items-start gap-3">
-                          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900 flex items-center justify-center">
-                            <MemoryIcon className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
+                            <MemoryIcon className="h-4 w-4 text-neutral-600 dark:text-neutral-400" />
                           </div>
                           <div className="flex-1">
-                            <h3 className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                            <h3 className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                               No memories found
                             </h3>
-                            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                            <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
                               No memories match your search query. Try different keywords.
                             </p>
                           </div>
@@ -1689,13 +1689,13 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                   return (
                     <div
                       key={`${messageIndex}-${partIndex}-tool`}
-                      className="border border-amber-200 dark:border-amber-500 rounded-xl my-4 p-4 bg-amber-50 dark:bg-amber-950/50"
+                      className="border border-neutral-200 dark:border-neutral-700 rounded-xl my-4 p-4 bg-neutral-50 dark:bg-neutral-900/50"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center shrink-0">
-                          <Globe className="h-4 w-4 text-amber-600 dark:text-amber-300" />
+                        <div className="h-8 w-8 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center shrink-0">
+                          <Globe className="h-4 w-4 text-neutral-600 dark:text-neutral-400" />
                         </div>
-                        <div className="text-amber-700 dark:text-amber-300 text-sm font-medium">
+                        <div className="text-neutral-600 dark:text-neutral-400 text-sm font-medium">
                           No content available
                         </div>
                       </div>
@@ -1827,7 +1827,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                           {result.results.length > 1 && (
                             <Badge
                               variant="secondary"
-                              className="rounded-md bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/20 dark:hover:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-0 transition-colors"
+                              className="rounded-md bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-400 border-0 transition-colors"
                             >
                               <TextIcon className="h-3 w-3 mr-1" />
                               {result.results.length} pages

@@ -1597,7 +1597,7 @@ const ExtremeSearchComponent = ({
               ? 'bg-primary/80 animate-[pulse_0.8s_ease-in-out_infinite]!'
               : hasResults
                 ? 'bg-primary'
-                : 'bg-yellow-500';
+                : 'bg-neutral-400';
 
             return (
               <motion.div
@@ -1759,7 +1759,7 @@ const ExtremeSearchComponent = ({
               ? 'bg-primary/80 animate-[pulse_0.8s_ease-in-out_infinite]!'
               : hasResults
                 ? 'bg-primary'
-                : 'bg-yellow-500';
+                : 'bg-neutral-400';
 
             return (
               <motion.div
@@ -2322,7 +2322,17 @@ const ExtremeSearchComponent = ({
         )}
 
         {/* Show loading skeletons when no plan and no items */}
-        {!planData && searchQueries.length === 0 && codeExecutions.length === 0 && xSearchExecutions.length === 0 && (
+        {(() => {
+          const shouldShowSkeletons = !planData && searchQueries.length === 0 && codeExecutions.length === 0 && xSearchExecutions.length === 0;
+          console.log('[ExtremeSearch] Skeleton decision:', {
+            shouldShowSkeletons,
+            planData: !!planData,
+            searchQueriesCount: searchQueries.length,
+            codeExecutionsCount: codeExecutions.length,
+            xSearchExecutionsCount: xSearchExecutions.length
+          });
+          return shouldShowSkeletons;
+        })() && (
           <div className="mb-3">
             <div className="flex items-center gap-1.5 mb-2">
               <Target className="w-3.5 h-3.5 text-primary/50" />

@@ -1,0 +1,111 @@
+{
+  "US": [
+    { "lon": -122.4194, "lat": 37.7749, "cityDistanceRank": 0 },
+    { "lon": -118.2437, "lat": 34.0522, "cityDistanceRank": 1 },
+    { "lon": -73.9352, "lat": 40.7306, "cityDistanceRank": 2 },
+    { "lon": -87.6298, "lat": 41.8781, "cityDistanceRank": 3 },
+    { "lon": -95.3698, "lat": 29.7604, "cityDistanceRank": 4 },
+    { "lon": -112.0740, "lat": 33.4484, "cityDistanceRank": 5 },
+    { "lon": -75.1652, "lat": 39.9526, "cityDistanceRank": 6 },
+    { "lon": -122.3321, "lat": 47.6062, "cityDistanceRank": 7 },
+    { "lon": -97.7431, "lat": 30.2672, "cityDistanceRank": 8 },
+    { "lon": -84.3880, "lat": 33.7490, "cityDistanceRank": 9 },
+    { "lon": -80.1918, "lat": 25.7617, "cityDistanceRank": 10 },
+    { "lon": -104.9903, "lat": 39.7392, "cityDistanceRank": 11 },
+    { "lon": -86.1581, "lat": 39.7684, "cityDistanceRank": 12 },
+    { "lon": -71.0589, "lat": 42.3601, "cityDistanceRank": 13 },
+    { "lon": -77.0369, "lat": 38.9072, "cityDistanceRank": 14 },
+    { "lon": -93.2650, "lat": 44.9778, "cityDistanceRank": 15 },
+    { "lon": -90.0490, "lat": 35.1495, "cityDistanceRank": 16 },
+    { "lon": -82.4584, "lat": 27.9506, "cityDistanceRank": 17 },
+    { "lon": -121.4944, "lat": 38.5816, "cityDistanceRank": 18 },
+    { "lon": -117.1611, "lat": 32.7157, "cityDistanceRank": 19 }
+  ],
+  "DE": [
+    { "lon": 13.4050, "lat": 52.5200, "cityDistanceRank": 0 },
+    { "lon": 11.5820, "lat": 48.1351, "cityDistanceRank": 1 },
+    { "lon": 8.6821, "lat": 50.1109, "cityDistanceRank": 2 },
+    { "lon": 9.9937, "lat": 53.5511, "cityDistanceRank": 3 },
+    { "lon": 6.9603, "lat": 50.9375, "cityDistanceRank": 4 }
+  ],
+  "GB": [
+    { "lon": -0.1278, "lat": 51.5074, "cityDistanceRank": 0 },
+    { "lon": -1.8904, "lat": 52.4862, "cityDistanceRank": 1 },
+    { "lon": -2.9916, "lat": 53.4084, "cityDistanceRank": 2 },
+    { "lon": -3.1883, "lat": 55.9533, "cityDistanceRank": 3 }
+  ],
+  "IN": [
+    { "lon": 72.8777, "lat": 19.0760, "cityDistanceRank": 0 },
+    { "lon": 77.1025, "lat": 28.7041, "cityDistanceRank": 1 },
+    { "lon": 77.5946, "lat": 12.9716, "cityDistanceRank": 2 },
+    { "lon": 88.3639, "lat": 22.5726, "cityDistanceRank": 3 }
+  ],
+  "BR": [
+    { "lon": -46.6333, "lat": -23.5505, "cityDistanceRank": 0 },
+    { "lon": -43.1729, "lat": -22.9068, "cityDistanceRank": 1 },
+    { "lon": -47.8822, "lat": -15.7939, "cityDistanceRank": 2 }
+  ],
+  "SG": [
+    { "lon": 103.8198, "lat": 1.3521, "cityDistanceRank": 0 }
+  ],
+  "JP": [
+    { "lon": 139.6503, "lat": 35.6762, "cityDistanceRank": 0 },
+    { "lon": 135.5023, "lat": 34.6937, "cityDistanceRank": 1 },
+    { "lon": 139.6380, "lat": 35.4437, "cityDistanceRank": 2 }
+  ],
+  "FR": [
+    { "lon": 2.3522, "lat": 48.8566, "cityDistanceRank": 0 },
+    { "lon": 5.3698, "lat": 43.2965, "cityDistanceRank": 1 },
+    { "lon": 1.4442, "lat": 43.6047, "cityDistanceRank": 2 }
+  ],
+  "CA": [
+    { "lon": -79.3832, "lat": 43.6532, "cityDistanceRank": 0 },
+    { "lon": -123.1216, "lat": 49.2827, "cityDistanceRank": 1 },
+    { "lon": -114.0719, "lat": 51.0447, "cityDistanceRank": 2 }
+  ],
+  "SE": [
+    { "lon": 18.0686, "lat": 59.3293, "cityDistanceRank": 0 },
+    { "lon": 11.9746, "lat": 57.7089, "cityDistanceRank": 1 }
+  ],
+  "AU": [
+    { "lon": 151.2093, "lat": -33.8688, "cityDistanceRank": 0 },
+    { "lon": 144.9631, "lat": -37.8136, "cityDistanceRank": 1 }
+  ],
+  "KR": [
+    { "lon": 126.9780, "lat": 37.5665, "cityDistanceRank": 0 },
+    { "lon": 129.0756, "lat": 35.1796, "cityDistanceRank": 1 }
+  ],
+  "NL": [
+    { "lon": 4.9041, "lat": 52.3676, "cityDistanceRank": 0 },
+    { "lon": 4.4777, "lat": 51.9244, "cityDistanceRank": 1 }
+  ],
+  "CN": [
+    { "lon": 116.4074, "lat": 39.9042, "cityDistanceRank": 0 },
+    { "lon": 121.4737, "lat": 31.2304, "cityDistanceRank": 1 },
+    { "lon": 113.2644, "lat": 23.1291, "cityDistanceRank": 2 }
+  ],
+  "RU": [
+    { "lon": 37.6173, "lat": 55.7558, "cityDistanceRank": 0 },
+    { "lon": 30.3351, "lat": 59.9343, "cityDistanceRank": 1 }
+  ],
+  "MX": [
+    { "lon": -99.1332, "lat": 19.4326, "cityDistanceRank": 0 },
+    { "lon": -103.3494, "lat": 20.6597, "cityDistanceRank": 1 }
+  ],
+  "ES": [
+    { "lon": -3.7038, "lat": 40.4168, "cityDistanceRank": 0 },
+    { "lon": 2.1734, "lat": 41.3851, "cityDistanceRank": 1 }
+  ],
+  "IT": [
+    { "lon": 12.4964, "lat": 41.9028, "cityDistanceRank": 0 },
+    { "lon": 9.1900, "lat": 45.4642, "cityDistanceRank": 1 }
+  ],
+  "PL": [
+    { "lon": 21.0122, "lat": 52.2297, "cityDistanceRank": 0 },
+    { "lon": 19.9450, "lat": 50.0647, "cityDistanceRank": 1 }
+  ],
+  "TR": [
+    { "lon": 28.9784, "lat": 41.0082, "cityDistanceRank": 0 },
+    { "lon": 32.8597, "lat": 39.9334, "cityDistanceRank": 1 }
+  ]
+}

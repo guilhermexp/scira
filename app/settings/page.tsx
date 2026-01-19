@@ -17,7 +17,7 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ThemeSwitcher } from '@/components/theme-switcher';
-import { signOut } from '@/lib/auth-client';
+import { useClerk } from '@clerk/nextjs';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -26,6 +26,7 @@ import { ArrowLeftIcon } from '@phosphor-icons/react';
 function SettingsPageInner() {
   const router = useRouter();
   const { user, isLoading } = useUser();
+  const { signOut } = useClerk();
   const searchParams = useSearchParams();
   const tabs = useMemo(
     () => [
@@ -86,23 +87,13 @@ function SettingsPageInner() {
               size="sm"
               onClick={async () => {
                 try {
-                  await signOut({
-                    fetchOptions: {
-                      onRequest: () => {
-                        toast.loading('Signing out...');
-                      },
-                      onSuccess: () => {
-                        toast.dismiss();
-                        toast.success('Signed out');
-                        if (typeof window !== 'undefined') window.location.href = '/new';
-                      },
-                      onError: () => {
-                        toast.dismiss();
-                        toast.error('Failed to sign out');
-                      },
-                    },
-                  });
+                  toast.loading('Signing out...');
+                  await signOut();
+                  toast.dismiss();
+                  toast.success('Signed out');
+                  if (typeof window !== 'undefined') window.location.href = '/new';
                 } catch (e) {
+                  toast.dismiss();
                   toast.error('Failed to sign out');
                 }
               }}

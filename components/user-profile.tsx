@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useSession, signOut } from '@/lib/auth-client';
+import { useUser, useClerk } from '@clerk/nextjs';
 import { toast } from 'sonner';
 import {
   SignOutIcon,
@@ -41,8 +41,8 @@ import { SignInPromptDialog } from '@/components/sign-in-prompt-dialog';
 // Navigation Menu Component - contains all the general navigation items
 const NavigationMenu = memo(() => {
   const router = useRouter();
-  const { data: session } = useSession();
-  const isAuthenticated = !!session;
+  const { isSignedIn } = useUser();
+  const isAuthenticated = isSignedIn;
   const [isOpen, setIsOpen] = useState(false);
   const settingsIconRef = useRef<SettingsIconHandle>(null);
 
@@ -140,13 +140,19 @@ const UserProfile = memo(
     const [signInDialogOpen, setSignInDialogOpen] = useState(false);
     const [showEmail, setShowEmail] = useState(false);
     const [blurPersonalInfo] = useLocalStorage<boolean>('scira-blur-personal-info', false);
-    const { data: session, isPending } = useSession();
+    const { isSignedIn, isLoaded, user: clerkUser } = useUser();
+    const { signOut: clerkSignOut } = useClerk();
     const router = useRouter();
 
-    // Use passed user prop if available, otherwise fall back to session
-    // BUT only use session for authentication check, not for settings dialog data
-    const currentUser = user || session?.user;
-    const isAuthenticated = !!(user || session);
+    // Use passed user prop if available, otherwise fall back to Clerk user
+    // BUT only use Clerk user for authentication check, not for settings dialog data
+    const currentUser = user || (clerkUser ? {
+      id: clerkUser.id,
+      email: clerkUser.primaryEmailAddress?.emailAddress || '',
+      name: `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || clerkUser.primaryEmailAddress?.emailAddress.split('@')[0] || '',
+      image: clerkUser.imageUrl || null,
+    } : null);
+    const isAuthenticated = !!(user || isSignedIn);
 
     // For settings dialog, always use the passed user prop (has unified data structure)
     const settingsUser = user;
@@ -154,7 +160,7 @@ const UserProfile = memo(
     // Use passed Pro status instead of calculating it
     const hasActiveSubscription = isProUser;
 
-    if (isPending && !user) {
+    if (!isLoaded && !user) {
       return (
         <div className="h-8 w-8 flex items-center justify-center">
           <div className="size-4 rounded-full bg-muted/50 animate-pulse"></div>
@@ -199,7 +205,7 @@ const UserProfile = memo(
                   >
                     <Avatar className="size-6 rounded-full border border-neutral-200 dark:border-neutral-700 !p-0 !m-0">
                       <AvatarImage
-                        src={currentUser?.image ?? ''}
+                        src={currentUser?.image || undefined}
                         alt={currentUser?.name ?? ''}
                         className="rounded-md !p-0 !m-0 size-6"
                       />
@@ -219,7 +225,7 @@ const UserProfile = memo(
                 <div className="flex items-center gap-2">
                   <Avatar className="size-8 shrink-0 rounded-md border border-neutral-200 dark:border-neutral-700">
                     <AvatarImage
-                      src={currentUser?.image ?? ''}
+                      src={currentUser?.image || undefined}
                       alt={currentUser?.name ?? ''}
                       className={cn('rounded-md p-0 m-0 size-8', blurPersonalInfo && 'blur-sm')}
                     />
@@ -275,28 +281,24 @@ const UserProfile = memo(
 
               <DropdownMenuItem
                 className="cursor-pointer w-full flex items-center justify-between gap-2"
-                onClick={() =>
-                  signOut({
-                    fetchOptions: {
-                      onRequest: () => {
-                        setSigningOut(true);
-                        toast.loading('Signing out...');
-                      },
-                      onSuccess: () => {
-                        setSigningOut(false);
-                        localStorage.clear();
-                        toast.success('Signed out successfully');
-                        toast.dismiss();
-                        window.location.href = '/new';
-                      },
-                      onError: () => {
-                        setSigningOut(false);
-                        toast.error('Failed to sign out');
-                        window.location.reload();
-                      },
-                    },
-                  })
-                }
+                onClick={async () => {
+                  try {
+                    setSigningOut(true);
+                    toast.loading('Signing out...');
+
+                    await clerkSignOut();
+
+                    setSigningOut(false);
+                    localStorage.clear();
+                    toast.success('Signed out successfully');
+                    toast.dismiss();
+                    window.location.href = '/new';
+                  } catch (error) {
+                    setSigningOut(false);
+                    toast.error('Failed to sign out');
+                    console.error('Sign out error:', error);
+                  }
+                }}
               >
                 <span>Sign Out</span>
                 <SignOutIcon className="size-4" />

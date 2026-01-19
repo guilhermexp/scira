@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { subscription, payment } from './db/schema';
 import { db } from './db';
-import { auth } from './auth';
+import { auth as clerkAuth } from '@clerk/nextjs/server';
 import { headers } from 'next/headers';
 import {
   subscriptionCache,
@@ -151,25 +151,23 @@ export async function getUserSubscriptionStatus(): Promise<'active' | 'canceled'
 // Helper to get DodoPayments expiration date
 export async function getDodoPaymentsExpirationDate(): Promise<Date | null> {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const { userId } = await clerkAuth();
 
-    if (!session?.user?.id) {
+    if (!userId) {
       return null;
     }
 
     // Check cache first
-    const cachedExpiration = getDodoPaymentExpiration(session.user.id);
+    const cachedExpiration = getDodoPaymentExpiration(userId);
     if (cachedExpiration !== null) {
       return cachedExpiration.expirationDate ? new Date(cachedExpiration.expirationDate) : null;
     }
 
     // Check cache for payments to avoid DB hit
-    let userPayments = getDodoPayments(session.user.id);
+    let userPayments = getDodoPayments(userId);
     if (!userPayments) {
-      userPayments = await db.select().from(payment).where(eq(payment.userId, session.user.id)).$withCache();
-      setDodoPayments(session.user.id, userPayments);
+      userPayments = await db.select().from(payment).where(eq(payment.userId, userId)).$withCache();
+      setDodoPayments(userId, userPayments);
     }
 
     const successfulPayments = userPayments
@@ -178,7 +176,7 @@ export async function getDodoPaymentsExpirationDate(): Promise<Date | null> {
 
     if (successfulPayments.length === 0) {
       const expirationData = { expirationDate: null };
-      setDodoPaymentExpiration(session.user.id, expirationData);
+      setDodoPaymentExpiration(userId, expirationData);
       return null;
     }
 
@@ -192,7 +190,7 @@ export async function getDodoPaymentsExpirationDate(): Promise<Date | null> {
       expirationDate: expirationDate.toISOString(),
       paymentDate: mostRecentPayment.createdAt,
     };
-    setDodoPaymentExpiration(session.user.id, expirationData);
+    setDodoPaymentExpiration(userId, expirationData);
 
     return expirationDate;
   } catch (error) {

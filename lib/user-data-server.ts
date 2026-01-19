@@ -3,7 +3,7 @@ import 'server-only';
 import { eq, and, desc } from 'drizzle-orm';
 import { subscription, payment, user } from './db/schema';
 import { db } from './db';
-import { auth } from './auth';
+import { auth as clerkAuth, currentUser } from '@clerk/nextjs/server';
 import { headers } from 'next/headers';
 import { getPaymentsByUserId, getDodoPaymentsExpirationInfo } from './db/queries';
 import { getCustomInstructionsByUserId } from './db/queries';
@@ -161,15 +161,47 @@ export function clearCustomInstructionsCache(userId?: string): void {
  */
 export async function getLightweightUserAuth(): Promise<LightweightUserAuth | null> {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    // Get Clerk user
+    const { userId: clerkUserId } = await clerkAuth();
 
-    if (!session?.user?.id) {
+    if (!clerkUserId) {
       return null;
     }
 
-    const userId = session.user.id;
+    // Get full Clerk user data
+    const clerkUser = await currentUser();
+
+    if (!clerkUser || !clerkUser.primaryEmailAddress?.emailAddress) {
+      return null;
+    }
+
+    const userEmail = clerkUser.primaryEmailAddress.emailAddress;
+
+    // Try to find user by email in local DB
+    let localUser = await db
+      .select()
+      .from(user)
+      .where(eq(user.email, userEmail))
+      .limit(1)
+      .then((rows) => rows[0]);
+
+    // If user doesn't exist, create them
+    if (!localUser) {
+      const newUser = {
+        id: clerkUserId,
+        email: userEmail,
+        emailVerified: clerkUser.emailAddresses.some((e) => e.verification?.status === 'verified'),
+        name: `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || userEmail.split('@')[0],
+        image: clerkUser.imageUrl || null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      await db.insert(user).values(newUser).onConflictDoNothing();
+      localUser = newUser;
+    }
+
+    const userId = localUser.id;
 
     // Check lightweight cache first
     const cached = getCachedLightweightAuth(userId);
@@ -249,16 +281,47 @@ export async function getLightweightUserAuth(): Promise<LightweightUserAuth | nu
 
 export async function getComprehensiveUserData(): Promise<ComprehensiveUserData | null> {
   try {
-    // Get session once
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    // Get Clerk user
+    const { userId: clerkUserId } = await clerkAuth();
 
-    if (!session?.user?.id) {
+    if (!clerkUserId) {
       return null;
     }
 
-    const userId = session.user.id;
+    // Get full Clerk user data
+    const clerkUser = await currentUser();
+
+    if (!clerkUser || !clerkUser.primaryEmailAddress?.emailAddress) {
+      return null;
+    }
+
+    const userEmail = clerkUser.primaryEmailAddress.emailAddress;
+
+    // Try to find user by email in local DB (for backward compatibility with Better Auth users)
+    let localUser = await db
+      .select()
+      .from(user)
+      .where(eq(user.email, userEmail))
+      .limit(1)
+      .then((rows) => rows[0]);
+
+    // If user doesn't exist in local DB, create them
+    if (!localUser) {
+      const newUser = {
+        id: clerkUserId,
+        email: userEmail,
+        emailVerified: clerkUser.emailAddresses.some((e) => e.verification?.status === 'verified'),
+        name: `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || userEmail.split('@')[0],
+        image: clerkUser.imageUrl || null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      await db.insert(user).values(newUser).onConflictDoNothing();
+      localUser = newUser;
+    }
+
+    const userId = localUser.id;
 
     // Check cache first
     const cached = getCachedUserData(userId);

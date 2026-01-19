@@ -1,4 +1,4 @@
-import { auth } from '@/lib/auth';
+import { auth as clerkAuth } from '@clerk/nextjs/server';
 import { getChatById, getMessagesByChatId, getStreamIdsByChatId } from '@/lib/db/queries';
 import type { Chat } from '@/lib/db/schema';
 import { ChatSDKError } from '@/lib/errors';
@@ -21,9 +21,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return new ChatSDKError('bad_request:api').toResponse();
   }
 
-  const session = await auth.api.getSession(req);
+  const { userId } = await clerkAuth();
 
-  if (!session?.user) {
+  if (!userId) {
     return new ChatSDKError('unauthorized:chat').toResponse();
   }
 
@@ -42,7 +42,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return new ChatSDKError('not_found:chat').toResponse();
   }
 
-  if (chat.visibility === 'private' && chat.userId !== session.user.id) {
+  if (chat.visibility === 'private' && chat.userId !== userId) {
     return new ChatSDKError('forbidden:chat').toResponse();
   }
 

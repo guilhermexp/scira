@@ -115,7 +115,7 @@ export function LookoutDetailsSidebar({
             size={14}
             color="currentColor"
             strokeWidth={1.5}
-            className="text-yellow-500"
+            className="text-neutral-500"
           />
         );
       default:

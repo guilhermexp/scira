@@ -2,7 +2,7 @@ import { put } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { auth } from '@/lib/auth';
+import { auth as clerkAuth } from '@clerk/nextjs/server';
 
 // File validation schema
 const FileSchema = z.object({
@@ -26,10 +26,8 @@ export async function POST(request: NextRequest) {
   // Check for authentication but don't require it
   let isAuthenticated = false;
   try {
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
-    isAuthenticated = !!session;
+    const { userId } = await clerkAuth();
+    isAuthenticated = !!userId;
   } catch (error) {
     console.warn('Error checking authentication:', error);
     // Continue as unauthenticated
