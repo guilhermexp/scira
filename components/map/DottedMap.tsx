@@ -131,8 +131,8 @@ export default function DottedMap({ width = 1000, height = 560 }: DottedMapProps
           {({ geographies }) => (
             <>
               {geographies.map((geo) => {
-                const iso2 = geo.properties.ISO_A2;
-                const hasData = countryRequests[iso2];
+                const iso2 = geo.properties.ISO_A2 as string | undefined;
+                const hasData = iso2 ? countryRequests[iso2] : undefined;
                 const patternId = hasData ? `dots-${iso2}` : 'dots-default';
 
                 return (
