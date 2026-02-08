@@ -58,12 +58,12 @@ const baseten = createOpenAICompatible({
 });
 
 export const LEGACY_DEFAULT_MODEL = 'scira-default' as const;
-export const DEFAULT_MODEL = 'scira-grok-4-fast-think' as const;
+export const DEFAULT_MODEL = 'scira-grok4.1-fast-thinking' as const;
 
 export const scira = customProvider({
   languageModels: {
     'scira-default': xai('grok-4-1-fast-non-reasoning'),
-    'scira-grok4.1-fast-thinking': xai('grok-4-1-fast'),
+    'scira-grok4.1-fast-thinking': xai('grok-4-1-fast-reasoning'),
     'scira-nano': groq('llama-3.3-70b-versatile'),
     'scira-name': gateway('google/gemini-2.5-flash-lite-preview-09-2025'),
     'scira-grok-3-mini': xai('grok-3-mini'),
