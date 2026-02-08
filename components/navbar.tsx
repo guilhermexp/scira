@@ -88,7 +88,7 @@ const Navbar = memo(
                 type="button"
                 variant="secondary"
                 size="sm"
-                className="rounded-lg bg-accent hover:bg-accent/80 group transition-all hover:scale-105 pointer-events-auto"
+                className="rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-100 group transition-all hover:scale-105 pointer-events-auto"
               >
                 <PlusIcon size={16} className="group-hover:rotate-90 transition-all" />
                 <span className="text-sm ml-1.5 group-hover:block hidden animate-in fade-in duration-300">

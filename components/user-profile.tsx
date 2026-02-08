@@ -314,6 +314,7 @@ const UserProfile = memo(
                 size="sm"
                 className={cn(
                   'h-7 px-2.5 text-xs rounded-md shadow-sm group',
+                  'bg-zinc-700 text-zinc-100 hover:bg-zinc-600',
                   'hover:scale-[1.02] active:scale-[0.98] transition-transform',
                   signingIn && 'animate-pulse',
                   className,
@@ -325,7 +326,7 @@ const UserProfile = memo(
               >
                 <SignInIcon className="size-3.5 mr-1.5" />
                 <span>Sign in</span>
-                <span className="ml-1.5 hidden sm:inline text-[9px] px-1.5 py-0.5 rounded-full bg-primary-foreground/15 text-primary-foreground/90">
+                <span className="ml-1.5 hidden sm:inline text-[9px] px-1.5 py-0.5 rounded-full bg-zinc-500/30 text-zinc-300">
                   Free
                 </span>
               </Button>

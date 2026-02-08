@@ -219,7 +219,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         if (!q) return escapeHtml(text);
         const safeText = escapeHtml(text);
         const pattern = new RegExp(`(${escapeRegExp(q)})`, 'gi');
-        return safeText.replace(pattern, '<mark class="bg-primary/80 text-primary-foreground rounded px-px">$1</mark>');
+        return safeText.replace(pattern, '<mark class="bg-zinc-600/80 text-zinc-100 rounded px-px">$1</mark>');
       },
       [searchQuery, escapeHtml, escapeRegExp],
     );
@@ -870,7 +870,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         )}
         {...props}
       >
-        <HugeiconsIcon icon={CpuIcon} size={24} color="currentColor" strokeWidth={2} />
+        <HugeiconsIcon icon={CpuIcon} size={24} color="#9ca3af" strokeWidth={2} />
         <span className="text-xs font-medium sm:block hidden">{isMounted ? currentModel?.label : ''}</span>
         <ChevronsUpDown className="h-4 w-4 opacity-50" />
       </Button>
@@ -888,7 +888,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
             <DrawerContent className="min-h-[60vh] max-h-[80vh] flex flex-col">
               <DrawerHeader className="pb-4 flex-shrink-0">
                 <DrawerTitle className="text-left flex items-center gap-2 font-medium font-be-vietnam-pro text-lg">
-                  <HugeiconsIcon icon={CpuIcon} size={22} color="currentColor" strokeWidth={2} />
+                  <HugeiconsIcon icon={CpuIcon} size={22} color="#9ca3af" strokeWidth={2} />
                   Select Model
                 </DrawerTitle>
               </DrawerHeader>
@@ -1350,7 +1350,7 @@ const ConnectorSelector: React.FC<ConnectorSelectorProps> = React.memo(
       return (
         <Dialog open={open} onOpenChange={setOpen}>
           <Button variant="outline" size="sm" className="h-8 px-2 text-xs" onClick={() => setOpen(true)}>
-            <HugeiconsIcon icon={ConnectIcon} size={16} color="currentColor" strokeWidth={1.5} />
+            <HugeiconsIcon icon={ConnectIcon} size={16} color="#9ca3af" strokeWidth={1.5} />
             <span className="ml-1">{selectedCount > 0 ? `${selectedCount} active` : 'Select'}</span>
           </Button>
           <DialogContent className="sm:max-w-sm">
@@ -1386,7 +1386,7 @@ const ConnectorSelector: React.FC<ConnectorSelectorProps> = React.memo(
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm" className="h-8 px-2 text-xs">
-            <HugeiconsIcon icon={ConnectIcon} size={16} color="currentColor" strokeWidth={1.5} />
+            <HugeiconsIcon icon={ConnectIcon} size={16} color="#9ca3af" strokeWidth={1.5} />
             <span className="ml-1">{selectedCount > 0 ? `${selectedCount} active` : 'Select'}</span>
           </Button>
         </PopoverTrigger>
@@ -1629,7 +1629,7 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                 )}
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1 pr-4">
-                  {isMounted && <HugeiconsIcon icon={group.icon} size={30} color="currentColor" strokeWidth={2} />}
+                  {isMounted && <HugeiconsIcon icon={group.icon} size={30} color="#9ca3af" strokeWidth={2} />}
                   <div className="flex flex-col min-w-0 flex-1">
                     <div className="flex items-center gap-1">
                       <span className="font-medium truncate text-[11px] text-foreground">{group.name}</span>
@@ -1673,13 +1673,13 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                     >
                       {selectedGroupData && isMounted && !isExtreme && (
                         <>
-                          <HugeiconsIcon icon={selectedGroupData.icon} size={30} color="currentColor" strokeWidth={2} />
+                          <HugeiconsIcon icon={selectedGroupData.icon} size={30} color="#9ca3af" strokeWidth={2} />
                           <ChevronsUpDown className="size-4.5 opacity-50" />
                         </>
                       )}
                       {isMounted && isExtreme && (
                         <>
-                          <HugeiconsIcon icon={GlobalSearchIcon} size={30} color="currentColor" strokeWidth={2} />
+                          <HugeiconsIcon icon={GlobalSearchIcon} size={30} color="#9ca3af" strokeWidth={2} />
                         </>
                       )}
                     </Button>
@@ -1692,11 +1692,11 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-1.5">
                         {isMounted && (
-                          <div className="p-0.5 rounded bg-primary">
+                          <div className="p-0.5 rounded bg-zinc-600">
                             <HugeiconsIcon
                               icon={selectedGroupData.icon}
                               size={14}
-                              className="text-primary-foreground"
+                              className="text-zinc-100"
                               strokeWidth={2}
                             />
                           </div>
@@ -1708,8 +1708,8 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                           {/* Self-hosted: no PRO label */}
                         </div>
                       </div>
-                      <p className="text-[11px] leading-snug text-secondary">{selectedGroupData.description}</p>
-                      <p className="text-[10px] text-accent italic">{t('searchMode.clickToSwitch')}</p>
+                      <p className="text-[11px] leading-snug text-zinc-300">{selectedGroupData.description}</p>
+                      <p className="text-[10px] text-zinc-300 italic">{t('searchMode.clickToSwitch')}</p>
                       {/* Self-hosted: no Pro upsell for groups */}
                     </div>
                   ) : (
@@ -1735,7 +1735,7 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                       >
                         <div className="flex items-center gap-3 min-w-0 flex-1">
                           {isMounted && (
-                            <HugeiconsIcon icon={group.icon} size={24} color="currentColor" strokeWidth={2} />
+                            <HugeiconsIcon icon={group.icon} size={24} color="#9ca3af" strokeWidth={2} />
                           )}
                           <div className="flex flex-col min-w-0 flex-1">
                             <div className="flex items-center gap-2">
@@ -1776,13 +1776,13 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                     >
                       {selectedGroupData && isMounted && !isExtreme && (
                         <>
-                          <HugeiconsIcon icon={selectedGroupData.icon} size={30} color="currentColor" strokeWidth={2} />
+                          <HugeiconsIcon icon={selectedGroupData.icon} size={30} color="#9ca3af" strokeWidth={2} />
                           <ChevronsUpDown className="size-4.5 opacity-50" />
                         </>
                       )}
                       {isMounted && isExtreme && (
                         <>
-                          <HugeiconsIcon icon={GlobalSearchIcon} size={30} color="currentColor" strokeWidth={2} />
+                          <HugeiconsIcon icon={GlobalSearchIcon} size={30} color="#9ca3af" strokeWidth={2} />
                         </>
                       )}
                     </Button>
@@ -1795,11 +1795,11 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-1.5">
                         {isMounted && (
-                          <div className="p-0.5 rounded bg-primary">
+                          <div className="p-0.5 rounded bg-zinc-600">
                             <HugeiconsIcon
                               icon={selectedGroupData.icon}
                               size={14}
-                              className="text-primary-foreground"
+                              className="text-zinc-100"
                               strokeWidth={2}
                             />
                           </div>
@@ -1811,8 +1811,8 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                           {/* Self-hosted: no PRO label */}
                         </div>
                       </div>
-                      <p className="text-[11px] leading-snug text-secondary">{selectedGroupData.description}</p>
-                      <p className="text-[10px] text-accent italic">{t('searchMode.clickToSwitch')}</p>
+                      <p className="text-[11px] leading-snug text-zinc-300">{selectedGroupData.description}</p>
+                      <p className="text-[10px] text-zinc-300 italic">{t('searchMode.clickToSwitch')}</p>
                       {/* Self-hosted: no upsell */}
                     </div>
                   ) : (
@@ -1849,18 +1849,18 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                       : 'text-muted-foreground hover:bg-accent',
                 )}
               >
-                {isMounted && <HugeiconsIcon icon={AtomicPowerIcon} size={30} color="currentColor" strokeWidth={2} />}
+                {isMounted && <HugeiconsIcon icon={AtomicPowerIcon} size={30} color="#9ca3af" strokeWidth={2} />}
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="max-w-[220px] p-2">
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5">
-                  <div className="p-0.5 rounded bg-primary">
+                  <div className="p-0.5 rounded bg-zinc-600">
                     {isMounted && (
                       <HugeiconsIcon
                         icon={AtomicPowerIcon}
                         size={14}
-                        className="text-primary-foreground"
+                        className="text-zinc-100"
                         strokeWidth={2}
                       />
                     )}
@@ -1873,7 +1873,7 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                         : t('searchMode.signInRequired')}
                   </p>
                 </div>
-                <p className="text-[11px] leading-snug text-secondary">{t('searchMode.extreme.description.tooltip')}</p>
+                <p className="text-[11px] leading-snug text-zinc-300">{t('searchMode.extreme.description.tooltip')}</p>
                 {/* Self-hosted: no upsell */}
               </div>
             </TooltipContent>
@@ -3162,7 +3162,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                       const isVisionModel = hasVisionSupport(model.value);
                       toast.message(`Switched to ${model.label}`, {
                         description: isVisionModel ? 'You can now upload images to the model.' : undefined,
-                        icon: <HugeiconsIcon icon={CpuIcon} size={16} color="currentColor" strokeWidth={2} />,
+                        icon: <HugeiconsIcon icon={CpuIcon} size={16} color="#9ca3af" strokeWidth={2} />,
                       });
                     }}
                     subscriptionData={subscriptionData}
@@ -3189,7 +3189,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           disabled={isEnhancing || isTypewriting}
                         >
                           <span className="block">
-                            <HugeiconsIcon icon={DocumentAttachmentIcon} size={16} />
+                            <HugeiconsIcon icon={DocumentAttachmentIcon} size={16} color="#9ca3af" />
                           </span>
                         </Button>
                       </TooltipTrigger>
@@ -3200,7 +3200,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                       >
                         <div className="flex flex-col gap-0.5">
                           <span className="font-medium text-[11px]">Attach File</span>
-                          <span className="text-[10px] text-accent leading-tight">
+                          <span className="text-[10px] text-zinc-300 leading-tight">
                             {hasPdfSupport(selectedModel) ? 'Upload an image or PDF document' : 'Upload an image'}
                           </span>
                         </div>
@@ -3252,7 +3252,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           <span className="font-medium text-[11px]">
                             {isEnhancing ? 'Enhancing…' : isTypewriting ? 'Writing…' : 'Enhance Prompt'}
                           </span>
-                          <span className="text-[10px] text-accent leading-tight">
+                          <span className="text-[10px] text-zinc-300 leading-tight">
                             {isEnhancing
                               ? 'Using AI to improve your prompt'
                               : isTypewriting
@@ -3329,7 +3329,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           <span className="font-medium text-[11px]">
                             {isRecording ? 'Stop Recording' : 'Voice Input'}
                           </span>
-                          <span className="text-[10px] text-accent leading-tight">
+                          <span className="text-[10px] text-zinc-300 leading-tight">
                             {isRecording ? 'Click to stop recording' : 'Record your voice message'}
                           </span>
                         </div>
@@ -3371,7 +3371,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                         <div className="text-center">
                           <div className="font-medium text-[11px] mb-1">Send Message</div>
                           {!isMobile && (
-                            <div className="text-[10px] text-accent space-y-0.5">
+                            <div className="text-[10px] text-zinc-300 space-y-0.5">
                               <div className="flex items-center justify-center gap-1.5">
                                 <KbdGroup>
                                   <Kbd className="rounded text-[9px] px-0.5 h-4 min-w-4">Shift</Kbd>
