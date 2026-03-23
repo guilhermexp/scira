@@ -169,7 +169,7 @@ export async function getConnection(provider: ConnectorProvider, userId: string)
     const config = CONNECTOR_CONFIGS[provider];
     console.log(`🏷️ Searching with container tags: [${userId}, ${config.syncTag}]`);
 
-    const connection = await client.connections.getByTags(provider, {
+    const connection = await client.connections.getByTag(provider, {
       containerTags: [userId, config.syncTag],
     });
 
@@ -286,7 +286,7 @@ export async function getSyncStatus(provider: ConnectorProvider, userId: string)
     console.log(`🏷️ Status check with container tags: [${userId}, ${config.syncTag}]`);
 
     // Get connection details using the direct API call
-    const connection = await client.connections.getByTags(provider, {
+    const connection = await client.connections.getByTag(provider, {
       containerTags: [userId, config.syncTag],
     });
 

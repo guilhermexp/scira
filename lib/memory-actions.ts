@@ -86,7 +86,7 @@ export async function getAllMemories(page = 1, pageSize = 20): Promise<MemoryRes
     if (!SM_ENABLED) {
       return { memories: [], total: 0 };
     }
-    const result = await supermemoryClient.memories.list({
+    const result = await supermemoryClient.documents.list({
       containerTags: [user.id],
       page: page,
       limit: pageSize,
@@ -117,7 +117,7 @@ export async function deleteMemory(memoryId: string) {
     if (!SM_ENABLED) {
       throw new Error('Memory disabled');
     }
-    const data = await supermemoryClient.memories.delete(memoryId);
+    const data = await supermemoryClient.documents.delete(memoryId);
     return data;
   } catch (error) {
     console.error('Error deleting memory:', error);

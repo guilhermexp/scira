@@ -1,0 +1,68 @@
+=== Validation step 1 ===
+Command: pnpm run build
+
+
+> scira@0.1.0 build /Users/guilhermevarela/Documents/Projetos/Desenvolvendo/scira
+> next build
+
+▲ Next.js 16.2.1 (Turbopack)
+- Environments: .env.local, .env.production
+- Experiments (use with caution):
+  · optimizePackageImports
+  · serverActions
+  · staleTimes
+  ✓ useCache
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 10.7s
+  Running TypeScript ...
+  Finished TypeScript in 11.1s ...
+  Collecting page data using 10 workers ...
+[dotenv@17.3.1] injecting env (0) from .env.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.3.1] injecting env (0) from .env.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.3.1] injecting env (0) from .env.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[dotenv@17.3.1] injecting env (0) from .env.local -- tip: ⚙️  enable debug logging with { debug: true }
+[dotenv@17.3.1] injecting env (0) from .env.local -- tip: ⚙️  enable debug logging with { debug: true }
+  Generating static pages using 10 workers (0/22) ...
+[dotenv@17.3.1] injecting env (0) from .env.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+  Generating static pages using 10 workers (5/22) 
+  Generating static pages using 10 workers (10/22) 
+  Generating static pages using 10 workers (16/22) 
+✓ Generating static pages using 10 workers (22/22) in 950ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /api/clean_images
+├ ƒ /api/lookout
+├ ƒ /api/og/chat/[id]
+├ ƒ /api/raycast
+├ ƒ /api/search
+├ ƒ /api/search/[id]/stream
+├ ƒ /api/transcribe
+├ ƒ /api/upload
+├ ƒ /api/xql
+├ ○ /apple-icon.png
+├ ƒ /connectors/[provider]/callback
+├ ○ /icon.png
+├ ○ /lookout
+├ ○ /manifest.webmanifest
+├ ○ /new
+├ ○ /opengraph-image.png
+├ ○ /robots.txt
+├ ƒ /search/[id]
+├ ○ /settings
+├ ƒ /sign-in/[[...sign-in]]
+├ ƒ /sign-up/[[...sign-up]]
+├ ○ /success
+├ ○ /twitter-image.png
+└ ○ /xql
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+

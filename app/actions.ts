@@ -91,11 +91,26 @@ export async function getUserCountryCode() {
 export async function suggestQuestions(history: any[]) {
   'use server';
 
-  console.log(history);
+  const buildFallbackQuestions = (inputHistory: any[]) => {
+    const lastUserMessage = [...inputHistory]
+      .reverse()
+      .find((item) => item?.role === 'user' && typeof item?.content === 'string')
+      ?.content?.trim();
 
-  const { output } = await generateText({
-    model: scira.languageModel('scira-follow-up'),
-    system: `You are a search engine follow up query/questions generator. You MUST create between 3 and 5 questions for the search engine based on the conversation history.
+    const topic = (lastUserMessage || 'o tema da conversa')
+      .replace(/\s+/g, ' ')
+      .replace(/[^\p{L}\p{N}\s-]/gu, '')
+      .slice(0, 72)
+      .trim();
+
+    return [
+      `Quais detalhes adicionais sobre ${topic} valem investigar?`,
+      `Quais fontes recentes ajudam a validar ${topic}?`,
+      `Como ${topic} se compara com alternativas relevantes?`,
+    ];
+  };
+
+  const system = `You are a search engine follow up query/questions generator. You MUST create between 3 and 5 questions for the search engine based on the conversation history.
 
 ### Question Generation Guidelines:
 - Create 3-5 questions that are open-ended and encourage further discussion
@@ -129,21 +144,52 @@ export async function suggestQuestions(history: any[]) {
 - Each question must be grammatically complete
 - Each question must end with a question mark
 - Questions must be diverse and not redundant
-- Do not include instructions or meta-commentary in the questions`,
-    messages: history,
-    output: Output.object({
-      schema: z.object({
-        questions: z
-          .array(z.string().max(150))
-          .describe('The generated questions based on the message history.')
-          .min(3)
-          .max(5),
-      }),
+- Do not include instructions or meta-commentary in the questions`;
+
+  const outputSchema = Output.object({
+    schema: z.object({
+      questions: z
+        .array(z.string().max(150))
+        .describe('The generated questions based on the message history.')
+        .min(3)
+        .max(5),
     }),
   });
 
+  try {
+    const { output } = await generateText({
+      model: scira.languageModel('scira-follow-up'),
+      system,
+      messages: history,
+      output: outputSchema,
+      maxRetries: 0,
+    });
+
+    return {
+      questions: output.questions,
+    };
+  } catch (primaryError) {
+    console.warn('Primary follow-up suggestion model failed, trying fallback provider:', primaryError);
+
+    try {
+      const { output } = await generateText({
+        model: scira.languageModel('scira-google-lite'),
+        system,
+        messages: history,
+        output: outputSchema,
+        maxRetries: 0,
+      });
+
+      return {
+        questions: output.questions,
+      };
+    } catch (fallbackError) {
+      console.warn('Fallback follow-up suggestion model failed, using deterministic fallback:', fallbackError);
+    }
+  }
+
   return {
-    questions: output.questions,
+    questions: buildFallbackQuestions(history),
   };
 }
 
@@ -274,6 +320,7 @@ const groupTools = {
   crypto: ['coin_data', 'coin_ohlc', 'coin_data_by_contract', 'datetime'] as const,
   chat: [] as const,
   extreme: ['extreme_search'] as const,
+  'multi-agent': ['web_search', 'x_search'] as const,
   x: ['x_search'] as const,
   memory: ['datetime', 'search_memories', 'add_memory'] as const,
   connectors: ['connectors_search', 'datetime'] as const,
@@ -611,6 +658,25 @@ code_example()
 - ❌ **INCONSISTENT HEADERS**: Never mix header levels or use inconsistent formatting
 - ❌ **UNFORMATTED CODE**: Never show code without proper \`\`\`language blocks
 - ❌ **PLAIN TABLES**: Never use plain text for tabular data - use markdown tables`,
+
+  'multi-agent': `
+You are Scira in multi-agent research mode.
+
+Today's date is ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit', weekday: 'short' })}.
+
+Core requirements:
+- Use markdown output.
+- Give direct, evidence-driven answers.
+- Prefer current, primary, and verifiable sources.
+- Be concise but complete.
+- If evidence is mixed or incomplete, say that clearly.
+- Never fabricate facts, quotes, timelines, or consensus.
+
+Tool behavior:
+- In this mode, the search route will provide xAI-native research tools.
+- Use the available research tools to verify important claims before concluding.
+- It is acceptable to use multiple search/tool rounds when the question needs stronger validation.
+`,
 
   memory: `
   You are a memory companion called Memory, designed to help users manage and interact with their personal memories.

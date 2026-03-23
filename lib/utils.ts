@@ -32,7 +32,8 @@ export type SearchGroupId =
   | 'memory'
   | 'crypto'
   | 'code'
-  | 'connectors';
+  | 'connectors'
+  | 'multi-agent';
 
 // Search provider information for dynamic descriptions
 export const searchProviderInfo = {
@@ -111,6 +112,15 @@ export function getSearchGroups(searchProvider: SearchProvider = 'parallel') {
       icon: AtomicPowerIcon,
       show: true,
       requireAuth: true,
+    },
+    {
+      id: 'multi-agent' as const,
+      name: 'Multi-agent',
+      description: 'High-agency research with xAI web and X search',
+      icon: ConnectIcon,
+      show: true,
+      requireAuth: true,
+      requirePro: true,
     },
     {
       id: 'memory' as const,
