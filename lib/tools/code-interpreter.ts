@@ -59,11 +59,11 @@ export const codeInterpreterTool = tool({
 
     const chartData = chart
       ? {
-          type: chart.type,
-          title: chart.title,
-          elements: chart.elements,
-          png: undefined,
-        }
+        type: chart.type,
+        title: chart.title,
+        elements: chart.elements,
+        png: undefined,
+      }
       : undefined;
 
     await sandbox.delete();

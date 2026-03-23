@@ -3,7 +3,39 @@ import 'server-only';
 import { asc, eq, inArray } from 'drizzle-orm';
 import { user, chat, type User, message, type Message, type Chat } from './schema';
 import { ChatSDKError } from '../errors';
-import { db } from './index';
+import { db, maindb } from './index';
+
+interface MessagePage {
+  hasMoreMessages: boolean;
+  messages: Message[];
+}
+
+async function getRecentMessagesPage({
+  chatId,
+  database,
+  limit = 20,
+  offset = 0,
+}: {
+  chatId: string;
+  database: typeof db;
+  limit?: number;
+  offset?: number;
+}): Promise<MessagePage> {
+  const messages = await database.query.message.findMany({
+    where: eq(message.chatId, chatId),
+    orderBy: (fields, { desc: orderDesc }) => [orderDesc(fields.createdAt), orderDesc(fields.id)],
+    limit: limit + 1,
+    offset,
+  });
+
+  const hasMoreMessages = messages.length > limit;
+  const visibleMessages = hasMoreMessages ? messages.slice(0, limit) : messages;
+
+  return {
+    hasMoreMessages,
+    messages: visibleMessages.toReversed() as Message[],
+  };
+}
 
 // Combined query to get chat and initial messages in one database call
 export async function getChatWithInitialMessages({
@@ -20,13 +52,13 @@ export async function getChatWithInitialMessages({
   hasMoreMessages: boolean;
 }> {
   try {
-    console.log('🔍 [DB-OPTIMIZED] getChatWithInitialMessages: Starting combined query...');
+    console.log('🔍 [DB-OPTIMIZED] getChatWithInitialMessages: Starting combined query (db.query.chat)...');
     const startTime = Date.now();
 
     // Get chat data
     const [selectedChat] = await db.select().from(chat).where(eq(chat.id, id)).limit(1).$withCache();
 
-    if (!selectedChat) {
+    if (!record) {
       return {
         chat: null,
         messages: [],
@@ -34,25 +66,19 @@ export async function getChatWithInitialMessages({
       };
     }
 
-    // Get initial messages with limit + 1 to check if there are more
-    const messages = await db
-      .select()
-      .from(message)
-      .where(eq(message.chatId, id))
-      .orderBy(asc(message.createdAt))
-      .limit(messageLimit + 1)
-      .offset(messageOffset)
-      .$withCache();
-
-    const hasMoreMessages = messages.length > messageLimit;
-    const limitedMessages = hasMoreMessages ? messages.slice(0, messageLimit) : messages;
+    const { messages, hasMoreMessages } = await getRecentMessagesPage({
+      chatId: id,
+      database: db,
+      limit: messageLimit,
+      offset: messageOffset,
+    });
 
     const queryTime = (Date.now() - startTime) / 1000;
-    console.log(`⏱️  [DB-OPTIMIZED] getChatWithInitialMessages: Combined query took ${queryTime.toFixed(2)}s`);
+    console.log(`⏱️  [DB-OPTIMIZED] getChatWithInitialMessages: db.query.chat took ${queryTime.toFixed(2)}s`);
 
     return {
-      chat: selectedChat,
-      messages: limitedMessages,
+      chat: record,
+      messages,
       hasMoreMessages,
     };
   } catch (error) {
@@ -64,12 +90,8 @@ export async function getChatWithInitialMessages({
 // Optimized query to get chat with user data for ownership checks
 export async function getChatWithUserAndInitialMessages({
   id,
-  messageLimit = 20,
-  messageOffset = 0,
 }: {
   id: string;
-  messageLimit?: number;
-  messageOffset?: number;
 }): Promise<{
   chat: Chat | null;
   user: User | null;
@@ -77,22 +99,14 @@ export async function getChatWithUserAndInitialMessages({
   hasMoreMessages: boolean;
 }> {
   try {
-    console.log('🔍 [DB-OPTIMIZED] getChatWithUserAndInitialMessages: Starting optimized query...');
+    console.log('🔍 [DB-OPTIMIZED] getChatWithUserAndInitialMessages: Starting optimized query (db.query.chat)...');
     const startTime = Date.now();
 
-    // Get chat with user data in one query
-    const [chatWithUser] = await db
-      .select({
-        chat: chat,
-        user: user,
-      })
-      .from(chat)
-      .leftJoin(user, eq(chat.userId, user.id))
-      .where(eq(chat.id, id))
-      .limit(1)
-      .$withCache();
+    const record = await maindb.query.chat.findFirst({
+      where: eq(chat.id, id),
+    });
 
-    if (!chatWithUser?.chat) {
+    if (!record) {
       return {
         chat: null,
         user: null,
@@ -101,27 +115,25 @@ export async function getChatWithUserAndInitialMessages({
       };
     }
 
-    // Get initial messages
-    const messages = await db
-      .select()
-      .from(message)
-      .where(eq(message.chatId, id))
-      .orderBy(asc(message.createdAt))
-      .limit(messageLimit + 1)
-      .offset(messageOffset)
-      .$withCache();
-
-    const hasMoreMessages = messages.length > messageLimit;
-    const limitedMessages = hasMoreMessages ? messages.slice(0, messageLimit) : messages;
+    // The only caller already fetches the current session user separately,
+    // so avoid joining the chat owner row here.
+    const messages = await maindb.query.message.findMany({
+      where: eq(message.chatId, id),
+      orderBy: (fields, { asc: orderAsc }) => [orderAsc(fields.createdAt), orderAsc(fields.id)],
+    });
 
     const queryTime = (Date.now() - startTime) / 1000;
-    console.log(`⏱️  [DB-OPTIMIZED] getChatWithUserAndInitialMessages: Optimized query took ${queryTime.toFixed(2)}s`);
+    console.log(
+      `⏱️  [DB-OPTIMIZED] getChatWithUserAndInitialMessages: db.query.chat (with user + messages) took ${queryTime.toFixed(
+        2,
+      )}s`,
+    );
 
     return {
-      chat: chatWithUser.chat,
-      user: chatWithUser.user,
-      messages: limitedMessages,
-      hasMoreMessages,
+      chat: record,
+      user: null,
+      messages,
+      hasMoreMessages: false,
     };
   } catch (error) {
     console.error('Error in getChatWithUserAndInitialMessages:', error);
@@ -148,7 +160,7 @@ export async function getChatsWithInitialMessages({
       return {};
     }
 
-    console.log('🔍 [DB-OPTIMIZED] getChatsWithInitialMessages: Starting batch query...');
+    console.log('🔍 [DB-OPTIMIZED] getChatsWithInitialMessages: Starting batch query (db.query.chat)...');
     const startTime = Date.now();
 
     // Get all chats in one query
@@ -173,7 +185,6 @@ export async function getChatsWithInitialMessages({
       messagesByChat.get(msg.chatId)!.push(msg);
     });
 
-    // Build result object
     const result: {
       [chatId: string]: {
         chat: Chat | null;
@@ -188,15 +199,28 @@ export async function getChatsWithInitialMessages({
       const hasMoreMessages = messages.length > messageLimit;
       const limitedMessages = hasMoreMessages ? messages.slice(0, messageLimit) : messages;
 
-      result[chatId] = {
-        chat,
+      result[record.id] = {
+        chat: record as unknown as Chat,
         messages: limitedMessages,
         hasMoreMessages,
       };
     });
 
+    // Ensure all requested chatIds are present in the result
+    chatIds.forEach((id) => {
+      if (!result[id]) {
+        result[id] = {
+          chat: null,
+          messages: [],
+          hasMoreMessages: false,
+        };
+      }
+    });
+
     const queryTime = (Date.now() - startTime) / 1000;
-    console.log(`⏱️  [DB-OPTIMIZED] getChatsWithInitialMessages: Batch query took ${queryTime.toFixed(2)}s`);
+    console.log(
+      `⏱️  [DB-OPTIMIZED] getChatsWithInitialMessages: db.query.chat batch query took ${queryTime.toFixed(2)}s`,
+    );
 
     return result;
   } catch (error) {
@@ -212,12 +236,24 @@ export async function getChatVisibilityAndOwnership({ id, userId }: { id: string
   canAccess: boolean;
 }> {
   try {
-    console.log('🔍 [DB-OPTIMIZED] getChatVisibilityAndOwnership: Starting visibility check...');
+    console.log('🔍 [DB-OPTIMIZED] getChatVisibilityAndOwnership: Starting visibility check (db.query.chat)...');
     const startTime = Date.now();
 
     const [selectedChat] = await db.select().from(chat).where(eq(chat.id, id)).$withCache();
 
-    if (!selectedChat) {
+    const record = await db.query.chat.findFirst({
+      where: eq(chat.id, id),
+      columns: {
+        id: true,
+        userId: true,
+        visibility: true,
+        createdAt: true,
+        updatedAt: true,
+        title: true,
+      },
+    });
+
+    if (!record) {
       return {
         chat: null,
         isOwner: false,
@@ -225,14 +261,16 @@ export async function getChatVisibilityAndOwnership({ id, userId }: { id: string
       };
     }
 
-    const isOwner = userId ? selectedChat.userId === userId : false;
-    const canAccess = selectedChat.visibility === 'public' || isOwner;
+    const isOwner = userId ? record.userId === userId : false;
+    const canAccess = record.visibility === 'public' || isOwner;
 
     const queryTime = (Date.now() - startTime) / 1000;
-    console.log(`⏱️  [DB-OPTIMIZED] getChatVisibilityAndOwnership: Visibility check took ${queryTime.toFixed(2)}s`);
+    console.log(
+      `⏱️  [DB-OPTIMIZED] getChatVisibilityAndOwnership: db.query.chat visibility check took ${queryTime.toFixed(2)}s`,
+    );
 
     return {
-      chat: selectedChat,
+      chat: record as unknown as Chat,
       isOwner,
       canAccess,
     };
@@ -256,21 +294,16 @@ export async function getAdditionalMessages({
   hasMore: boolean;
 }> {
   try {
-    const messages = await db
-      .select()
-      .from(message)
-      .where(eq(message.chatId, chatId))
-      .orderBy(asc(message.createdAt))
-      .limit(limit + 1)
-      .offset(offset)
-      .$withCache();
-
-    const hasMore = messages.length > limit;
-    const limitedMessages = hasMore ? messages.slice(0, limit) : messages;
+    const { messages, hasMoreMessages } = await getRecentMessagesPage({
+      chatId,
+      database: db,
+      limit,
+      offset,
+    });
 
     return {
-      messages: limitedMessages,
-      hasMore,
+      messages,
+      hasMore: hasMoreMessages,
     };
   } catch (error) {
     console.error('Error in getAdditionalMessages:', error);

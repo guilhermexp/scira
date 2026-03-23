@@ -1,6 +1,5 @@
-import { drizzle } from 'drizzle-orm/neon-http';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import { withReplicas } from 'drizzle-orm/pg-core';
-import * as schema from '@/lib/db/schema';
 import { serverEnv } from '@/env/server';
 import { neon } from '@neondatabase/serverless';
 

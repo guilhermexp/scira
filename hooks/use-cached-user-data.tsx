@@ -3,29 +3,32 @@
 import { useEffect } from 'react';
 import { useUserData } from '@/hooks/use-user-data';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useSession } from '@/lib/auth-client';
 import { type ComprehensiveUserData } from '@/lib/user-data';
-import { shouldBypassRateLimits } from '@/ai/providers';
+import { shouldBypassRateLimits } from '@/ai/models';
 
 export function useCachedUserData() {
+  const { data: session, isPending: isSessionPending } = useSession();
+
   // Get fresh data from the existing hook
   const { user: freshUser, isLoading: isFreshLoading, error, refetch, isRefetching, ...otherUserData } = useUserData();
 
   // Cache user data in localStorage
   const [cachedUser, setCachedUser] = useLocalStorage<ComprehensiveUserData | null>('scira-user-data', null);
 
-  // Update cache when fresh data is available
+  // Only write to cache when we have a session; prevents re-caching after sign out (React Query may still hold stale data)
   useEffect(() => {
-    if (freshUser && !isFreshLoading) {
+    if (session && freshUser && !isFreshLoading) {
       setCachedUser(freshUser);
     }
-  }, [freshUser, isFreshLoading, setCachedUser]);
+  }, [session, freshUser, isFreshLoading, setCachedUser]);
 
-  // Clear cache when user logs out (no fresh user and not loading)
+  // Clear cache only after both session and user fetch confirm sign-out
   useEffect(() => {
-    if (!freshUser && !isFreshLoading && cachedUser) {
+    if (!isSessionPending && !session && !isFreshLoading && freshUser === null && cachedUser) {
       setCachedUser(null);
     }
-  }, [freshUser, isFreshLoading, cachedUser, setCachedUser]);
+  }, [isSessionPending, session, isFreshLoading, freshUser, cachedUser, setCachedUser]);
 
   // Use cached data if available, otherwise use fresh data
   const user = freshUser ?? cachedUser;
@@ -60,15 +63,15 @@ export function useCachedUserData() {
     polarSubscription: user?.polarSubscription,
     hasPolarSubscription: Boolean(user?.polarSubscription),
 
-    // DodoPayments details
-    dodoPayments: user?.dodoPayments,
-    hasDodoPayments: Boolean(user?.dodoPayments?.hasPayments),
-    dodoExpiresAt: user?.dodoPayments?.expiresAt,
-    isDodoExpiring: Boolean(user?.dodoPayments?.isExpiringSoon),
-    isDodoExpired: Boolean(user?.dodoPayments?.isExpired),
+    // Dodo Subscription details
+    dodoSubscription: user?.dodoSubscription,
+    hasDodoSubscription: Boolean(user?.dodoSubscription?.hasSubscriptions),
+    dodoExpiresAt: user?.dodoSubscription?.expiresAt,
+    isDodoExpiring: Boolean(user?.dodoSubscription?.isExpiringSoon),
+    isDodoExpired: Boolean(user?.dodoSubscription?.isExpired),
 
-    // Payment history
-    paymentHistory: user?.paymentHistory || [],
+    // Subscription history
+    subscriptionHistory: user?.subscriptionHistory || [],
 
     // Rate limiting helpers
     shouldCheckLimits: false, // SELF-HOSTED: No rate limits
@@ -83,13 +86,13 @@ export function useCachedUserData() {
     // Legacy compatibility helpers
     subscriptionData: user?.polarSubscription
       ? {
-          hasSubscription: true,
-          subscription: user.polarSubscription,
-        }
+        hasSubscription: true,
+        subscription: user.polarSubscription,
+      }
       : { hasSubscription: false },
 
-    // Map dodoPayments to legacy dodoProStatus structure for settings dialog
-    dodoProStatus: user?.dodoPayments
+    // Map dodoSubscription to legacy dodoProStatus structure for settings dialog
+    dodoProStatus: user?.dodoSubscription
       ? {
           isProUser: isProUser,
           hasPayments: user.dodoPayments.hasPayments,
@@ -102,7 +105,7 @@ export function useCachedUserData() {
         }
       : null,
 
-    expiresAt: user?.dodoPayments?.expiresAt,
+    expiresAt: user?.dodoSubscription?.expiresAt,
 
     // Additional utilities
     isCached: Boolean(cachedUser),

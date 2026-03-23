@@ -33,6 +33,12 @@ const GripIcon = forwardRef<GripIconHandle, GripIconProps>(
     const controls = useAnimation();
     const isControlledRef = useRef(false);
     const animationRef = useRef<boolean>(false);
+    const isMountedRef = useRef(false);
+
+    useEffect(() => {
+      isMountedRef.current = true;
+      return () => { isMountedRef.current = false; };
+    }, []);
 
     useImperativeHandle(ref, () => {
       isControlledRef.current = true;
@@ -67,7 +73,7 @@ const GripIcon = forwardRef<GripIconHandle, GripIconProps>(
 
     useEffect(() => {
       const animateCircles = async () => {
-        if (isHovered && !animationRef.current) {
+        if (isHovered && !animationRef.current && isMountedRef.current) {
           animationRef.current = true;
 
           // Continuous loop animation

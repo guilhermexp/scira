@@ -100,9 +100,9 @@
     "embla-carousel-react": "^8.6.0",
     "exa-js": "^2.3.0",
     "fast-deep-equal": "^3.1.3",
-    "framer-motion": "^12.23.24",
-    "he": "^1.2.0",
-    "highlight.js": "^11.11.1",
+    "framer-motion": "^12.38.0",
+    "geist": "^1.7.0",
+    "ioredis": "^5.10.1",
     "jiti": "^2.6.1",
     "jsonrepair": "^3.13.1",
     "katex": "^0.16.25",
@@ -136,15 +136,17 @@
     "resend": "^6.4.2",
     "resumable-stream": "^2.2.8",
     "server-only": "^0.0.1",
+    "sharp": "^0.34.5",
+    "sileo": "^0.1.5",
     "sonner": "^2.0.7",
     "sugar-high": "^0.9.5",
     "supermemory": "3.4.0",
     "tailwind-merge": "^3.4.0",
     "tailwind-scrollbar": "4.0.2",
-    "unified": "^11.0.5",
-    "unist-util-visit": "^5.0.0",
+    "three": "^0.183.2",
+    "tokenc": "^0.2.0",
     "uuid": "^13.0.0",
-    "valyu-js": "^2.1.2",
+    "valyu-js": "^2.7.2",
     "vaul": "^1.1.2",
     "ws": "^8.18.3",
     "youtube-caption-extractor": "^1.9.1",
@@ -154,6 +156,7 @@
     "@eslint/eslintrc": "^3.3.3",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/canvas-confetti": "^1.9.0",
+    "@types/d3-array": "^3.2.2",
     "@types/google.maps": "^3.58.1",
     "@types/he": "^1.2.3",
     "@types/katex": "^0.16.7",
@@ -176,6 +179,7 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "@parcel/watcher",
       "@tailwindcss/oxide",
       "@vercel/speed-insights",
       "core-js",
@@ -188,5 +192,7 @@
   "overrides": {
     "react-is": "^19.0.0-rc-69d4b800-20241021"
   },
-  "packageManager": "pnpm@10.18.3"
+  "imports": {
+    "#default-font/*": "./node_modules/@mathjax/mathjax-newcm-font/mjs/*"
+  }
 }

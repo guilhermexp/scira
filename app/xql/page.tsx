@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Play, Loader2, Copy, Check, X } from 'lucide-react';
 import { CodeIcon, XLogoIcon } from '@phosphor-icons/react';
-import { toast } from 'sonner';
+import { sileo } from 'sileo';
 import { Tweet } from 'react-tweet';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/user-context';
@@ -18,8 +18,11 @@ import { cn } from '@/lib/utils';
 import { type XQLMessage } from '@/app/api/xql/route';
 import { highlight } from 'sugar-high';
 import { SciraLogo } from '@/components/logos/scira-logo';
+import { SidebarLayout } from '@/components/sidebar-layout';
+import { SidebarTrigger } from '@/components/ui/sidebar';
+import { v7 as uuidv7 } from 'uuid';
 
-export default function XQLPage() {
+function XQLPageContent() {
   const [input, setInput] = useState<string>('');
   const [copiedResult, setCopiedResult] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -31,8 +34,10 @@ export default function XQLPage() {
     transport: new DefaultChatTransport({
       api: '/api/xql',
     }),
+    generateId: () => uuidv7(),
     onError: (error) => {
-      toast.error('Query failed', {
+      sileo.error({
+        title: 'Query failed',
         description: error.message,
       });
     },
@@ -61,10 +66,10 @@ export default function XQLPage() {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedResult(true);
-      toast.success('Copied to clipboard');
+      sileo.success({ title: 'Copied to clipboard' });
       setTimeout(() => setCopiedResult(false), 2000);
     } catch (err) {
-      toast.error('Failed to copy');
+      sileo.error({ title: 'Failed to copy' });
     }
   }, []);
 
@@ -89,22 +94,26 @@ export default function XQLPage() {
           messages.length === 0 ? 'max-w-3xl py-12 sm:py-14' : 'max-w-7xl pt-12 sm:pt-14 pb-12 sm:pb-10',
         )}
       >
-        <div className="flex items-center justify-center gap-2 sm:gap-3 mb-6 sm:mb-8 text-2xl sm:text-3xl md:text-5xl font-be-vietnam-pro -tracking-normal font-medium">
+        <div className="flex items-center justify-center gap-2 sm:gap-3 mb-6 sm:mb-8 text-2xl sm:text-3xl md:text-5xl font-be-vietnam-pro -tracking-normal font-medium relative">
+          {/* Mobile sidebar trigger */}
+          <div className="md:hidden absolute left-0">
+            <SidebarTrigger />
+          </div>
           <span className="text-foreground">Scira</span>
           <div className="flex items-center relative">
             <XLogoIcon className="size-6 sm:size-8 md:size-12 text-foreground -mr-1 sm:-mr-2 font-medium" />
             <h1 className="text-foreground">QL</h1>
-            <div className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 md:-top-3 md:-right-4">
-              <div className="bg-primary text-primary-foreground px-1 sm:px-1.5 pt-0.5 pb-0.5 sm:pb-0.75 rounded-sm text-[8px] sm:text-xs font-semibold">
-                β
-              </div>
+            <div className="absolute -top-4 -right-8">
+              <span className="font-pixel text-[10px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-sm uppercase tracking-wider">
+                Beta
+              </span>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2 border border-border rounded-full px-3 sm:px-4 py-2 bg-muted/20 w-full">
-          <XLogoIcon className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
-          <div className="relative flex-1 min-w-0 !m-0 !p-0">
+          <XLogoIcon className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground shrink-0" />
+          <div className="relative flex-1 min-w-0 m-0! p-0!">
             <Input
               ref={inputRef}
               value={input}
@@ -113,20 +122,20 @@ export default function XQLPage() {
               placeholder="Ask in natural language…"
               disabled={isProStatusLoading || status !== 'ready'}
               maxLength={200}
-              className="w-full border-0 p-0 focus-visible:ring-0 text-sm sm:text-base !bg-transparent pr-12 sm:pr-14 shadow-none placeholder:text-muted-foreground"
+              className="w-full border-0 p-0 focus-visible:ring-0 text-sm sm:text-base bg-transparent! pr-12 sm:pr-14 shadow-none placeholder:text-muted-foreground"
             />
             {input.trim() && (
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => setInput('')}
-                className="absolute size-8 sm:size-9 right-0 top-1/2 -translate-y-1/2 rounded-full !p-0 !m-0"
+                className="absolute size-8 sm:size-9 right-0 top-1/2 -translate-y-1/2 rounded-full p-0! m-0!"
               >
                 <X className="h-3 w-3" />
               </Button>
             )}
           </div>
-          {input.trim() && <div className="w-px h-8 sm:h-9 bg-border flex-shrink-0 self-center rounded" />}
+          {input.trim() && <div className="w-px h-8 sm:h-9 bg-border shrink-0 self-center rounded" />}
           <Button
             onClick={handleRun}
             disabled={!input.trim() || status !== 'ready' || isProStatusLoading}
@@ -167,13 +176,13 @@ export default function XQLPage() {
         {messages.length === 0 && status === 'ready' && !isProStatusLoading && (
           <div className="mt-8 space-y-4">
             <div className="text-center">
-              <p className="text-sm text-muted-foreground mb-2">Try these XQL queries:</p>
-              <p className="text-xs text-muted-foreground/70">Search X posts with natural language</p>
+              <p className="text-sm text-muted-foreground mb-1">Try these queries</p>
+              <p className="font-pixel text-[11px] text-muted-foreground uppercase tracking-wider">Search X posts with natural language</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {[
                 {
-                  query: 'Scira AI tweets from last week',
+                  query: '@SciraAI updates from last week',
                   description: 'Popular content with date range',
                 },
                 {
@@ -204,7 +213,7 @@ export default function XQLPage() {
                 >
                   <CardContent className="p-3 sm:p-4">
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="p-1 rounded bg-secondary flex-shrink-0">
+                      <div className="p-1 rounded bg-secondary shrink-0">
                         <XLogoIcon className="h-3 w-3 text-foreground" />
                       </div>
                       <div className="opacity-0 group-hover:opacity-100 ml-auto transition-opacity">
@@ -212,26 +221,15 @@ export default function XQLPage() {
                       </div>
                     </div>
                     <p className="text-sm text-foreground mb-1 font-medium leading-tight">{example.query}</p>
-                    <p className="text-xs text-muted-foreground leading-tight">{example.description}</p>
+                    <p className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider leading-tight">{example.description}</p>
                   </CardContent>
                 </Card>
               ))}
             </div>
 
-            <div className="mt-6 p-3 sm:p-4 bg-accent rounded-lg border border-muted/30">
-              <div className="flex items-start gap-2 sm:gap-3">
-                <CodeIcon className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                <div className="text-xs sm:text-sm text-muted-foreground">
-                  <p className="font-medium mb-1 sm:mb-2">XQL supports advanced filtering:</p>
-                  <ul className="space-y-0.5 sm:space-y-1 text-xs sm:text-sm">
-                    <li>• Date ranges (ISO format: YYYY-MM-DD or natural language)</li>
-                    <li>• User handles (include up to 10 or exclude up to 10, not both)</li>
-                    <li>• Engagement thresholds (minimum likes/views required)</li>
-                    <li>• Topic and keyword combinations</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
+            <p className="mt-6 text-center font-pixel text-[10px] text-muted-foreground/80 uppercase tracking-wider">
+              Dates · Handles · Engagement · Keywords
+            </p>
           </div>
         )}
 
@@ -303,39 +301,27 @@ export default function XQLPage() {
                       conditions.push(`  author_handle NOT IN (${handles})`);
                     }
 
-                    if (input?.postFavoritesCount) {
-                      conditions.push(`  favorites_count >= ${input.postFavoritesCount}`);
-                    }
-
-                    if (input?.postViewCount) {
-                      conditions.push(`  view_count >= ${input.postViewCount}`);
-                    }
-
                     if (conditions.length > 0) {
                       sql += 'WHERE\n' + conditions.join(' AND\n');
                     }
 
                     sql += '\nORDER BY created_at DESC';
 
-                    if (input?.maxResults) {
-                      sql += `\nLIMIT ${input.maxResults}`;
-                    }
-
                     return sql;
                   };
 
                   return (
-                    <Card key={index} className="bg-muted/20 p-0 shadow-none">
+                    <Card key={index} className="rounded-xl border-border/60 p-0 shadow-none">
                       <CardContent className="p-3 sm:p-4">
                         <div className="flex items-start gap-3">
                           <div className="grow min-w-0">
-                            <div className="flex items-center gap-2 sm:gap-3 mb-3">
-                              <CodeIcon className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
-                              <p className="text-sm font-medium text-muted-foreground">XQL Code</p>
+                            <div className="flex items-center gap-2 mb-2.5">
+                              <CodeIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                              <p className="font-pixel text-[12px] uppercase tracking-wider">Generated XQL</p>
                             </div>
                             <div className="relative">
-                              <pre className="text-xs sm:text-sm bg-muted/30 p-2 sm:p-3 rounded-lg border font-mono leading-relaxed overflow-x-auto w-full max-w-full">
-                                <code dangerouslySetInnerHTML={{ __html: highlight(buildSQLQuery()) }} />
+                              <pre className="text-xs sm:text-sm bg-muted/30 p-2 sm:p-3 rounded-lg border leading-relaxed overflow-x-auto w-full max-w-full">
+                                <code className="font-mono!" dangerouslySetInnerHTML={{ __html: highlight(buildSQLQuery()) }} />
                               </pre>
                             </div>
                           </div>
@@ -350,16 +336,16 @@ export default function XQLPage() {
             {/* Show loading state */}
             {(status === 'streaming' || status === 'submitted') && (
               <Card className="relative w-full h-[80px] sm:h-[100px] my-4 overflow-hidden shadow-none p-0">
-                <BorderTrail className={cn('bg-gradient-to-r from-primary/20 via-primary to-primary/20')} size={80} />
+                <BorderTrail className={cn('bg-linear-to-r from-primary/20 via-primary to-primary/20')} size={80} />
                 <CardContent className="px-4 py-4 sm:px-6 sm:py-6">
                   <div className="relative flex items-center gap-2 sm:gap-3">
                     <div
                       className={cn(
-                        'relative h-8 w-8 sm:h-10 sm:w-10 rounded-full flex items-center justify-center bg-primary/10 flex-shrink-0',
+                        'relative h-8 w-8 sm:h-10 sm:w-10 rounded-full flex items-center justify-center bg-primary/10 shrink-0',
                       )}
                     >
                       <BorderTrail
-                        className={cn('bg-gradient-to-r from-primary/20 via-primary to-primary/20')}
+                        className={cn('bg-linear-to-r from-primary/20 via-primary to-primary/20')}
                         size={40}
                       />
                       {lastMessage &&
@@ -412,9 +398,9 @@ export default function XQLPage() {
                       <CardContent className="p-0">
                         <div className="flex flex-wrap items-center justify-between gap-2 p-3 sm:p-4">
                           <div className="flex items-center gap-2 min-w-0">
-                            <SciraLogo className="size-6 text-foreground flex-shrink-0" />
-                            <span className="font-semibold text-foreground text-sm sm:text-base">
-                              Scira found {citations.length} Posts
+                            <SciraLogo className="size-5 text-foreground shrink-0" />
+                            <span className="text-sm font-semibold text-foreground">
+                              {citations.length} Posts
                             </span>
                           </div>
 
@@ -423,7 +409,7 @@ export default function XQLPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => copyToClipboard(citations.join('\n'))}
-                              className="rounded-full h-8 w-8 sm:h-9 sm:w-9 p-0 flex-shrink-0"
+                              className="rounded-full h-8 w-8 sm:h-9 sm:w-9 p-0 shrink-0"
                             >
                               {copiedResult ? (
                                 <Check className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -461,7 +447,7 @@ export default function XQLPage() {
                                     target="_blank"
                                     className="flex items-center gap-3 p-3 sm:p-4 bg-muted/20 hover:bg-muted/30 border border-border rounded-lg group break-inside-avoid mb-4 transition-colors"
                                   >
-                                    <XLogoIcon className="h-4 w-4 text-muted-foreground group-hover:text-foreground flex-shrink-0" />
+                                    <XLogoIcon className="h-4 w-4 text-muted-foreground group-hover:text-foreground shrink-0" />
                                     <div className="flex-1 min-w-0">
                                       <p className="text-sm font-medium text-foreground group-hover:text-primary truncate">
                                         {url.replace('https://x.com/', '').replace('https://twitter.com/', '')}
@@ -475,9 +461,12 @@ export default function XQLPage() {
                               })}
                             </div>
                           ) : (
-                            <div className="text-center py-6 sm:py-8 text-muted-foreground">
-                              <XLogoIcon className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-2 sm:mb-3 opacity-50" />
-                              <p className="text-sm sm:text-base">No X citations found for this query</p>
+                            <div className="text-center py-8 text-muted-foreground">
+                              <div className="w-12 h-12 rounded-xl bg-muted/50 flex items-center justify-center mx-auto mb-3">
+                                <XLogoIcon className="h-5 w-5 opacity-50" />
+                              </div>
+                              <p className="text-sm mb-1">No posts found</p>
+                              <p className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">Try a different query</p>
                             </div>
                           )}
                         </div>
@@ -496,7 +485,7 @@ export default function XQLPage() {
                     <Card key={index} className="border-destructive shadow-none">
                       <CardContent className="p-3 sm:p-4">
                         <div className="flex items-start gap-2 sm:gap-3 text-destructive">
-                          <XLogoIcon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0 mt-0.5" />
+                          <XLogoIcon className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 mt-0.5" />
                           <div className="min-w-0 flex-1">
                             <p className="font-medium text-sm sm:text-base">Search Error</p>
                             <p className="text-xs sm:text-sm leading-relaxed">
@@ -514,5 +503,13 @@ export default function XQLPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function XQLPage() {
+  return (
+    <SidebarLayout>
+      <XQLPageContent />
+    </SidebarLayout>
   );
 }

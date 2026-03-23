@@ -13,7 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { toast } from 'sonner';
+import { sileo } from 'sileo';
 import { Copy, Mail, Send } from 'lucide-react';
 
 export function StudentDomainRequestButton() {
@@ -53,20 +53,18 @@ Best regards`;
 
   const handleSubmit = () => {
     if (!universityName || !emailDomain || !studentEmail) {
-      toast.error('Please fill in all required fields');
+      sileo.error({ title: 'Please fill in all required fields' });
       return;
     }
 
     const { subject, body } = generateEmailDraft();
 
-    // Ensure proper line breaks for email clients
     const formattedBody = body.replace(/\n/g, '%0D%0A');
     const mailtoLink = `mailto:zaid@scira.ai?subject=${encodeURIComponent(subject)}&body=${formattedBody}`;
 
-    // Open email client
     window.location.href = mailtoLink;
 
-    toast.success('Email draft opened in your email client!');
+    sileo.success({ title: 'Email draft opened in your email client!' });
     setIsOpen(false);
   };
 
@@ -75,7 +73,7 @@ Best regards`;
     const fullEmail = `Subject: ${subject}\n\n${body}`;
 
     navigator.clipboard.writeText(fullEmail).then(() => {
-      toast.success('Email draft copied to clipboard!');
+      sileo.success({ title: 'Email draft copied to clipboard!' });
     });
   };
 
@@ -96,97 +94,104 @@ Best regards`;
       }}
     >
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2">
-          <Mail className="w-4 h-4" />
-          Request University Domain
+        <Button variant="outline" size="sm" className="rounded-lg gap-1.5 h-8 text-xs">
+          <Mail className="w-3.5 h-3.5" />
+          Request
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Request University Domain</DialogTitle>
-          <DialogDescription>
-            Help us add your university to our student discount program. Fill out the form below and we&apos;ll prepare
-            an email for you to send.
+          <DialogTitle className="text-base font-semibold tracking-tight">Request Domain</DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">
+            Add your university to the student discount program.
           </DialogDescription>
         </DialogHeader>
 
         {!showEmailDraft ? (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="university">University Name *</Label>
+          <div className="space-y-3 pt-1">
+            <div className="space-y-1.5">
+              <Label htmlFor="university" className="text-[11px] text-muted-foreground">University Name *</Label>
               <Input
                 id="university"
                 placeholder="e.g., Stanford University"
                 value={universityName}
                 onChange={(e) => setUniversityName(e.target.value)}
+                className="rounded-lg h-8 text-sm"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="domain">Email Domain *</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="domain" className="text-[11px] text-muted-foreground">Email Domain *</Label>
               <Input
                 id="domain"
                 placeholder="e.g., @stanford.edu"
                 value={emailDomain}
                 onChange={(e) => setEmailDomain(e.target.value)}
+                className="rounded-lg h-8 text-sm"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="student-email">Your Student Email *</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="student-email" className="text-[11px] text-muted-foreground">Your Student Email *</Label>
               <Input
                 id="student-email"
                 type="email"
                 placeholder="e.g., john.doe@stanford.edu"
                 value={studentEmail}
                 onChange={(e) => setStudentEmail(e.target.value)}
+                className="rounded-lg h-8 text-sm"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="additional-info">Additional Information (Optional)</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="additional-info" className="text-[11px] text-muted-foreground">Additional Info</Label>
               <Textarea
                 id="additional-info"
-                placeholder="Any additional details about your university or verification documents you can provide..."
+                placeholder="Any additional details..."
                 value={additionalInfo}
                 onChange={(e) => setAdditionalInfo(e.target.value)}
-                rows={3}
+                rows={2}
+                className="rounded-lg resize-none text-sm"
               />
             </div>
 
-            <div className="flex gap-2">
-              <Button onClick={handleSubmit} className="flex-1 gap-2">
-                <Send className="w-4 h-4" />
+            <div className="flex gap-2 pt-1">
+              <Button onClick={handleSubmit} size="sm" className="flex-1 gap-1.5 rounded-lg h-8 text-xs">
+                <Send className="w-3 h-3" />
                 Send Request
               </Button>
-              <Button variant="outline" onClick={() => setShowEmailDraft(true)} className="gap-2">
-                <Copy className="w-4 h-4" />
+              <Button variant="outline" size="sm" onClick={() => setShowEmailDraft(true)} className="gap-1.5 rounded-lg h-8 text-xs">
+                <Copy className="w-3 h-3" />
                 Preview
               </Button>
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Email Preview</Label>
-              <div className="p-3 bg-muted rounded-lg text-sm">
-                <div className="font-medium mb-3 pb-2 border-b border-border">
-                  Subject: {generateEmailDraft().subject}
+          <div className="space-y-3 pt-1">
+            <div className="space-y-1.5">
+              <Label className="text-[11px] text-muted-foreground">Email Preview</Label>
+              <div className="rounded-lg border border-border/60 overflow-hidden">
+                <div className="px-3 py-2 border-b border-border/40 bg-muted/30">
+                  <p className="text-[11px] text-muted-foreground">
+                    <span className="font-medium text-foreground">Subject:</span> {generateEmailDraft().subject}
+                  </p>
                 </div>
-                <div className="whitespace-pre-wrap leading-relaxed">{generateEmailDraft().body}</div>
+                <div className="px-3 py-3 whitespace-pre-wrap text-xs text-muted-foreground leading-relaxed">
+                  {generateEmailDraft().body}
+                </div>
               </div>
             </div>
 
-            <div className="flex gap-2">
-              <Button onClick={handleSubmit} className="flex-1 gap-2">
-                <Send className="w-4 h-4" />
-                Send Email
+            <div className="flex gap-2 pt-1">
+              <Button onClick={handleSubmit} size="sm" className="flex-1 gap-1.5 rounded-lg h-8 text-xs">
+                <Send className="w-3 h-3" />
+                Send
               </Button>
-              <Button variant="outline" onClick={copyEmailDraft} className="gap-2">
-                <Copy className="w-4 h-4" />
+              <Button variant="outline" size="sm" onClick={copyEmailDraft} className="gap-1.5 rounded-lg h-8 text-xs">
+                <Copy className="w-3 h-3" />
                 Copy
               </Button>
-              <Button variant="ghost" onClick={() => setShowEmailDraft(false)}>
+              <Button variant="ghost" size="sm" onClick={() => setShowEmailDraft(false)} className="rounded-lg h-8 text-xs">
                 Back
               </Button>
             </div>

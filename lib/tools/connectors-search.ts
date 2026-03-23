@@ -2,6 +2,8 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import Supermemory from 'supermemory';
 import { CONNECTOR_CONFIGS, type ConnectorProvider, type ConnectorConfig } from '@/lib/connectors';
+import { all } from 'better-all';
+import { getBetterAllOptions } from '@/lib/better-all';
 
 // Type definitions for Supermemory documents
 interface DocumentChunk {

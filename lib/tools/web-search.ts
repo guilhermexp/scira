@@ -6,7 +6,26 @@ import { UIMessageStreamWriter } from 'ai';
 import { ChatMessage } from '../types';
 import Parallel from 'parallel-web';
 import FirecrawlApp, { SearchResultWeb, SearchResultNews, SearchResultImages, Document } from '@mendable/firecrawl-js';
-import { tavily, type TavilyClient } from '@tavily/core';
+import { all } from 'better-all';
+import { getBetterAllOptions } from '@/lib/better-all';
+
+// Singleton clients - initialized lazily and reused across requests
+let _searchClients: {
+  exa: Exa;
+  parallel: Parallel;
+  firecrawl: FirecrawlApp;
+} | null = null;
+
+function getSearchClients() {
+  if (!_searchClients) {
+    _searchClients = {
+      exa: new Exa(serverEnv.EXA_API_KEY),
+      parallel: new Parallel({ apiKey: serverEnv.PARALLEL_API_KEY }),
+      firecrawl: new FirecrawlApp({ apiKey: serverEnv.FIRECRAWL_API_KEY }),
+    };
+  }
+  return _searchClients;
+}
 
 const extractDomain = (url: string | null | undefined): string => {
   if (!url || typeof url !== 'string') return '';
@@ -68,26 +87,6 @@ const processDomains = (domains?: (string | null)[]): string[] | undefined => {
   return processedDomains.length === 0 ? undefined : processedDomains;
 };
 
-// Helper functions for Tavily image processing
-const sanitizeUrl = (url: string): string => {
-  try {
-    // Remove any additional URL parameters that might cause issues
-    const urlObj = new URL(url);
-    return urlObj.href;
-  } catch {
-    return url;
-  }
-};
-
-const isValidImageUrl = async (url: string): Promise<{ valid: boolean; redirectedUrl?: string }> => {
-  try {
-    // Just return valid for now - we can add more sophisticated validation later
-    return { valid: true, redirectedUrl: url };
-  } catch {
-    return { valid: false };
-  }
-};
-
 // Search provider strategy interface
 interface SearchStrategy {
   search(
@@ -96,10 +95,20 @@ interface SearchStrategy {
       maxResults: number[];
       topics: ('general' | 'news')[];
       quality: ('default' | 'best')[];
+      startDates?: (string | null)[];
       dataStream?: UIMessageStreamWriter<ChatMessage>;
     },
   ): Promise<{ searches: Array<{ query: string; results: any[]; images: any[] }> }>;
 }
+
+// Helper function to format date for Firecrawl tbs parameter
+const formatDateForFirecrawl = (dateStr: string): string => {
+  const date = new Date(dateStr);
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const year = date.getFullYear();
+  return `${month}/${day}/${year}`;
+};
 
 // Parallel AI search strategy
 class ParallelSearchStrategy implements SearchStrategy {
@@ -114,6 +123,7 @@ class ParallelSearchStrategy implements SearchStrategy {
       maxResults: number[];
       topics: ('general' | 'news')[];
       quality: ('default' | 'best')[];
+      startDates?: (string | null)[];
       dataStream?: UIMessageStreamWriter<ChatMessage>;
     },
   ) {
@@ -138,8 +148,10 @@ class ParallelSearchStrategy implements SearchStrategy {
 
     try {
       const perQueryPromises = limitedQueries.map(async (query, index) => {
-        const currentQuality = options.quality[index] || options.quality[0] || 'default';
         const currentMaxResults = options.maxResults[index] || options.maxResults[0] || 10;
+        const currentStartDate = options.startDates?.[index] || options.startDates?.[0] || null;
+        const parallel = this.parallel;
+        const firecrawl = this.firecrawl;
 
         try {
           // Run Parallel AI search and Firecrawl images concurrently per query
@@ -217,7 +229,11 @@ class ParallelSearchStrategy implements SearchStrategy {
         }
       });
 
-      const searchResults = await Promise.all(perQueryPromises);
+      const perQueryMap = await all(
+        Object.fromEntries(perQueryPromises.map((promise, index) => [`q:${index}`, async () => promise])),
+        getBetterAllOptions(),
+      );
+      const searchResults = limitedQueries.map((_, index) => perQueryMap[`q:${index}`]);
       return { searches: searchResults };
     } catch (error) {
       console.error('Parallel AI batch orchestration error:', error);
@@ -372,12 +388,23 @@ class FirecrawlSearchStrategy implements SearchStrategy {
       maxResults: number[];
       topics: ('general' | 'news')[];
       quality: ('default' | 'best')[];
+      startDates?: (string | null)[];
       dataStream?: UIMessageStreamWriter<ChatMessage>;
     },
   ) {
     const searchPromises = queries.map(async (query, index) => {
       const currentTopic = options.topics[index] || options.topics[0] || 'general';
       const currentMaxResults = options.maxResults[index] || options.maxResults[0] || 10;
+      const currentStartDate = options.startDates?.[index] || options.startDates?.[0] || null;
+      const firecrawl = this.firecrawl;
+
+      // Build tbs parameter for date filtering
+      const buildTbsParam = (startDate: string | null): string | undefined => {
+        if (!startDate) return undefined;
+        const startFormatted = formatDateForFirecrawl(startDate);
+        const endFormatted = formatDateForFirecrawl(new Date().toISOString());
+        return `cdr:1,cd_min:${startFormatted},cd_max:${endFormatted}`;
+      };
 
       try {
         options.dataStream?.write({
@@ -392,62 +419,71 @@ class FirecrawlSearchStrategy implements SearchStrategy {
           },
         });
 
-        const sources = [] as ('web' | 'news' | 'images')[];
+        const { results, images } = await all(
+          {
+            firecrawlData: async function () {
+              const sources = [] as ('web' | 'news' | 'images')[];
 
-        // Map topics to Firecrawl sources
-        if (currentTopic === 'news') {
-          sources.push('news', 'web');
-        } else {
-          sources.push('web');
-        }
-        sources.push('images'); // Always include images
+              if (currentTopic === 'news') {
+                sources.push('news', 'web');
+              } else {
+                sources.push('web');
+              }
+              sources.push('images');
 
-        const firecrawlData = await this.firecrawl.search(query, {
-          sources,
-          limit: currentMaxResults,
-        });
+              const tbsParam = buildTbsParam(currentStartDate);
+              return firecrawl.search(query, {
+                sources,
+                limit: currentMaxResults,
+                ...(tbsParam && { tbs: tbsParam }),
+              });
+            },
+            results: async function () {
+              const firecrawlData = await this.$.firecrawlData;
+              let results: any[] = [];
 
-        let results: any[] = [];
+              if (firecrawlData?.web && Array.isArray(firecrawlData.web)) {
+                const webResults = firecrawlData.web.filter(isSearchResultWeb);
+                results = deduplicateByDomainAndUrl(webResults).map((result) => ({
+                  url: result.url,
+                  title: cleanTitle(result.title || ''),
+                  content: result.description || '',
+                  published_date: undefined,
+                  author: undefined,
+                }));
+              }
 
-        // Process web results
-        if (firecrawlData?.web && Array.isArray(firecrawlData.web)) {
-          const webResults = firecrawlData.web.filter(isSearchResultWeb);
-          results = deduplicateByDomainAndUrl(webResults).map((result) => ({
-            url: result.url,
-            title: cleanTitle(result.title || ''),
-            content: result.description || '',
-            published_date: undefined,
-            author: undefined,
-          }));
-        }
+              if (firecrawlData?.news && Array.isArray(firecrawlData.news) && currentTopic === 'news') {
+                const newsResults = firecrawlData.news.filter(isSearchResultNewsWithUrl);
+                const processedNewsResults = deduplicateByDomainAndUrl(newsResults).map((result) => ({
+                  url: result.url,
+                  title: cleanTitle(result.title || ''),
+                  content: result.snippet || '',
+                  published_date: result.date || undefined,
+                  author: undefined,
+                }));
 
-        // Process news results if available
-        if (firecrawlData?.news && Array.isArray(firecrawlData.news) && currentTopic === 'news') {
-          const newsResults = firecrawlData.news.filter(isSearchResultNewsWithUrl);
-          const processedNewsResults = deduplicateByDomainAndUrl(newsResults).map((result) => ({
-            url: result.url,
-            title: cleanTitle(result.title || ''),
-            content: result.snippet || '',
-            published_date: result.date || undefined,
-            author: undefined,
-          }));
+                results = [...processedNewsResults, ...results];
+              }
 
-          // Combine news and web results, prioritizing news
-          results = [...processedNewsResults, ...results];
-        }
+              return results;
+            },
+            images: async function () {
+              const firecrawlData = await this.$.firecrawlData;
+              if (!firecrawlData?.images || !Array.isArray(firecrawlData.images)) return [];
 
-        // Process images with deduplication
-        let images: { url: string; description: string }[] = [];
-        if (firecrawlData?.images && Array.isArray(firecrawlData.images)) {
-          const imageResults = firecrawlData.images.filter(isSearchResultImages);
-          const processedImages = imageResults
-            .map((image) => ({
-              url: getImageUrl(image) || '',
-              description: cleanTitle(image.title || ''),
-            }))
-            .filter((img) => img.url);
-          images = deduplicateByDomainAndUrl(processedImages);
-        }
+              const imageResults = firecrawlData.images.filter(isSearchResultImages);
+              const processedImages = imageResults
+                .map((image) => ({
+                  url: getImageUrl(image) || '',
+                  description: cleanTitle(image.title || ''),
+                }))
+                .filter((img) => img.url);
+              return deduplicateByDomainAndUrl(processedImages);
+            },
+          },
+          getBetterAllOptions(),
+        );
 
         options.dataStream?.write({
           type: 'data-query_completion',
@@ -489,7 +525,11 @@ class FirecrawlSearchStrategy implements SearchStrategy {
       }
     });
 
-    const searchResults = await Promise.all(searchPromises);
+    const searchMap = await all(
+      Object.fromEntries(searchPromises.map((promise, index) => [`q:${index}`, async () => promise])),
+      getBetterAllOptions(),
+    );
+    const searchResults = queries.map((_, index) => searchMap[`q:${index}`]);
     return { searches: searchResults };
   }
 }
@@ -504,6 +544,7 @@ class ExaSearchStrategy implements SearchStrategy {
       maxResults: number[];
       topics: ('general' | 'news')[];
       quality: ('default' | 'best')[];
+      startDates?: (string | null)[];
       include_domains?: string[];
       exclude_domains?: string[];
       dataStream?: UIMessageStreamWriter<ChatMessage>;
@@ -513,6 +554,15 @@ class ExaSearchStrategy implements SearchStrategy {
       const currentTopic = options.topics[index] || options.topics[0] || 'general';
       const currentMaxResults = options.maxResults[index] || options.maxResults[0] || 10;
       const currentQuality = options.quality[index] || options.quality[0] || 'default';
+      const currentStartDate = options.startDates?.[index] || options.startDates?.[0] || null;
+      const exa = this.exa;
+      const firecrawl = this.firecrawl;
+
+      // Convert date to ISO format for Exa
+      const formatDateForExa = (dateStr: string): string => {
+        const date = new Date(dateStr);
+        return date.toISOString();
+      };
 
       try {
         options.dataStream?.write({
@@ -527,41 +577,63 @@ class ExaSearchStrategy implements SearchStrategy {
           },
         });
 
-        const searchOptions: any = {
-          text: true,
-          type: currentQuality === 'best' ? 'hybrid' : 'auto',
-          numResults: currentMaxResults < 10 ? 10 : currentMaxResults,
-          livecrawl: 'preferred',
-          useAutoprompt: true,
-          category: currentTopic === 'news' ? 'news' : '',
-        };
-
-        // Domain include/exclude behavior removed
-
-        const data = await this.exa.searchAndContents(query, searchOptions);
-
-        // Collect all images first
-        const collectedImages: { url: string; description: string }[] = [];
-
-        const results = data.results.map((result) => {
-          if (result.image) {
-            collectedImages.push({
-              url: result.image,
-              description: cleanTitle(result.title || result.text?.substring(0, 100) + '...' || ''),
-            });
-          }
-
-          return {
-            url: result.url,
-            title: cleanTitle(result.title || ''),
-            content: (result.text || '').substring(0, 1000),
-            published_date: currentTopic === 'news' && result.publishedDate ? result.publishedDate : undefined,
-            author: result.author || undefined,
-          };
-        });
-
-        // Apply deduplication to images
-        const images = deduplicateByDomainAndUrl(collectedImages);
+        const { results, images } = await all(
+          {
+            data: async function () {
+              const startPublishedDate = currentStartDate ? formatDateForExa(currentStartDate) : undefined;
+              const endPublishedDate = currentStartDate ? formatDateForExa(new Date().toISOString()) : undefined;
+              return exa.search(query, {
+                type: currentQuality === 'best' ? 'deep' : 'instant',
+                numResults: currentMaxResults < 15 ? 15 : currentMaxResults,
+                category: currentTopic === 'news' ? 'news' : undefined,
+                ...(startPublishedDate && { startPublishedDate }),
+                ...(endPublishedDate && { endPublishedDate }),
+                contents: {
+                  highlights: {
+                    maxCharacters: 4000
+                  }
+                },
+              });
+            },
+            firecrawlImages: async function () {
+              return firecrawl
+                .search(query, {
+                  sources: ['images'],
+                  limit: 8,
+                  scrapeOptions: {
+                    storeInCache: true,
+                  },
+                })
+                .catch((error) => {
+                  console.error(`Firecrawl image search error for query "${query}":`, error);
+                  return { images: [] } as Partial<Document> as any;
+                });
+            },
+            results: async function () {
+              const data = await this.$.data;
+              return deduplicateByDomainAndUrl(
+                data.results.map((result) => ({
+                  url: result.url,
+                  title: cleanTitle(result.title || ''),
+                  content: (result.highlights?.join(' ') || '').substring(0, 1000),
+                  published_date: result.publishedDate ? result.publishedDate : undefined,
+                  author: result.author || undefined,
+                })),
+              );
+            },
+            images: async function () {
+              const firecrawlImages = await this.$.firecrawlImages;
+              return ((firecrawlImages as any)?.images || [])
+                .filter(isSearchResultImages)
+                .map((item: any) => ({
+                  url: getImageUrl(item) || '',
+                  description: cleanTitle(item.title || ''),
+                }))
+                .filter((item: any) => item.url);
+            },
+          },
+          getBetterAllOptions(),
+        );
 
         options.dataStream?.write({
           type: 'data-query_completion',
@@ -578,7 +650,7 @@ class ExaSearchStrategy implements SearchStrategy {
         return {
           query,
           results: deduplicateByDomainAndUrl(results),
-          images: images.filter((img) => img.url && img.description),
+          images: deduplicateByDomainAndUrl(images.filter((img: { url: string; description: string }) => img.url && img.description)),
         };
       } catch (error) {
         console.error(`Exa search error for query "${query}":`, error);
@@ -603,26 +675,38 @@ class ExaSearchStrategy implements SearchStrategy {
       }
     });
 
-    const searchResults = await Promise.all(searchPromises);
+    const searchMap = await all(
+      Object.fromEntries(searchPromises.map((promise, index) => [`q:${index}`, async () => promise])),
+      getBetterAllOptions(),
+    );
+    const searchResults = queries.map((_, index) => searchMap[`q:${index}`]);
     return { searches: searchResults };
   }
 }
 
 // Search provider factory
+const WEB_SEARCH_PROVIDERS = ['exa', 'parallel', 'firecrawl'] as const;
+type WebSearchProvider = (typeof WEB_SEARCH_PROVIDERS)[number];
+
+const normalizeWebSearchProvider = (provider: string): WebSearchProvider => {
+  if (provider === 'parallel' || provider === 'firecrawl' || provider === 'exa') {
+    return provider;
+  }
+  return 'exa';
+};
+
 const createSearchStrategy = (
-  provider: 'exa' | 'parallel' | 'tavily' | 'firecrawl',
+  provider: WebSearchProvider,
   clients: {
     exa: Exa;
     parallel: Parallel;
     firecrawl: FirecrawlApp;
-    tvly: TavilyClient;
   },
 ): SearchStrategy => {
   const strategies = {
     parallel: () => new ParallelSearchStrategy(clients.parallel, clients.firecrawl),
-    tavily: () => new TavilySearchStrategy(clients.tvly),
     firecrawl: () => new FirecrawlSearchStrategy(clients.firecrawl),
-    exa: () => new ExaSearchStrategy(clients.exa),
+    exa: () => new ExaSearchStrategy(clients.exa, clients.firecrawl),
   };
 
   return strategies[provider]();
@@ -633,11 +717,14 @@ export function webSearchTool(
   searchProvider: 'exa' | 'parallel' | 'tavily' | 'firecrawl' = 'tavily',
 ) {
   return tool({
-    description: `This is the default tool of the app to be used to search the web for information with multiple queries, max results, search depth, topics, and quality.
+    description: `This is the default tool of the app to be used to search the web for information with multiple queries(5-10), max results(15-20), topics, and quality.
     Very important Rules:
     ...${searchProvider === 'parallel' ? 'The First Query should be the objective and the rest of the queries should be related to the objective' : ''}...
     - The queries should always be in the same language as the user's message.
-    - And count of the queries should be 3-5.
+    - And count of the queries should be 5-10 always!
+    - Assert to max number of results for each query to be 15-20.
+    - Your knowledge base is zero, so you must gather as much information as possible from the tools you have.
+    - **Prohibition**: NEVER use the retrieve tool after running web_search tool
     - Do not use the best quality unless absolutly required since it is time expensive.
     - ⚠️ CRITICAL: ALWAYS include date/time context in search queries:
       - For current events: "latest", "${new Date().getFullYear()}", "today", "current", "recent"
@@ -697,10 +784,12 @@ export function webSearchTool(
       console.log('Max Results:', maxResults);
       console.log('Topics:', topics);
       console.log('Quality:', quality);
+      console.log('Start Dates:', startDates);
       console.log('Search Provider:', searchProvider);
 
       // Create and use the appropriate search strategy
-      const strategy = createSearchStrategy(searchProvider, clients);
+      const normalizedProvider = normalizeWebSearchProvider(searchProvider);
+      const strategy = createSearchStrategy(normalizedProvider, clients);
       if (!maxResults) {
         maxResults = new Array(queries.length).fill(10);
       }
@@ -710,12 +799,21 @@ export function webSearchTool(
       if (!quality) {
         quality = new Array(queries.length).fill('default');
       }
-      return await strategy.search(queries, {
+      const searchOptions = {
         maxResults: maxResults as number[],
         topics: topics as ('general' | 'news')[],
         quality: quality as ('default' | 'best')[],
+        startDates: startDates as (string | null)[] | undefined,
         dataStream,
-      });
+      };
+      let result = await strategy.search(queries, searchOptions);
+      const hasNoResults = result.searches.every((s) => s.results.length === 0);
+      if (hasNoResults && normalizedProvider !== 'firecrawl') {
+        console.log(`${normalizedProvider} returned no results, falling back to Firecrawl`);
+        const fallbackStrategy = createSearchStrategy('firecrawl', clients);
+        result = await fallbackStrategy.search(queries, searchOptions);
+      }
+      return result;
     },
   });
 }

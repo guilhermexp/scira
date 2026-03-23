@@ -112,33 +112,32 @@ const getFaviconUrl = (url: string) => {
   }
 };
 
-// Source Card Component - Minimal Premium Design
-const SourceCard: React.FC<{ result: SearchResult; onClick?: () => void }> = ({ result, onClick }) => {
+// Source Card Component
+const SourceCard: React.FC<{ result: SearchResult; onClick?: () => void }> = React.memo(({ result, onClick }) => {
   const [imageLoaded, setImageLoaded] = React.useState(false);
-  const faviconUrl = getFaviconUrl(result.url);
-  const hostname = new URL(result.url).hostname.replace('www.', '');
+  const faviconUrl = React.useMemo(() => getFaviconUrl(result.url), [result.url]);
+  const hostname = React.useMemo(() => new URL(result.url).hostname.replace('www.', ''), [result.url]);
 
   return (
     <div
       className={cn(
         'group relative',
-        'border-b border-border',
-        'py-2.5 px-3 transition-all duration-150',
-        'hover:bg-accent/50',
+        'px-3.5 py-2 transition-colors',
+        'hover:bg-muted/10',
         onClick && 'cursor-pointer',
       )}
       onClick={onClick}
     >
-      <div className="flex items-start gap-2.5">
+      <div className="flex items-center gap-2.5">
         {/* Favicon */}
-        <div className="relative w-4 h-4 mt-0.5 flex items-center justify-center shrink-0 rounded-full overflow-hidden bg-muted">
+        <div className="relative w-3.5 h-3.5 flex items-center justify-center shrink-0 rounded-sm overflow-hidden">
           {faviconUrl ? (
             <img
               src={faviconUrl}
               alt=""
-              width={16}
-              height={16}
-              className={cn('object-contain opacity-60', !imageLoaded && 'opacity-0')}
+              width={14}
+              height={14}
+              className={cn('object-contain', !imageLoaded && 'opacity-0')}
               onLoad={() => setImageLoaded(true)}
               onError={(e) => {
                 setImageLoaded(true);
@@ -146,7 +145,7 @@ const SourceCard: React.FC<{ result: SearchResult; onClick?: () => void }> = ({ 
               }}
             />
           ) : (
-            <Icons.Globe className="w-3.5 h-3.5 text-muted-foreground" />
+            <Icons.Globe className="w-3 h-3 text-muted-foreground/50" />
           )}
         </div>
 
@@ -156,14 +155,12 @@ const SourceCard: React.FC<{ result: SearchResult; onClick?: () => void }> = ({ 
             <h3 className="font-medium text-[13px] text-foreground line-clamp-1 flex-1">{result.title}</h3>
             <Icons.ArrowUpRight className="w-3 h-3 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
-
-          {/* Metadata */}
-          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <span className="truncate">{hostname}</span>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className="text-[10px] text-muted-foreground/60 truncate">{hostname}</span>
             {result.author && (
               <>
-                <span>·</span>
-                <span className="truncate">{result.author}</span>
+                <span className="text-[10px] text-muted-foreground/30">·</span>
+                <span className="text-[10px] text-muted-foreground/60 truncate">{result.author}</span>
               </>
             )}
           </div>
@@ -174,16 +171,21 @@ const SourceCard: React.FC<{ result: SearchResult; onClick?: () => void }> = ({ 
       </div>
     </div>
   );
-};
+});
+
+SourceCard.displayName = 'SourceCard';
 
 // Sources Sheet Component - Minimal Design
 const SourcesSheet: React.FC<{
   searches: SearchQueryResult[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}> = ({ searches, open, onOpenChange }) => {
+}> = React.memo(({ searches, open, onOpenChange }) => {
   const isMobile = useIsMobile();
-  const totalResults = searches.reduce((sum, search) => sum + search.results.length, 0);
+  const totalResults = React.useMemo(
+    () => searches.reduce((sum, search) => sum + search.results.length, 0),
+    [searches]
+  );
 
   const SheetWrapper = isMobile ? Drawer : Sheet;
   const SheetContentWrapper = isMobile ? DrawerContent : SheetContent;
@@ -193,13 +195,14 @@ const SourcesSheet: React.FC<{
       <SheetContentWrapper className={cn(isMobile ? 'h-[85vh]' : 'w-[580px] sm:max-w-[580px]', 'p-0')}>
         <div className="flex flex-col h-full bg-background">
           {/* Header */}
-          <div className="px-5 py-4 border-b border-border">
-            <div>
-              <h2 className="text-base font-semibold text-foreground">Sources</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {totalResults} from {searches.length} {searches.length === 1 ? 'query' : 'queries'}
-              </p>
+          <div className="px-5 py-4 border-b border-border/40">
+            <div className="flex items-center gap-2 mb-0.5">
+              <Icons.Layers className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="font-pixel text-xs text-muted-foreground/80 uppercase tracking-wider">Sources</span>
             </div>
+            <p className="text-xs text-muted-foreground">
+              {totalResults} from {searches.length} {searches.length === 1 ? 'query' : 'queries'}
+            </p>
           </div>
 
           {/* Content */}
@@ -213,14 +216,14 @@ const SourcesSheet: React.FC<{
                   </div>
                 </div>
 
-                <div>
+                <div className="divide-y divide-border/20">
                   {search.results.map((result, resultIndex) => (
                     <a
                       key={resultIndex}
                       href={result.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block last:border-0"
+                      className="block"
                     >
                       <SourceCard result={result} />
                     </a>
@@ -233,7 +236,9 @@ const SourcesSheet: React.FC<{
       </SheetContentWrapper>
     </SheetWrapper>
   );
-};
+});
+
+SourcesSheet.displayName = 'SourcesSheet';
 
 // Image Gallery Component
 const ImageGallery = React.memo(({ images }: { images: SearchImage[] }) => {
@@ -311,9 +316,9 @@ const ImageGallery = React.memo(({ images }: { images: SearchImage[] }) => {
   const gridItemClassName = React.useCallback(
     () =>
       cn(
-        'relative rounded-md overflow-hidden shrink-0',
-        'bg-muted',
-        'transition-all duration-150 hover:opacity-90',
+        'relative rounded-lg overflow-hidden shrink-0',
+        'bg-muted/20 border border-border/30',
+        'transition-all duration-150 hover:border-border/60',
         'focus:outline-none focus:ring-1 focus:ring-ring',
         'cursor-pointer',
         'w-[240px] h-[135px]',
@@ -329,10 +334,10 @@ const ImageGallery = React.memo(({ images }: { images: SearchImage[] }) => {
   const navigationButtonClassName = React.useMemo(
     () =>
       cn(
-        'h-9 w-9 rounded-full',
+        'h-8 w-8 rounded-full',
         'flex items-center justify-center',
-        'bg-background/70',
-        'hover:bg-background/95',
+        'bg-background/80',
+        'hover:bg-background',
         'border border-border/40',
         'backdrop-blur-xl',
         'transition-all duration-200',
@@ -357,9 +362,9 @@ const ImageGallery = React.memo(({ images }: { images: SearchImage[] }) => {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Image Gallery - Horizontal Scroll */}
-      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 rounded-md">
         {displayImages.map((image, index) => (
           <button key={`${image.url}-${index}`} onClick={() => handleImageClick(index)} className={gridItemClassName()}>
             <img
@@ -369,7 +374,6 @@ const ImageGallery = React.memo(({ images }: { images: SearchImage[] }) => {
               onError={() => handleImageError(image.url)}
             />
 
-            {/* Overlay for last image if there are more */}
             {shouldShowOverlay(index) && (
               <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                 <span className="text-white text-sm font-medium">
@@ -386,10 +390,11 @@ const ImageGallery = React.memo(({ images }: { images: SearchImage[] }) => {
         <ImageViewerContent className={viewerContentClassName}>
           <div className="relative w-full h-full bg-background">
             {/* Header */}
-            <div className="absolute top-0 left-0 right-0 z-50 px-4 py-3 bg-background/95 backdrop-blur-sm border-b border-border">
+            <div className="absolute top-0 left-0 right-0 z-50 px-4 py-2.5 bg-background/95 backdrop-blur-sm border-b border-border/40">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-medium text-foreground">
+                <div className="flex items-center gap-2.5">
+                  <span className="font-pixel text-xs text-muted-foreground/80 uppercase tracking-wider">Images</span>
+                  <span className="text-[10px] text-muted-foreground/60 tabular-nums">
                     {selectedImage + 1} / {validImages.length}
                   </span>
                   {currentImage?.description && !isMobile && (
@@ -399,10 +404,10 @@ const ImageGallery = React.memo(({ images }: { images: SearchImage[] }) => {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 rounded-md hover:bg-accent"
+                  className="h-7 w-7 rounded-md hover:bg-muted/30"
                   onClick={handleClose}
                 >
-                  <Icons.Close className="h-4 w-4" />
+                  <Icons.Close className="h-3.5 w-3.5" />
                 </Button>
               </div>
             </div>
@@ -449,8 +454,8 @@ const ImageGallery = React.memo(({ images }: { images: SearchImage[] }) => {
 
             {/* Thumbnail Strip */}
             {validImages.length > 1 && (
-              <div className="absolute bottom-0 left-0 right-0 z-50 p-4 bg-background/95 backdrop-blur-sm border-t border-border">
-                <div className="flex gap-2 overflow-x-auto no-scrollbar justify-center pb-1">
+              <div className="absolute bottom-0 left-0 right-0 z-50 px-4 py-3 bg-background/95 backdrop-blur-sm border-t border-border/40">
+                <div className="flex gap-1.5 overflow-x-auto no-scrollbar justify-center pb-1">
                   {validImages.map((img, index) => (
                     <button
                       key={img.url}
@@ -460,10 +465,8 @@ const ImageGallery = React.memo(({ images }: { images: SearchImage[] }) => {
                         setTimeout(() => setImageTransition(null), 300);
                       }}
                       className={cn(
-                        'relative shrink-0 w-16 h-12 rounded-md overflow-hidden',
-                        'border-2 transition-all duration-200',
-                        'hover:scale-105 hover:border-foreground/50',
-                        'bg-muted',
+                        'relative shrink-0 w-14 h-10 rounded-md overflow-hidden',
+                        'border transition-all duration-200',
                         selectedImage === index
                           ? 'border-foreground ring-1 ring-foreground/20'
                           : 'border-border opacity-60 hover:opacity-100',
@@ -482,7 +485,7 @@ const ImageGallery = React.memo(({ images }: { images: SearchImage[] }) => {
                   ))}
                 </div>
                 {currentImage?.description && isMobile && (
-                  <p className="text-xs text-muted-foreground text-center mt-2 line-clamp-2">
+                  <p className="text-[10px] text-muted-foreground/60 text-center mt-2 line-clamp-2">
                     {currentImage.description}
                   </p>
                 )}
@@ -491,8 +494,8 @@ const ImageGallery = React.memo(({ images }: { images: SearchImage[] }) => {
 
             {/* Single image description */}
             {validImages.length === 1 && currentImage?.description && (
-              <div className="absolute bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-sm border-t border-border">
-                <p className="text-xs text-muted-foreground text-center max-w-3xl mx-auto">
+              <div className="absolute bottom-0 left-0 right-0 px-4 py-3 bg-background/95 backdrop-blur-sm border-t border-border/40">
+                <p className="text-[10px] text-muted-foreground/60 text-center max-w-3xl mx-auto">
                   {currentImage.description}
                 </p>
               </div>
@@ -511,13 +514,16 @@ const LoadingState: React.FC<{
   queries: string[];
   annotations: DataUIPart<CustomUIDataTypes>[];
   args: MultiSearchArgs;
-}> = ({ queries, annotations, args }) => {
+}> = React.memo(({ queries, annotations, args }) => {
   const [isExpanded, setIsExpanded] = React.useState(false);
-  const totalResults = annotations.reduce((sum, a) => sum + a.data.resultsCount, 0);
+  const totalResults = React.useMemo(
+    () => annotations.reduce((sum, a) => sum + a.data.resultsCount, 0),
+    [annotations]
+  );
   const loadingQueryTagsRef = React.useRef<HTMLDivElement>(null);
 
   // Add horizontal scroll support with mouse wheel
-  const handleWheelScroll = (e: React.WheelEvent<HTMLDivElement>) => {
+  const handleWheelScroll = React.useCallback((e: React.WheelEvent<HTMLDivElement>) => {
     const container = e.currentTarget;
     if (e.deltaY === 0) return;
     const canScrollHorizontally = container.scrollWidth > container.clientWidth;
@@ -535,23 +541,31 @@ const LoadingState: React.FC<{
       e.preventDefault();
       container.scrollLeft += e.deltaY;
     }
-  };
+  }, []);
 
   return (
     <div className="w-full space-y-3">
       {/* Sources Section */}
-      <div className="border border-border rounded-lg overflow-hidden bg-card">
+      <div className="rounded-xl border border-border/60 overflow-hidden bg-card/30">
         {/* Header */}
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-accent/50 transition-colors"
+          className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-muted/20 transition-colors"
         >
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <Icons.Layers className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-sm font-medium text-foreground">Sources</span>
-            <span className="text-[11px] text-muted-foreground">
-              {totalResults || '0'} {totalResults === 1 ? 'source' : 'sources'}
+            <span className="font-pixel text-xs text-muted-foreground/80 uppercase tracking-wider">Sources</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-muted-foreground/60 tabular-nums">
+              {totalResults || '0'}
             </span>
+            <Icons.ChevronDown
+              className={cn(
+                'h-3 w-3 text-muted-foreground/60 transition-transform duration-200',
+                isExpanded && 'rotate-180',
+              )}
+            />
           </div>
           <Icons.ChevronDown
             className={cn(
@@ -563,11 +577,11 @@ const LoadingState: React.FC<{
 
         {/* Content */}
         {isExpanded && (
-          <div className="px-3 pb-3 space-y-2.5 border-t border-border">
+          <div className="border-t border-border/40">
             {/* Query badges */}
             <div
               ref={loadingQueryTagsRef}
-              className="flex gap-1.5 overflow-x-auto no-scrollbar pt-2.5"
+              className="px-3.5 py-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar border-b border-border/30"
               onWheel={handleWheelScroll}
             >
               {queries.map((query, i) => {
@@ -588,13 +602,14 @@ const LoadingState: React.FC<{
                     {currentQuality === 'best' && (
                       <Icons.Sparkle className="w-2.5 h-2.5 text-blue-600 dark:text-blue-400" />
                     )}
+                    {i < queries.length - 1 && <span className="text-muted-foreground/30 ml-1">/</span>}
                   </span>
                 );
               })}
             </div>
 
             {/* Skeleton items */}
-            <div className="space-y-px">
+            <div className="divide-y divide-border/20">
               {[...Array(3)].map((_, i) => (
                 <div key={i} className="py-2.5 px-3 border-b border-border last:border-0">
                   <div className="flex items-start gap-2.5">
@@ -620,7 +635,9 @@ const LoadingState: React.FC<{
       </div>
     </div>
   );
-};
+});
+
+LoadingState.displayName = 'LoadingState';
 
 // Main Component - Minimal Premium Design
 const MultiSearch = ({
@@ -664,8 +681,8 @@ const MultiSearch = ({
     return <LoadingState queries={normalizedArgs.queries} annotations={annotations} args={normalizedArgs} />;
   }
 
-  const allImages = result.searches.flatMap((search) => search.images);
-  const allResults = result.searches.flatMap((search) => search.results);
+  const allImages = React.useMemo(() => result.searches.flatMap((search) => search.images), [result.searches]);
+  const allResults = React.useMemo(() => result.searches.flatMap((search) => search.results), [result.searches]);
   const totalResults = allResults.length;
 
   // Prevent hydration mismatches by only rendering after client-side mount
@@ -674,32 +691,30 @@ const MultiSearch = ({
   }
 
   return (
-    <div className="w-full space-y-3">
+    <div className="w-full space-y-3 p-0!">
       {/* Sources Section */}
-      <div className="border border-border rounded-lg overflow-hidden bg-card">
+      <div className="rounded-xl border border-border/60 overflow-hidden bg-card/30">
         {/* Header */}
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-accent/50 transition-colors"
+          className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-muted/20 transition-colors"
         >
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <Icons.Layers className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-sm font-medium text-foreground">Sources</span>
-            <span className="text-[11px] text-muted-foreground">
-              {totalResults} {totalResults === 1 ? 'source' : 'sources'}
-            </span>
+            <span className="font-pixel text-xs text-muted-foreground/80 uppercase tracking-wider">Sources</span>
           </div>
           <div className="flex items-center gap-2">
+            <span className="text-[10px] text-muted-foreground/60 tabular-nums">{totalResults}</span>
             {totalResults > 0 && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   setSourcesOpen(true);
                 }}
-                className="text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors px-2 py-1 hover:bg-accent rounded-md flex items-center gap-1"
+                className="text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors px-1.5 py-0.5 hover:bg-muted/30 rounded flex items-center gap-1"
               >
                 View all
-                <Icons.ArrowUpRight className="w-3 h-3" />
+                <Icons.ArrowUpRight className="w-2.5 h-2.5" />
               </button>
             )}
             <Icons.ChevronDown
@@ -713,27 +728,25 @@ const MultiSearch = ({
 
         {/* Content */}
         {isExpanded && (
-          <div className="border-t border-border">
+          <div className="border-t border-border/40">
             {/* Query tags */}
-            <div className="px-3 pt-2.5 pb-2 flex gap-1.5 overflow-x-auto no-scrollbar border-b border-border">
+            <div className="px-3.5 py-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar border-b border-border/30">
               {result.searches.map((search, i) => {
                 const currentQuality = normalizedArgs.quality[i] || 'default';
                 return (
-                  <span
-                    key={i}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] shrink-0 border bg-muted border-border text-foreground font-medium"
-                  >
-                    <span>{search.query}</span>
+                  <span key={i} className="inline-flex items-center gap-1 text-[10px] shrink-0">
+                    <span className="font-medium text-foreground/80">{search.query}</span>
                     {currentQuality === 'best' && (
                       <Icons.Sparkle className="w-2.5 h-2.5 text-blue-600 dark:text-blue-400" />
                     )}
+                    {i < result.searches.length - 1 && <span className="text-muted-foreground/30 ml-1">/</span>}
                   </span>
                 );
               })}
             </div>
 
             {/* Results list */}
-            <div className="max-h-80 overflow-y-auto">
+            <div className="max-h-80 overflow-y-auto divide-y divide-border/20">
               {allResults.map((result, i) => (
                 <a key={i} href={result.url} target="_blank" rel="noopener noreferrer" className="block last:border-0">
                   <SourceCard result={result} />

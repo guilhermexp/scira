@@ -1,3 +1,4 @@
+import 'server-only';
 import { wrapLanguageModel, customProvider, extractReasoningMiddleware, gateway } from 'ai';
 
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
@@ -8,6 +9,27 @@ import { mistral } from '@ai-sdk/mistral';
 import { google } from '@ai-sdk/google';
 import { anthropic } from '@ai-sdk/anthropic';
 import { cohere } from '@ai-sdk/cohere';
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { createRetryable } from 'ai-retry';
+import { createWorkersAI } from 'workers-ai-provider';
+
+const ark = createOpenAICompatible({
+  name: 'ark',
+  baseURL: 'https://ark.ap-southeast.bytepluses.com/api/v3',
+  apiKey: process.env.ARK_API_KEY,
+});
+
+const sarvam = createOpenAICompatible({
+  name: 'sarvam',
+  baseURL: 'https://api.sarvam.ai/v1',
+  apiKey: process.env.SARVAM_API_KEY,
+});
+
+const zai = createOpenAICompatible({
+  name: 'zai',
+  baseURL: 'https://api.z.ai/api/paas/v4',
+  apiKey: process.env.ZAI_API_KEY,
+});
 
 const middleware = extractReasoningMiddleware({
   tagName: 'think',
@@ -35,7 +57,7 @@ const anannas = createOpenAICompatible({
   baseURL: 'https://api.anannas.ai/v1',
   apiKey: process.env.ANANNAS_API_KEY,
   headers: {
-    'HTTP-Referer': 'https://scira.ai',
+    'HTTP-Referer': 'https://sciraai.in',
     'X-Title': 'Scira AI',
     'Content-Type': 'application/json',
   },
@@ -69,8 +91,10 @@ export const scira = customProvider({
     'scira-grok-3-mini': xai('grok-3-mini'),
     'scira-grok-3': xai('grok-3'),
     'scira-grok-4': xai('grok-4'),
+    'scira-grok-4.20-experimental-beta-0304': xai('grok-4.20-non-reasoning-latest'),
+    'scira-grok-4.20-experimental-beta-0304-thinking': xai('grok-4.20-reasoning-latest'),
     'scira-grok-4-fast': xai('grok-4-fast-non-reasoning'),
-    'scira-grok-4-fast-think': xai('grok-4-fast'),
+    'scira-grok-4-fast-think': xai('grok-4-fast-reasoning'),
     'scira-code': xai('grok-code-fast-1'),
     'scira-enhance': groq('moonshotai/kimi-k2-instruct-0905'),
     'scira-follow-up': xaiEU('grok-4-1-fast-non-reasoning'),
@@ -100,19 +124,40 @@ export const scira = customProvider({
       model: groq('qwen/qwen3-32b'),
       middleware,
     }),
+    'scira-qwen-32b-thinking': wrapLanguageModel({
+      model: groq('qwen/qwen3-32b'),
+      middleware,
+    }),
     'scira-gpt-oss-20': wrapLanguageModel({
       model: groq('openai/gpt-oss-20b'),
       middleware,
     }),
+    'scira-nemotron-3-super': workersai('@cf/nvidia/nemotron-3-120b-a12b'),
     'scira-gpt-oss-120': wrapLanguageModel({
-      model: gateway('openai/gpt-oss-120b'),
+      model: baseten('openai/gpt-oss-120b'),
       middleware,
     }),
-    'scira-deepseek-chat': gateway('deepseek/deepseek-v3.2-exp'),
-    'scira-deepseek-chat-think': wrapLanguageModel({
-      model: gateway('deepseek/deepseek-v3.2-exp-thinking'),
+    'scira-trinity-mini': wrapLanguageModel({
+      model: gateway('arcee-ai/trinity-mini'),
       middleware,
     }),
+    'scira-trinity-large': wrapLanguageModel({
+      model: openrouter('arcee-ai/trinity-large-preview:free'),
+      middleware,
+    }),
+    'scira-step-3.5-flash': openrouter('stepfun/step-3.5-flash:free'),
+    'scira-kat-coder': gateway('kwaipilot/kat-coder-pro-v1'),
+    'scira-deepseek-v3': baseten('deepseek-ai/DeepSeek-V3-0324'),
+    'scira-deepseek-v3.1-terminus': gateway('deepseek/deepseek-v3.1-terminus'),
+    'scira-deepseek-chat': gateway('deepseek/deepseek-v3.2'),
+    'scira-deepseek-chat-think': gateway('deepseek/deepseek-v3.2-thinking'),
+    'scira-deepseek-chat-exp': gateway('deepseek/deepseek-v3.2-exp'),
+    'scira-deepseek-chat-think-exp': wrapLanguageModel({
+      model: novita.chatModel('deepseek/deepseek-v3.2-exp'),
+      middleware,
+    }),
+    'scira-v0-10': gateway('vercel/v0-1.0-md'),
+    'scira-v0-15': gateway('vercel/v0-1.5-md'),
     'scira-deepseek-r1': wrapLanguageModel({
       model: anannas.chatModel('deepseek/deepseek-r1'),
       middleware,
@@ -139,6 +184,17 @@ export const scira = customProvider({
       model: huggingface.chatModel('Qwen/Qwen3-235B-A22B-Thinking-2507:fireworks-ai'),
       middleware: [middlewareWithStartWithReasoning],
     }),
+    'scira-qwen-3.5-27b': novita.chatModel('qwen/qwen3.5-27b'),
+    'scira-qwen-3.5-35b': novita.chatModel('qwen/qwen3.5-35b-a3b'),
+    'scira-qwen-3.5-122b': novita.chatModel('qwen/qwen3.5-122b-a10b'),
+    'scira-qwen-3.5': novita.chatModel('qwen/qwen3.5-397b-a17b'),
+    'scira-qwen-3.5-plus': gateway('alibaba/qwen3.5-plus'),
+    'scira-qwen-3.5-flash': gateway('alibaba/qwen3.5-flash'),
+    'scira-qwen-3-vl': gateway('alibaba/qwen3-vl-instruct'),
+    'scira-qwen-3-vl-thinking': wrapLanguageModel({
+      model: gateway('alibaba/qwen3-vl-thinking'),
+      middleware,
+    }),
     'scira-glm-air': gateway('zai/glm-4.5-air'),
     'scira-glm': wrapLanguageModel({
       model: gateway('zai/glm-4.5'),
@@ -148,6 +204,58 @@ export const scira = customProvider({
       model: huggingface.chatModel('zai-org/GLM-4.6:novita'),
       middleware,
     }),
+    'scira-glm-4.6v-flash': wrapLanguageModel({
+      model: huggingface.chatModel('zai-org/GLM-4.6V-Flash:zai-org'),
+      middleware,
+    }),
+    'scira-glm-4.6v': wrapLanguageModel({
+      model: huggingface.chatModel('zai-org/GLM-4.6V:zai-org'),
+      middleware,
+    }),
+    'scira-glm-4.7': wrapLanguageModel({
+      model: huggingface.chatModel('zai-org/GLM-4.7:novita'),
+      middleware,
+    }),
+    'scira-glm-4.7-flash': createRetryable({
+      model: novita.chatModel('zai-org/glm-4.7-flash'),
+      retries: [gateway('zai/glm-4.7-flashx')],
+    }),
+    'scira-glm-5': wrapLanguageModel({
+      model: zai('glm-5-turbo'),
+      middleware,
+    }),
+    'scira-glm-5-thinking': wrapLanguageModel({
+      model: zai('glm-5-turbo'),
+      middleware,
+    }),
+    'scira-minimax': wrapLanguageModel({
+      model: novita.chatModel('minimaxai/minimax-m1-80k'),
+      middleware,
+    }),
+    'scira-minimax-m2': wrapLanguageModel({
+      model: gateway('minimax/minimax-m2'),
+      middleware,
+    }),
+    'scira-minimax-m2.1': wrapLanguageModel({
+      model: gateway('minimax/minimax-m2.1'),
+      middleware,
+    }),
+    'scira-minimax-m2.1-lightning': wrapLanguageModel({
+      model: gateway('minimax/minimax-m2.1-lightning'),
+      middleware,
+    }),
+    'scira-minimax-m2.7': wrapLanguageModel({
+      model: minimax.chatModel('MiniMax-M2.7-highspeed'),
+      middleware,
+    }),
+    'scira-minimax-m2.5': createRetryable({
+      model: baseten.chatModel('MiniMaxAI/MiniMax-M2.5'),
+      retries: [
+        minimax.chatModel('MiniMax-M2.5-highspeed'),
+        novita.chatModel('minimax/minimax-m2.5'),
+        gateway('minimax/minimax-m2.5'),
+      ],
+    }),
     'scira-cmd-a': cohere('command-a-03-2025'),
     'scira-cmd-a-think': cohere('command-a-reasoning-08-2025'),
     'scira-kimi-k2-v2': groq('moonshotai/kimi-k2-instruct-0905'),
@@ -155,12 +263,75 @@ export const scira = customProvider({
     'scira-mistral-medium': mistral('mistral-medium-2508'),
     'scira-magistral-small': mistral('magistral-small-2509'),
     'scira-magistral-medium': mistral('magistral-medium-2509'),
+    'scira-mistral-small': mistral('mistral-small-2603'),
+    'scira-mistral-small-think': mistral('mistral-small-2603'),
+    'scira-leanstral': mistral('labs-leanstral-2603'),
+    'scira-devstral': mistral('devstral-2512'),
+    'scira-devstral-small': mistral('labs-devstral-small-2512'),
     'scira-google-lite': google('gemini-flash-lite-latest'),
     'scira-google': google('gemini-flash-latest'),
     'scira-google-think': google('gemini-flash-latest'),
-    'scira-google-pro': google('gemini-2.5-pro'),
-    'scira-google-pro-think': google('gemini-2.5-pro'),
+    'scira-google-pro': createRetryable({
+      model: google('gemini-2.5-pro'),
+      retries: [gateway('google/gemini-2.5-pro')],
+    }),
+    'scira-google-pro-think': createRetryable({
+      model: google('gemini-2.5-pro'),
+      retries: [gateway('google/gemini-2.5-pro')],
+    }),
+    'scira-gemini-3-flash': createRetryable({
+      model: google('gemini-3-flash-preview'),
+      retries: [gateway('google/gemini-3-flash')],
+    }),
+    'scira-gemini-3-flash-think': google('gemini-3-flash-preview'),
+    'scira-gemini-3.1-flash-lite': createRetryable({
+      model: gateway('google/gemini-3.1-flash-lite-preview'),
+      retries: [google('gemini-3.1-flash-lite-preview')],
+    }),
+    'scira-gemini-3.1-flash-lite-think': createRetryable({
+      model: gateway('google/gemini-3.1-flash-lite-preview'),
+      retries: [google('gemini-3.1-flash-lite-preview')],
+    }),
+    'scira-gemini-3.1-pro': createRetryable({
+      model: google('gemini-3.1-pro-preview'),
+      retries: [gateway('google/gemini-3.1-pro-preview')],
+    }),
+    'scira-anthropic-small': anthropic('claude-haiku-4-5'),
     'scira-anthropic': anthropic('claude-sonnet-4-5'),
+    'scira-anthropic-think': anthropic('claude-sonnet-4-5'),
+    'scira-anthropic-sonnet-4.6': anthropic('claude-sonnet-4-6'),
+    'scira-anthropic-sonnet-4.6-think': anthropic('claude-sonnet-4-6'),
+    'scira-mimo-v2-flash': wrapLanguageModel({
+      model: gateway('xiaomi/mimo-v2-flash'),
+      middleware,
+    }),
+    'scira-mimo-v2-pro': wrapLanguageModel({
+      model: gateway('xiaomi/mimo-v2-pro'),
+      middleware,
+    }),
+    'scira-anthropic-opus': anthropic('claude-opus-4-5'),
+    'scira-anthropic-opus-think': anthropic('claude-opus-4-5'),
+    'scira-anthropic-opus-4.6': anthropic('claude-opus-4-6'),
+    'scira-anthropic-opus-4.6-think': anthropic('claude-opus-4-6'),
+    'scira-nova-2-lite': gateway('amazon/nova-2-lite'),
+    'scira-seed-1.6': wrapLanguageModel({
+      model: ark('seed-1-6-250915'),
+      middleware,
+    }),
+    'scira-seed-1.8': wrapLanguageModel({
+      model: ark('seed-1-8-251228'),
+      middleware,
+    }),
+    'scira-seed-2.0-mini': wrapLanguageModel({
+      model: ark('seed-2-0-mini-260215'),
+      middleware,
+    }),
+    'scira-seed-2.0-lite': ark('seed-2-0-lite-260228'),
+    'scira-seed-1.6-flash': wrapLanguageModel({
+      model: ark('seed-1-6-flash-250715'),
+      middleware,
+    }),
+    'scira-mercury-2': gateway('inception/mercury-2'),
   },
 });
 

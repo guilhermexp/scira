@@ -1,5 +1,7 @@
 import { JSX, SVGProps } from 'react';
 import Supermemory from 'supermemory';
+import { all } from 'better-all';
+import { getBetterAllOptions } from '@/lib/better-all';
 
 const SM_KEY = process.env.SUPERMEMORY_API_KEY;
 const SM_ENABLED = !!SM_KEY && SM_KEY !== 'placeholder';
@@ -169,7 +171,7 @@ export async function getConnection(provider: ConnectorProvider, userId: string)
     const config = CONNECTOR_CONFIGS[provider];
     console.log(`🏷️ Searching with container tags: [${userId}, ${config.syncTag}]`);
 
-    const connection = await client.connections.getByTags(provider, {
+    const connection = await client.connections.getByTag(provider, {
       containerTags: [userId, config.syncTag],
     });
 
@@ -215,7 +217,11 @@ export async function listUserConnections(userId: string) {
       }
     });
 
-    const allConnections = await Promise.all(connectionPromises);
+    const connectionMap = await all(
+      Object.fromEntries(connectionPromises.map((promise, index) => [`p:${index}`, async () => promise])),
+    getBetterAllOptions(),
+    );
+    const allConnections = providers.map((_, index) => connectionMap[`p:${index}`]);
     const flatConnections = allConnections.flat();
 
     console.log('connections list', flatConnections);
@@ -286,7 +292,7 @@ export async function getSyncStatus(provider: ConnectorProvider, userId: string)
     console.log(`🏷️ Status check with container tags: [${userId}, ${config.syncTag}]`);
 
     // Get connection details using the direct API call
-    const connection = await client.connections.getByTags(provider, {
+    const connection = await client.connections.getByTag(provider, {
       containerTags: [userId, config.syncTag],
     });
 

@@ -1,21 +1,331 @@
 import 'katex/dist/katex.min.css';
 
 import { Geist_Mono } from 'next/font/google';
-import { highlight } from 'sugar-high';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { useTheme } from 'next-themes';
+
 import Image from 'next/image';
 import Link from 'next/link';
 import Latex from 'react-latex-next';
 import Marked, { ReactRenderer } from 'marked-react';
-import React, { useCallback, useMemo, useState, Fragment, useRef, lazy, Suspense, useEffect } from 'react';
+import { Lexer } from 'marked';
+import React, { useCallback, useMemo, useState, Fragment, useRef, lazy, Suspense, useEffect, use } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { Check, Copy, WrapText, ArrowLeftRight, Download } from 'lucide-react';
-import { toast } from 'sonner';
+import {
+  type LucideIcon,
+  Check,
+  Copy,
+  WrapText,
+  ArrowLeftRight,
+  ArrowUpRight,
+  Download,
+  Globe,
+  File as FileIcon,
+  FileText,
+  FileArchive,
+  FileCode2,
+  Image as ImageIcon,
+  Music4,
+  Video,
+  FileSpreadsheet,
+  ChevronDown,
+  ChevronUp,
+  Youtube,
+  Loader2,
+  X,
+  MoreVertical,
+  ExternalLink,
+} from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Cambio } from 'cambio';
+import { useIsMobile } from '@/hooks/use-mobile';
 
+// Spotify icon component
+const SpotifyIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
+  </svg>
+);
+
+// Helper to detect platform from URL
+const getPlatformFromUrl = (url: string): 'youtube' | 'spotify' | null => {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) {
+      return 'youtube';
+    }
+    if (hostname.includes('spotify.com')) {
+      return 'spotify';
+    }
+  } catch {
+    // Invalid URL
+  }
+  return null;
+};
+
+// Helper to get a compact, TLD-stripped domain label for display
+const getDisplayDomain = (input: string): string => {
+  const trimmed = input.trim();
+  if (!trimmed) return '';
+
+  // Strip protocol and path if present
+  const withoutProtocol = trimmed.replace(/^https?:\/\//i, '');
+  const hostOnly = withoutProtocol.split('/')[0];
+
+  // Remove common www prefix
+  const withoutWww = hostOnly.replace(/^www\./i, '');
+
+  const parts = withoutWww.split('.');
+  if (parts.length <= 1) return withoutWww;
+
+  // Drop only the final TLD segment: timesofindia.com -> timesofindia
+  return parts.slice(0, -1).join('.');
+};
+
+interface FilePreviewDefinition {
+  filename: string;
+  title: string;
+  typeLabel: string;
+  icon: LucideIcon;
+}
+
+interface TaggedLinkData {
+  href: string;
+  title?: string;
+}
+
+const NON_DOWNLOADABLE_EXTENSIONS = new Set(['html', 'htm', 'php', 'asp', 'aspx', 'jsp']);
+
+const FILE_TYPE_MAP: Record<string, { typeLabel: string; icon: LucideIcon }> = {
+  pdf: { typeLabel: 'PDF', icon: FileText },
+  doc: { typeLabel: 'DOC', icon: FileText },
+  docx: { typeLabel: 'DOCX', icon: FileText },
+  txt: { typeLabel: 'TXT', icon: FileText },
+  md: { typeLabel: 'Markdown', icon: FileText },
+  rtf: { typeLabel: 'RTF', icon: FileText },
+  csv: { typeLabel: 'CSV', icon: FileSpreadsheet },
+  xls: { typeLabel: 'XLS', icon: FileSpreadsheet },
+  xlsx: { typeLabel: 'XLSX', icon: FileSpreadsheet },
+  ods: { typeLabel: 'ODS', icon: FileSpreadsheet },
+  png: { typeLabel: 'PNG', icon: ImageIcon },
+  jpg: { typeLabel: 'JPG', icon: ImageIcon },
+  jpeg: { typeLabel: 'JPEG', icon: ImageIcon },
+  webp: { typeLabel: 'WEBP', icon: ImageIcon },
+  gif: { typeLabel: 'GIF', icon: ImageIcon },
+  svg: { typeLabel: 'SVG', icon: ImageIcon },
+  ico: { typeLabel: 'ICO', icon: ImageIcon },
+  mp3: { typeLabel: 'MP3', icon: Music4 },
+  wav: { typeLabel: 'WAV', icon: Music4 },
+  m4a: { typeLabel: 'M4A', icon: Music4 },
+  flac: { typeLabel: 'FLAC', icon: Music4 },
+  ogg: { typeLabel: 'OGG', icon: Music4 },
+  mp4: { typeLabel: 'MP4', icon: Video },
+  mov: { typeLabel: 'MOV', icon: Video },
+  webm: { typeLabel: 'WEBM', icon: Video },
+  mkv: { typeLabel: 'MKV', icon: Video },
+  avi: { typeLabel: 'AVI', icon: Video },
+  zip: { typeLabel: 'ZIP', icon: FileArchive },
+  tar: { typeLabel: 'TAR', icon: FileArchive },
+  gz: { typeLabel: 'GZ', icon: FileArchive },
+  tgz: { typeLabel: 'TGZ', icon: FileArchive },
+  rar: { typeLabel: 'RAR', icon: FileArchive },
+  '7z': { typeLabel: '7Z', icon: FileArchive },
+  ts: { typeLabel: 'TypeScript', icon: FileCode2 },
+  tsx: { typeLabel: 'TSX', icon: FileCode2 },
+  js: { typeLabel: 'JavaScript', icon: FileCode2 },
+  jsx: { typeLabel: 'JSX', icon: FileCode2 },
+  json: { typeLabel: 'JSON', icon: FileCode2 },
+  yaml: { typeLabel: 'YAML', icon: FileCode2 },
+  yml: { typeLabel: 'YML', icon: FileCode2 },
+  toml: { typeLabel: 'TOML', icon: FileCode2 },
+  xml: { typeLabel: 'XML', icon: FileCode2 },
+  css: { typeLabel: 'CSS', icon: FileCode2 },
+  scss: { typeLabel: 'SCSS', icon: FileCode2 },
+  htmlx: { typeLabel: 'HTML', icon: FileCode2 },
+  sh: { typeLabel: 'Shell', icon: FileCode2 },
+  bash: { typeLabel: 'Bash', icon: FileCode2 },
+  zsh: { typeLabel: 'Zsh', icon: FileCode2 },
+  py: { typeLabel: 'Python', icon: FileCode2 },
+  rb: { typeLabel: 'Ruby', icon: FileCode2 },
+  go: { typeLabel: 'Go', icon: FileCode2 },
+  rs: { typeLabel: 'Rust', icon: FileCode2 },
+  java: { typeLabel: 'Java', icon: FileCode2 },
+  sql: { typeLabel: 'SQL', icon: FileCode2 },
+  apk: { typeLabel: 'APK', icon: Download },
+  dmg: { typeLabel: 'DMG', icon: Download },
+  exe: { typeLabel: 'EXE', icon: Download },
+  msi: { typeLabel: 'MSI', icon: Download },
+  pkg: { typeLabel: 'PKG', icon: Download },
+  deb: { typeLabel: 'DEB', icon: Download },
+  rpm: { typeLabel: 'RPM', icon: Download },
+};
+
+function parseUrlLike(href: string): URL | null {
+  try {
+    if (href.startsWith('/')) return new URL(href, 'https://scira.ai');
+    return new URL(href);
+  } catch {
+    return null;
+  }
+}
+
+function getAppPreviewHref(href: string): string {
+  // if (href.startsWith('/')) return href;
+  return href;
+}
+
+function getAppPreviewScreenshotSrc(href: string): string | null {
+  return `/api/app-preview/screenshot?url=${encodeURIComponent(getAppPreviewHref(href))}`;
+}
+
+function getAppPreviewDescription(href: string): string {
+  const url = parseUrlLike(href);
+  if (!url) return href;
+
+  if (href.startsWith('/')) {
+    const suffix = `${url.search}${url.hash}`;
+    return `${url.pathname}${suffix}` || '/';
+  }
+
+  const host = url.hostname.replace(/^www\./, '');
+  const suffix = `${url.pathname}${url.search}${url.hash}`;
+  return `${host}${suffix}`;
+}
+
+function extractFilenameFromHref(href: string, fallbackText?: string): string {
+  const url = parseUrlLike(href);
+  const rawPathSegment = url?.pathname.split('/').filter(Boolean).pop();
+  const decodedPathSegment = rawPathSegment ? decodeURIComponent(rawPathSegment) : '';
+
+  if (decodedPathSegment) return decodedPathSegment;
+
+  const candidateFromText = fallbackText?.trim();
+  if (candidateFromText && candidateFromText.includes('.')) return candidateFromText;
+
+  return 'download';
+}
+
+function getFilePreviewDefinition(href: string, fallbackText?: string): FilePreviewDefinition | null {
+  const url = parseUrlLike(href);
+  const pathname = url?.pathname ?? '';
+  const filename = extractFilenameFromHref(href, fallbackText);
+  const ext = filename.includes('.') ? (filename.split('.').pop()?.toLowerCase() ?? '') : '';
+  const hasBuildDownloadPath = pathname.includes('/scira/builds/');
+  const hasKnownDownloadExtension = Boolean(ext && FILE_TYPE_MAP[ext] && !NON_DOWNLOADABLE_EXTENSIONS.has(ext));
+  const hasDownloadHint =
+    url?.searchParams.get('download') === '1' ||
+    url?.searchParams.get('download') === 'true' ||
+    url?.searchParams.has('filename');
+
+  const isLikelyFile = hasBuildDownloadPath || hasKnownDownloadExtension || Boolean(hasDownloadHint);
+
+  if (!isLikelyFile) return null;
+
+  const matchedType = (ext && FILE_TYPE_MAP[ext]) || null;
+  return {
+    filename,
+    title: fallbackText?.trim() && fallbackText.trim() !== href ? fallbackText.trim() : filename,
+    typeLabel: matchedType?.typeLabel ?? (ext ? ext.toUpperCase() : 'File'),
+    icon: matchedType?.icon ?? FileIcon,
+  };
+}
+
+function parseTaggedLinkContent(raw: string): TaggedLinkData | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  const markdownLinkMatch = trimmed.match(/^\[([^\]]+)\]\(([^)]+)\)$/s);
+  if (markdownLinkMatch) {
+    return {
+      title: markdownLinkMatch[1].trim(),
+      href: markdownLinkMatch[2].trim(),
+    };
+  }
+
+  return { href: trimmed };
+}
+
+import { sileo } from 'sileo';
+// Custom syntax themes that match Scira's design system
+const sciraDarkTheme: { [key: string]: React.CSSProperties } = {
+  'code[class*="language-"]': { color: '#e1e4e8', background: 'transparent' },
+  'pre[class*="language-"]': { color: '#e1e4e8', background: 'transparent' },
+  comment: { color: '#6a737d' },
+  prolog: { color: '#6a737d' },
+  doctype: { color: '#6a737d' },
+  cdata: { color: '#6a737d' },
+  punctuation: { color: '#e1e4e8' },
+  namespace: { opacity: 0.7 },
+  property: { color: '#79b8ff' },
+  tag: { color: '#85e89d' },
+  boolean: { color: '#79b8ff' },
+  number: { color: '#79b8ff' },
+  constant: { color: '#79b8ff' },
+  symbol: { color: '#79b8ff' },
+  deleted: { color: '#f97583' },
+  selector: { color: '#85e89d' },
+  'attr-name': { color: '#b392f0' },
+  string: { color: '#9ecbff' },
+  char: { color: '#9ecbff' },
+  builtin: { color: '#79b8ff' },
+  inserted: { color: '#85e89d' },
+  operator: { color: '#e1e4e8' },
+  entity: { color: '#79b8ff', cursor: 'help' },
+  url: { color: '#79b8ff' },
+  variable: { color: '#ffab70' },
+  atrule: { color: '#b392f0' },
+  'attr-value': { color: '#9ecbff' },
+  function: { color: '#b392f0' },
+  'class-name': { color: '#b392f0' },
+  keyword: { color: '#f97583' },
+  regex: { color: '#85e89d' },
+  important: { color: '#f97583', fontWeight: 'bold' },
+};
+
+const sciraLightTheme: { [key: string]: React.CSSProperties } = {
+  'code[class*="language-"]': { color: '#24292e', background: 'transparent' },
+  'pre[class*="language-"]': { color: '#24292e', background: 'transparent' },
+  comment: { color: '#6a737d' },
+  prolog: { color: '#6a737d' },
+  doctype: { color: '#6a737d' },
+  cdata: { color: '#6a737d' },
+  punctuation: { color: '#24292e' },
+  namespace: { opacity: 0.7 },
+  property: { color: '#005cc5' },
+  tag: { color: '#22863a' },
+  boolean: { color: '#005cc5' },
+  number: { color: '#005cc5' },
+  constant: { color: '#005cc5' },
+  symbol: { color: '#005cc5' },
+  deleted: { color: '#d73a49' },
+  selector: { color: '#22863a' },
+  'attr-name': { color: '#6f42c1' },
+  string: { color: '#032f62' },
+  char: { color: '#032f62' },
+  builtin: { color: '#005cc5' },
+  inserted: { color: '#22863a' },
+  operator: { color: '#24292e' },
+  entity: { color: '#005cc5', cursor: 'help' },
+  url: { color: '#005cc5' },
+  variable: { color: '#e36209' },
+  atrule: { color: '#6f42c1' },
+  'attr-value': { color: '#032f62' },
+  function: { color: '#6f42c1' },
+  'class-name': { color: '#6f42c1' },
+  keyword: { color: '#d73a49' },
+  regex: { color: '#22863a' },
+  important: { color: '#d73a49', fontWeight: 'bold' },
+};
 interface MarkdownRendererProps {
   content: string;
   isUserMessage?: boolean;
@@ -24,6 +334,18 @@ interface MarkdownRendererProps {
 interface CitationLink {
   text: string;
   link: string;
+  metadata?: {
+    title?: string;
+    description?: string;
+    image?: string;
+    logo?: string;
+  };
+}
+
+interface CitationGroup {
+  urls: string[];
+  texts: string[];
+  id: string;
 }
 
 const geistMono = Geist_Mono({
@@ -48,184 +370,327 @@ interface CodeBlockProps {
   elementKey: string;
 }
 
-// Lazy-loaded CodeBlock component for large blocks
-const LazyCodeBlockComponent: React.FC<CodeBlockProps> = ({ children, language, elementKey }) => {
+// Threshold for auto-collapsing large code blocks
+const AUTO_COLLAPSE_THRESHOLD = 25;
+const PREVIEW_LINES = 4;
+
+// Code block state type
+interface CodeBlockState {
+  collapsed: boolean;
+  contentLength: number;
+  userCollapsed: boolean;
+}
+
+// Global store for code block states - persists across component remounts
+// NOTE: This MUST be module-level (not React context) because:
+// 1. Marked re-creates all elements on each render, destroying any component state
+// 2. React context would be recreated with the MarkdownRenderer, losing all state
+// 3. This is a client-side component, so the Map is per-browser-tab, not shared across users
+// The Map is keyed by content hash, so different code blocks have different keys
+const codeBlockStates = new Map<string, CodeBlockState>();
+
+// Cleanup old entries periodically to prevent memory leaks
+// Entries older than 30 minutes are removed
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_ENTRY_AGE_MS = 30 * 60 * 1000; // 30 minutes
+const codeBlockTimestamps = new Map<string, number>();
+
+let lastCleanupTime = Date.now();
+function cleanupOldEntries() {
+  const now = Date.now();
+  if (now - lastCleanupTime < CLEANUP_INTERVAL_MS) return;
+
+  lastCleanupTime = now;
+  for (const [key, timestamp] of codeBlockTimestamps) {
+    if (now - timestamp > MAX_ENTRY_AGE_MS) {
+      codeBlockStates.delete(key);
+      codeBlockTimestamps.delete(key);
+    }
+  }
+}
+
+// Helper to get a STABLE key for a code block based on its content prefix (not length)
+// This ensures the same code block during streaming gets the same key
+function getCodeBlockStateKey(content: string): string {
+  // Use only the first 100 chars for the hash - this part stays stable during streaming
+  const prefix = content.slice(0, 100);
+  let hash = 0;
+  for (let i = 0; i < prefix.length; i++) {
+    hash = ((hash << 5) - hash + prefix.charCodeAt(i)) | 0;
+  }
+  return `cb-${Math.abs(hash).toString(36)}`;
+}
+
+// Unified CodeBlock component - consolidates LazyCodeBlockComponent and SyncCodeBlock
+// The `allowPlainTextFallback` prop controls whether very large code (>10000 chars) renders as plain text
+interface CodeBlockInnerProps extends CodeBlockProps {
+  allowPlainTextFallback?: boolean;
+}
+
+const CodeBlockInner: React.FC<CodeBlockInnerProps> = ({
+  children,
+  language,
+  elementKey,
+  allowPlainTextFallback = false,
+}) => {
   const [isCopied, setIsCopied] = useState(false);
   const [isWrapped, setIsWrapped] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const { resolvedTheme } = useTheme();
   const lineCount = useMemo(() => children.split('\n').length, [children]);
 
-  // Synchronous highlighting for better performance
-  const highlightedCode = useMemo(() => {
-    try {
-      return children.length < 10000 ? highlight(children) : children;
-    } catch (error) {
-      console.warn('Syntax highlighting failed, using plain text:', error);
-      return children;
+  // Use global state store for collapse state - persists across remounts
+  // Key is stable (based on content prefix, not length)
+  const stateKey = useMemo(() => getCodeBlockStateKey(children), [children]);
+
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    // Run cleanup periodically
+    cleanupOldEntries();
+
+    const stored = codeBlockStates.get(stateKey);
+    if (stored) {
+      // Update timestamp on access
+      codeBlockTimestamps.set(stateKey, Date.now());
+      // Content is growing (streaming) - expand unless user manually collapsed
+      if (children.length > stored.contentLength && !stored.userCollapsed) {
+        return false;
+      }
+      return stored.collapsed;
     }
-  }, [children]);
+    // New code block - start expanded during streaming, collapse later if needed
+    const defaultCollapsed = lineCount > AUTO_COLLAPSE_THRESHOLD;
+    codeBlockStates.set(stateKey, {
+      collapsed: defaultCollapsed,
+      contentLength: children.length,
+      userCollapsed: false,
+    });
+    codeBlockTimestamps.set(stateKey, Date.now());
+    return defaultCollapsed;
+  });
+
+  // Detect streaming and auto-expand
+  useEffect(() => {
+    const stored = codeBlockStates.get(stateKey);
+    if (stored && children.length > stored.contentLength && !stored.userCollapsed) {
+      // Content is growing and user hasn't manually collapsed - expand
+      setIsCollapsed(false);
+    }
+    // Always update the stored content length and timestamp
+    codeBlockStates.set(stateKey, {
+      collapsed: isCollapsed,
+      contentLength: children.length,
+      userCollapsed: stored?.userCollapsed ?? false,
+    });
+    codeBlockTimestamps.set(stateKey, Date.now());
+  }, [children.length, stateKey, isCollapsed]);
+
+  // Sync collapse state changes to global store
+  useEffect(() => {
+    const stored = codeBlockStates.get(stateKey);
+    codeBlockStates.set(stateKey, {
+      collapsed: isCollapsed,
+      contentLength: stored?.contentLength ?? children.length,
+      userCollapsed: stored?.userCollapsed ?? false,
+    });
+    codeBlockTimestamps.set(stateKey, Date.now());
+  }, [isCollapsed, stateKey, children.length]);
+
+  // Get preview of first few lines for collapsed state
+  const previewCode = useMemo(() => {
+    if (!isCollapsed) return '';
+    return children.split('\n').slice(0, PREVIEW_LINES).join('\n');
+  }, [children, isCollapsed]);
+
+  // Handle hydration - only access theme after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Use react-syntax-highlighter for secure, isolated rendering
+  // For very large code blocks with allowPlainTextFallback, skip syntax highlighting
+  const shouldHighlight = useMemo(() => {
+    if (allowPlainTextFallback && children.length >= 10000) return false;
+    return true;
+  }, [children.length, allowPlainTextFallback]);
+
+  // Get theme-aware syntax highlighting style (default to dark for SSR)
+  // Light-background themes need light syntax colors; all others use dark
+  const syntaxTheme = useMemo(() => {
+    if (!mounted) return sciraDarkTheme;
+    const isLightTheme =
+      resolvedTheme === 'light' || resolvedTheme === 'claudelight' || resolvedTheme === 'neutrallight';
+    return isLightTheme ? sciraLightTheme : sciraDarkTheme;
+  }, [mounted, resolvedTheme]);
 
   const handleCopy = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(children);
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
-      toast.success('Code copied to clipboard');
+      sileo.success({
+        title: 'Code copied to clipboard',
+        description: 'You can now paste it anywhere',
+        icon: <Copy className="h-4 w-4" />,
+      });
     } catch (error) {
       console.error('Failed to copy code:', error);
-      toast.error('Failed to copy code');
+      sileo.error({ title: 'Failed to copy code' });
     }
   }, [children]);
 
   const toggleWrap = useCallback(() => {
     setIsWrapped((prev) => {
       const newState = !prev;
-      toast.success(newState ? 'Code wrap enabled' : 'Code wrap disabled');
+      sileo.success({
+        title: newState ? 'Code wrap enabled' : 'Code wrap disabled',
+        description: newState ? 'Long lines will now wrap' : 'Long lines will scroll horizontally',
+        icon: <WrapText className="h-4 w-4" />,
+      });
       return newState;
     });
   }, []);
 
+  const toggleCollapse = useCallback(() => {
+    setIsCollapsed((prev) => {
+      const newState = !prev;
+      // Track user intent in global store
+      const stored = codeBlockStates.get(stateKey);
+      codeBlockStates.set(stateKey, {
+        collapsed: newState,
+        contentLength: stored?.contentLength ?? children.length,
+        userCollapsed: newState, // User manually collapsed if newState is true
+      });
+      codeBlockTimestamps.set(stateKey, Date.now());
+      return newState;
+    });
+  }, [stateKey, children.length]);
+
+  // Render code content (either with syntax highlighting or plain text)
+  const renderCodeContent = (code: string) => {
+    if (shouldHighlight) {
+      return (
+        <SyntaxHighlighter
+          language={language || 'text'}
+          style={syntaxTheme}
+          customStyle={{
+            margin: 0,
+            padding: '0.5rem',
+            fontSize: '0.875rem',
+            lineHeight: '1.5',
+            background: 'transparent',
+          }}
+        >
+          {code}
+        </SyntaxHighlighter>
+      );
+    }
+    return (
+      <pre
+        className={cn(
+          'font-mono text-sm leading-relaxed p-2',
+          isWrapped && 'whitespace-pre-wrap wrap-break-words',
+          !isWrapped && 'whitespace-pre overflow-x-auto',
+        )}
+      >
+        {code}
+      </pre>
+    );
+  };
+
   return (
-    <div className="group relative my-5 rounded-md border border-border bg-accent overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-2 bg-accent border-b border-border">
+    <div className="group relative my-5 rounded-xl border border-border/60 bg-accent/50 overflow-hidden">
+      <div
+        className={cn(
+          'flex items-center justify-between px-3.5 py-2 cursor-pointer select-none',
+          !isCollapsed && 'border-b border-border/40',
+        )}
+        onClick={toggleCollapse}
+      >
         <div className="flex items-center gap-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleCollapse();
+            }}
+            className="p-0.5 rounded text-muted-foreground/50 hover:text-foreground transition-colors"
+            title={isCollapsed ? 'Expand code' : 'Collapse code'}
+          >
+            {isCollapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+          </button>
           {language && (
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{language}</span>
+            <span className="font-pixel text-xs text-muted-foreground/80 uppercase tracking-wider">{language}</span>
           )}
-          <span className="text-xs text-muted-foreground">{lineCount} lines</span>
+          <span className="text-[11px] text-muted-foreground/60 tabular-nums">{lineCount} lines</span>
         </div>
 
-        <div className="flex gap-1">
-          <button
-            onClick={toggleWrap}
-            className={cn(
-              'p-1 rounded border border-border bg-background shadow-sm transition-colors',
-              isWrapped ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
-            )}
-            title={isWrapped ? 'Disable wrap' : 'Enable wrap'}
-          >
-            {isWrapped ? <ArrowLeftRight size={12} /> : <WrapText size={12} />}
-          </button>
+        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+          {!isCollapsed && (
+            <button
+              onClick={toggleWrap}
+              className={cn(
+                'p-1 rounded border border-border/40 bg-background/50 transition-colors touch-manipulation',
+                isWrapped ? 'text-primary' : 'text-muted-foreground/50 hover:text-foreground active:text-foreground',
+              )}
+              title={isWrapped ? 'Disable wrap' : 'Enable wrap'}
+            >
+              {isWrapped ? <ArrowLeftRight size={11} /> : <WrapText size={11} />}
+            </button>
+          )}
           <button
             onClick={handleCopy}
             className={cn(
-              'p-1 rounded border border-border bg-background shadow-sm transition-colors',
-              isCopied ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
+              'p-1 rounded border border-border/40 bg-background/50 transition-colors touch-manipulation',
+              isCopied ? 'text-primary' : 'text-muted-foreground/50 hover:text-foreground active:text-foreground',
             )}
             title={isCopied ? 'Copied!' : 'Copy code'}
           >
-            {isCopied ? <Check size={12} /> : <Copy size={12} />}
+            {isCopied ? <Check size={11} /> : <Copy size={11} />}
           </button>
         </div>
       </div>
 
-      <div className="relative">
+      {isCollapsed ? (
+        <div className="relative cursor-pointer" onClick={toggleCollapse}>
+          <div
+            className="relative [&_pre]:m-0! [&_pre]:p-2! [&_code]:text-sm! [&_code]:leading-relaxed! [&_pre]:overflow-hidden! max-h-24 overflow-hidden"
+            style={{ fontFamily: geistMono.style.fontFamily }}
+          >
+            {renderCodeContent(previewCode)}
+          </div>
+          <div className="absolute inset-x-0 bottom-0 h-16 bg-linear-to-t from-accent/50 via-accent/40 to-transparent pointer-events-none" />
+          <div className="absolute inset-x-0 bottom-0 flex items-center justify-center pb-2 pointer-events-none">
+            <span className="font-pixel text-[9px] text-muted-foreground/50 bg-accent/80 px-2.5 py-1 rounded-full flex items-center gap-1 tracking-wider">
+              <ChevronDown size={10} />
+              {lineCount - PREVIEW_LINES} more lines
+            </span>
+          </div>
+        </div>
+      ) : (
         <div
           className={cn(
-            'font-mono text-sm leading-relaxed p-2',
-            isWrapped && 'whitespace-pre-wrap break-words',
-            !isWrapped && 'whitespace-pre overflow-x-auto',
+            'relative [&_pre]:m-0! [&_pre]:p-2! [&_code]:text-sm! [&_code]:leading-relaxed!',
+            isWrapped &&
+              '[&_pre]:whitespace-pre-wrap! [&_pre]:wrap-break-word! [&_code]:whitespace-pre-wrap! [&_code]:wrap-break-word!',
+            !isWrapped && '[&_pre]:overflow-x-auto!',
           )}
-          style={{
-            fontFamily: geistMono.style.fontFamily,
-          }}
-          dangerouslySetInnerHTML={{
-            __html: highlightedCode,
-          }}
-        />
-      </div>
+          style={{ fontFamily: geistMono.style.fontFamily }}
+        >
+          {renderCodeContent(children)}
+        </div>
+      )}
     </div>
   );
 };
+
+// Lazy-loaded wrapper for large code blocks
+const LazyCodeBlockComponent: React.FC<CodeBlockProps> = (props) => (
+  <CodeBlockInner {...props} allowPlainTextFallback={true} />
+);
 
 const LazyCodeBlock = lazy(() => Promise.resolve({ default: LazyCodeBlockComponent }));
 
 // Synchronous CodeBlock component for smaller blocks
-const SyncCodeBlock: React.FC<CodeBlockProps> = ({ language, children, elementKey }) => {
-  const [isCopied, setIsCopied] = useState(false);
-  const [isWrapped, setIsWrapped] = useState(false);
-  const lineCount = useMemo(() => children.split('\n').length, [children]);
-
-  const highlightedCode = useMemo(() => {
-    try {
-      return highlight(children);
-    } catch (error) {
-      console.warn('Syntax highlighting failed, using plain text:', error);
-      return children;
-    }
-  }, [children]);
-
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(children);
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
-      toast.success('Code copied to clipboard');
-    } catch (error) {
-      console.error('Failed to copy code:', error);
-      toast.error('Failed to copy code');
-    }
-  }, [children]);
-
-  const toggleWrap = useCallback(() => {
-    setIsWrapped((prev) => {
-      const newState = !prev;
-      toast.success(newState ? 'Code wrap enabled' : 'Code wrap disabled');
-      return newState;
-    });
-  }, []);
-
-  return (
-    <div className="group relative my-5 rounded-md border border-border bg-accent overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-2 bg-accent border-b border-border">
-        <div className="flex items-center gap-2">
-          {language && (
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{language}</span>
-          )}
-          <span className="text-xs text-muted-foreground">{lineCount} lines</span>
-        </div>
-
-        <div className="flex gap-1">
-          <button
-            onClick={toggleWrap}
-            className={cn(
-              'p-1 rounded border border-border bg-background shadow-sm transition-colors',
-              isWrapped ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
-            )}
-            title={isWrapped ? 'Disable wrap' : 'Enable wrap'}
-          >
-            {isWrapped ? <ArrowLeftRight size={12} /> : <WrapText size={12} />}
-          </button>
-          <button
-            onClick={handleCopy}
-            className={cn(
-              'p-1 rounded border border-border bg-background shadow-sm transition-colors',
-              isCopied ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
-            )}
-            title={isCopied ? 'Copied!' : 'Copy code'}
-          >
-            {isCopied ? <Check size={12} /> : <Copy size={12} />}
-          </button>
-        </div>
-      </div>
-
-      <div className="relative">
-        <div
-          className={cn(
-            'font-mono text-sm leading-relaxed p-2',
-            isWrapped && 'whitespace-pre-wrap break-words',
-            !isWrapped && 'whitespace-pre overflow-x-auto',
-          )}
-          style={{
-            fontFamily: geistMono.style.fontFamily,
-          }}
-          dangerouslySetInnerHTML={{
-            __html: highlightedCode,
-          }}
-        />
-      </div>
-    </div>
-  );
-};
+const SyncCodeBlock: React.FC<CodeBlockProps> = (props) => <CodeBlockInner {...props} allowPlainTextFallback={false} />;
 
 const CodeBlock: React.FC<CodeBlockProps> = React.memo(
   ({ language, children, elementKey }) => {
@@ -281,6 +746,8 @@ const useProcessedContent = (content: string) => {
   return useMemo(() => {
     const citations: CitationLink[] = [];
     const latexBlocks: Array<{ id: string; content: string; isBlock: boolean }> = [];
+    const appPreviewBlocks: Array<{ id: string; href: string; title?: string }> = [];
+    const downloadBlocks: Array<{ id: string; href: string; title?: string }> = [];
     let modifiedContent = content;
 
     try {
@@ -341,6 +808,40 @@ const useProcessedContent = (content: string) => {
       newContent += modifiedContent.slice(lastIndex);
       modifiedContent = newContent;
 
+      // Extract explicit rich-link tags before normal markdown/link processing.
+      const richTagPatterns = [
+        {
+          regex: /<app_preview>([\s\S]*?)<\/app_preview>/gi,
+          prefix: 'XAPPPREVX',
+          target: appPreviewBlocks,
+        },
+        {
+          regex: /<download>([\s\S]*?)<\/download>/gi,
+          prefix: 'XDOWNLOADX',
+          target: downloadBlocks,
+        },
+      ] as const;
+
+      for (const { regex, prefix, target } of richTagPatterns) {
+        regex.lastIndex = 0;
+        let richTagProcessed = '';
+        let lastRichTagIndex = 0;
+        let richTagMatch: RegExpExecArray | null;
+
+        while ((richTagMatch = regex.exec(modifiedContent)) !== null) {
+          const parsed = parseTaggedLinkContent(richTagMatch[1]);
+          if (!parsed) continue;
+
+          const id = `${prefix}${target.length}XEND`;
+          target.push({ id, href: parsed.href, title: parsed.title });
+          richTagProcessed += modifiedContent.slice(lastRichTagIndex, richTagMatch.index) + id;
+          lastRichTagIndex = richTagMatch.index + richTagMatch[0].length;
+        }
+
+        richTagProcessed += modifiedContent.slice(lastRichTagIndex);
+        modifiedContent = richTagProcessed;
+      }
+
       // Protect table rows to preserve pipe delimiters
       const tableBlocks: Array<{ id: string; content: string }> = [];
       const tableRowPattern = /^\|.+\|$/gm;
@@ -368,7 +869,7 @@ const useProcessedContent = (content: string) => {
       // Match monetary amounts with optional scale words and currency codes
       // Exclude mathematical expressions by using negative lookahead for backslashes or ending $
       const monetaryRegex =
-        /(^|[\s([>~≈<)])\$\d+(?:,\d{3})*(?:\.\d+)?(?:[kKmMbBtT]|\s+(?:thousand|million|billion|trillion|k|K|M|B|T))?(?:\s+(?:USD|EUR|GBP|CAD|AUD|JPY|CNY|CHF))?(?:\s*(?:per\s+(?:million|thousand|token|month|year)|\/(?:month|year|token)))?(?=\s|$|[).,;!?<\]])(?![^$]*\\[^$]*\$)/g;
+        /(^|[\s([>~≈<)/])\$\d+(?:,\d{3})*(?:\.\d+)?(?:[kKmMbBtT]|\s+(?:thousand|million|billion|trillion|k|K|M|B|T))?(?:\s+(?:USD|EUR|GBP|CAD|AUD|JPY|CNY|CHF))?(?:\s*(?:per\s+(?:million|thousand|token|month|year)|\/(?:mo|month|yr|year|wk|week|day|token|hr|hour)))?(?=\s|$|[).,;!?<\]/])(?![^$]*\\[^$]*\$)/g;
 
       let monetaryProcessed = '';
       let lastMonetaryIndex = 0;
@@ -410,16 +911,25 @@ const useProcessedContent = (content: string) => {
 
       // Extract LaTeX blocks AFTER monetary amounts are protected
       const allLatexPatterns = [
-        { patterns: [/\\\[([\s\S]*?)\\\]/g, /\$\$([\s\S]*?)\$\$/g], isBlock: true, prefix: '§§§LATEXBLOCK_PROTECTED_' },
+        { patterns: [/\\\[([\s\S]*?)\\\]/g, /\$\$([\s\S]*?)\$\$/g], isBlock: true, prefix: 'XLATEXBLOCKX' },
         {
           patterns: [
             /\\\(([\s\S]*?)\\\)/g,
+            // Match $ expressions containing LaTeX commands (backslash followed by letters)
+            /\$[^\$\n]*\\[a-zA-Z]+[^\$\n]*\$/g,
             // Match $ expressions containing LaTeX commands, superscripts, subscripts, or braces
             /\$[^\$\n]*[\\^_{}][^\$\n]*\$/g,
+            // Match function-call style math like $O(1)$, $f(n)$, $T(n^2)$ (letter followed by parens)
+            // Must run BEFORE the broad parenthetical pattern to prevent false cross-dollar matches
+            /\$[a-zA-Z]+\([^\)]*\)[^\$\n]*\$/g,
             // Match algebraic expressions with parentheses and variables
             /\$[^\$\n]*\([^\)]*[a-zA-Z][^\)]*\)[^\$\n]*\$/g,
+            // Match matrix notation with square brackets
+            /\$[^\$\n]*\[[^\]]*\][^\$\n]*\$/g,
             // Match absolute value notation with pipes
             /\$[^\$\n]*\|[^\|]*\|[^\$\n]*\$/g,
+            // Match $ expressions with multiple letters and equals signs (e.g., $Av = 2v$)
+            /\$[a-zA-Z]+[^\$\n]*[=<>≤≥≠][^\$\n]*\$/g,
             // Match $ expressions with single-letter variable followed by operator and number/variable
             /\$[a-zA-Z]\s*[=<>≤≥≠]\s*[0-9a-zA-Z][^\$\n]*\$/g,
             // Match $ expressions with number followed by LaTeX-style operators
@@ -438,17 +948,66 @@ const useProcessedContent = (content: string) => {
 
       for (const { patterns, isBlock, prefix } of allLatexPatterns) {
         for (const pattern of patterns) {
-          const matches = [...modifiedContent.matchAll(pattern)];
+          // Use exec() instead of matchAll() so we can reset regex position when skipping bad matches
+          // This allows us to find valid LaTeX expressions that might be at the end of a rejected long span
+          const regex = new RegExp(pattern.source, pattern.flags);
           let lastIndex = 0;
           let newContent = '';
+          let match;
 
-          for (let i = 0; i < matches.length; i++) {
-            const match = matches[i];
-            const id = `${prefix}${latexBlocks.length}§§§`;
-            latexBlocks.push({ id, content: match[0], isBlock });
+          while ((match = regex.exec(modifiedContent)) !== null) {
+            const full = match[0];
+
+            // Skip if it contains a protected code block placeholder (prevents matching across inline code)
+            // When skipping, only consume up to (and including) the first $ so regex can find matches starting later
+            if (/<<<CODEBLOCK_PROTECTED_\d+>>>/.test(full)) {
+              // Copy content up to and including the first character of the bad match (the opening $)
+              newContent += modifiedContent.slice(lastIndex, match.index + 1);
+              lastIndex = match.index + 1;
+              // Reset regex to search from right after the opening $
+              regex.lastIndex = match.index + 1;
+              continue;
+            }
+
+            // Heuristics to avoid misclassifying currency and long cross-dollar spans as LaTeX
+            if (!isBlock) {
+              const isDollarDelimited = full.startsWith('$') && full.endsWith('$');
+              const inner = isDollarDelimited ? full.slice(1, -1) : full; // handles \( ... \) via pattern itself
+
+              // 1) Skip if looks like currency (e.g., $13 billion, $500, $80B)
+              const currencyLike =
+                /^(\s*)\d{1,3}(?:[,\s]?\d{3})*(?:\.\d+)?(?:\s*(?:k|K|M|B|T|thousand|million|billion|trillion))?(\s*(?:USD|EUR|GBP|CAD|AUD|JPY|CNY|CHF))?\s*$/i.test(
+                  inner.replace(/\u00A0/g, ' ').trim(),
+                );
+
+              // 2) Skip if it contains obvious URL/link syntax which indicates markdown, not math
+              // Only check for actual link patterns, not standalone brackets (which are common in math)
+              const containsUrlOrMarkdown = /https?:\/\/|\]\(|:\/\//.test(inner);
+
+              // 3) Skip very long spans (likely accidental cross-dollar match)
+              const isTooLong = inner.length > 80;
+
+              // 4) Skip if inner content starts or ends with whitespace (standard TeX convention:
+              // $x$ is math but $ x$ or $x $ is not). This prevents false cross-dollar matches
+              // like "$O(1)$ some text with (parens) $O(n)$" being misread as one expression.
+              // Exception: single-letter variables like $ m $ are still allowed.
+              const hasEdgeWhitespace = isDollarDelimited && (/^\s/.test(inner) || /\s$/.test(inner));
+              const isSingleLetterVar = hasEdgeWhitespace && /^\s*[a-zA-Z]\s*$/.test(inner);
+
+              if (currencyLike || containsUrlOrMarkdown || isTooLong || (hasEdgeWhitespace && !isSingleLetterVar)) {
+                // Do not replace; keep original content but only skip the opening $
+                newContent += modifiedContent.slice(lastIndex, match.index + 1);
+                lastIndex = match.index + 1;
+                regex.lastIndex = match.index + 1;
+                continue;
+              }
+            }
+
+            const id = `${prefix}${latexBlocks.length}XEND`;
+            latexBlocks.push({ id, content: full, isBlock });
 
             newContent += modifiedContent.slice(lastIndex, match.index) + id;
-            lastIndex = match.index! + match[0].length;
+            lastIndex = match.index + full.length;
           }
 
           newContent += modifiedContent.slice(lastIndex);
@@ -468,7 +1027,7 @@ const useProcessedContent = (content: string) => {
               let newRow = '';
               for (let i = 0; i < matches.length; i++) {
                 const match = matches[i];
-                const id = `${prefix}${latexBlocks.length}§§§`;
+                const id = `${prefix}${latexBlocks.length}XEND`;
                 latexBlocks.push({ id, content: match[0], isBlock });
                 newRow += rowContent.slice(lastIndex, match.index) + id;
                 lastIndex = match.index! + match[0].length;
@@ -505,8 +1064,12 @@ const useProcessedContent = (content: string) => {
       } catch {}
 
       // Process citations (simplified for performance)
+      // Updated regex to handle brackets and exclamation marks in citation text
+      // The pattern now matches text that may contain ] characters before the final ](url) pattern
+      // Uses negative lookahead to allow ] in text as long as it's not followed by ( or [
+      // Uses + quantifier to ensure at least one character is captured (prevents empty brackets)
       const refWithUrlRegex =
-        /(?:\[(?:(?:\[?(PDF|DOC|HTML)\]?\s+)?([^\]]+))\]|\b([^.!?\n]+?(?:\s+[-–—]\s+\w+|\s+\([^)]+\)))\b)(?:\s*(?:\(|\[\s*|\s+))(https?:\/\/[^\s)]+)(?:\s*[)\]]|\s|$)/g;
+        /(?:\[(?:(?:\[?(PDF|DOC|HTML)\]?\s+)?((?:[^\]]|](?!\s*[(\[]))+))\]|\b([^.!?\n]+?(?:\s+[-–—]\s+\w+|\s+\([^)]+\)))\b)(?:\s*(?:\(|\[\s*|\s+))(https?:\/\/[^\s)]+)(?:\s*[)\]]|\s|$)/g;
 
       let citationProcessed = '';
       let lastCitationIndex = 0;
@@ -516,6 +1079,15 @@ const useProcessedContent = (content: string) => {
         const match = citationMatches[i];
         const [fullMatch, docType, bracketText, plainText, url] = match;
         const text = bracketText || plainText;
+        // Skip if text is empty/undefined to prevent malformed citations
+        // Preserve the skipped match's content while keeping position tracking correct
+        if (!text) {
+          const matchStart = match.index ?? 0;
+          const matchEnd = matchStart + fullMatch.length;
+          citationProcessed += modifiedContent.slice(lastCitationIndex, matchEnd);
+          lastCitationIndex = matchEnd;
+          continue;
+        }
         const fullText = (docType ? `[${docType}] ` : '') + text;
         const cleanUrl = url.replace(/[.,;:]+$/, '');
         citations.push({ text: fullText.trim(), link: cleanUrl });
@@ -528,6 +1100,317 @@ const useProcessedContent = (content: string) => {
       citationProcessed += modifiedContent.slice(lastCitationIndex);
       modifiedContent = citationProcessed;
 
+      // Group consecutive citations using marked's Lexer for robust link parsing
+      const citationGroups: CitationGroup[] = [];
+
+      // Helper function to extract links using marked's Lexer (handles all edge cases)
+      // Uses a hybrid approach: Lexer to parse links correctly, then finds positions in text
+      function extractLinksWithLexer(
+        text: string,
+      ): Array<{ raw: string; href: string; text: string; index: number; end: number }> {
+        const links: Array<{ raw: string; href: string; text: string; index: number; end: number }> = [];
+
+        try {
+          // Tokenize the text to find all links using marked's robust parser
+          const tokens = Lexer.lexInline(text);
+
+          // Build a map of link tokens with their hrefs and texts
+          const linkTokens: Array<{ href: string; text: string; raw: string }> = [];
+          for (const token of tokens) {
+            if (token.type === 'link') {
+              const linkText =
+                typeof token.text === 'string' ? token.text : token.tokens?.map((t) => t.raw || '').join('') || '';
+              linkTokens.push({
+                href: token.href,
+                text: linkText,
+                raw: token.raw,
+              });
+            }
+          }
+
+          // Now find positions of these links in the original text
+          // We'll search for each link pattern, but validate against Lexer results
+          let searchPos = 0;
+          for (const linkToken of linkTokens) {
+            // Try to find this link in the text starting from searchPos
+            // Use a more flexible regex that handles edge cases, but validate with Lexer
+            const escapedHref = linkToken.href.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            // Match link pattern with flexible bracket/paren handling
+            const linkPattern = new RegExp(`\\[([^\\]]+)\\]\\(${escapedHref}\\)`, 'g');
+            linkPattern.lastIndex = searchPos;
+            const match = linkPattern.exec(text);
+
+            if (match && match[0] === linkToken.raw) {
+              // Validate: re-parse this match with Lexer to ensure it's correct
+              let isValidated = false;
+              try {
+                const validateTokens = Lexer.lexInline(match[0]);
+                const validateLink = validateTokens.find((t) => t.type === 'link');
+                if (
+                  validateLink &&
+                  'href' in validateLink &&
+                  (validateLink as { href: string }).href === linkToken.href
+                ) {
+                  isValidated = true;
+                }
+              } catch {
+                // Validation failed, but match looks good - we'll use it anyway since match[0] === linkToken.raw
+              }
+
+              // Use the match if validated OR if raw matches (regex found the correct link)
+              if (isValidated || match[0] === linkToken.raw) {
+                links.push({
+                  raw: match[0],
+                  href: linkToken.href,
+                  text: linkToken.text,
+                  index: match.index!,
+                  end: match.index! + match[0].length,
+                });
+                searchPos = match.index! + match[0].length;
+                continue;
+              }
+            }
+
+            // Fallback: search for the raw link text directly
+            const rawIndex = text.indexOf(linkToken.raw, searchPos);
+            if (rawIndex !== -1) {
+              links.push({
+                raw: linkToken.raw,
+                href: linkToken.href,
+                text: linkToken.text,
+                index: rawIndex,
+                end: rawIndex + linkToken.raw.length,
+              });
+              searchPos = rawIndex + linkToken.raw.length;
+            } else {
+              // Last resort: try to find by href and reconstruct
+              // Search backwards from href to find the opening bracket, then match forward
+              const hrefIndex = text.indexOf(linkToken.href, searchPos);
+              if (hrefIndex !== -1) {
+                // Search backwards from href position to find the opening bracket '['
+                // Use a reasonable lookback limit (e.g., 500 chars) to handle long link text
+                const maxLookback = Math.min(500, hrefIndex);
+                const searchStart = Math.max(0, hrefIndex - maxLookback);
+                const searchEnd = Math.min(text.length, hrefIndex + linkToken.href.length + 10); // Small lookahead for closing paren
+                const searchWindow = text.slice(searchStart, searchEnd);
+
+                // Find the last '[' before the href that could be the start of our link
+                // Then match the full link pattern from that position
+                const bracketPos = searchWindow.lastIndexOf('[', hrefIndex - searchStart);
+                let linkFound = false;
+
+                if (bracketPos !== -1) {
+                  // Try to match the full link pattern from this bracket position
+                  const patternFromBracket = new RegExp(`\\[([^\\]]+)\\]\\(${escapedHref}\\)`);
+                  const matchFromBracket = searchWindow.slice(bracketPos).match(patternFromBracket);
+                  if (matchFromBracket) {
+                    const absoluteIndex = searchStart + bracketPos;
+                    links.push({
+                      raw: matchFromBracket[0],
+                      href: linkToken.href,
+                      text: matchFromBracket[1],
+                      index: absoluteIndex,
+                      end: absoluteIndex + matchFromBracket[0].length,
+                    });
+                    searchPos = absoluteIndex + matchFromBracket[0].length;
+                    linkFound = true;
+                  } else {
+                    // If direct match fails, try a broader search with the pattern
+                    const windowPattern = new RegExp(`\\[([^\\]]+)\\]\\(${escapedHref}\\)`);
+                    const windowMatch = searchWindow.match(windowPattern);
+                    if (windowMatch) {
+                      const absoluteIndex = searchStart + searchWindow.indexOf(windowMatch[0]);
+                      links.push({
+                        raw: windowMatch[0],
+                        href: linkToken.href,
+                        text: windowMatch[1],
+                        index: absoluteIndex,
+                        end: absoluteIndex + windowMatch[0].length,
+                      });
+                      searchPos = absoluteIndex + windowMatch[0].length;
+                      linkFound = true;
+                    }
+                  }
+                } else {
+                  // No bracket found, try pattern match on the entire window as fallback
+                  const windowPattern = new RegExp(`\\[([^\\]]+)\\]\\(${escapedHref}\\)`);
+                  const windowMatch = searchWindow.match(windowPattern);
+                  if (windowMatch) {
+                    const absoluteIndex = searchStart + searchWindow.indexOf(windowMatch[0]);
+                    links.push({
+                      raw: windowMatch[0],
+                      href: linkToken.href,
+                      text: windowMatch[1],
+                      index: absoluteIndex,
+                      end: absoluteIndex + windowMatch[0].length,
+                    });
+                    searchPos = absoluteIndex + windowMatch[0].length;
+                    linkFound = true;
+                  }
+                }
+
+                // If we found the href but couldn't reconstruct the full link, advance searchPos
+                // to prevent getting stuck on the same position for subsequent links
+                if (!linkFound) {
+                  searchPos = hrefIndex + linkToken.href.length;
+                }
+              } else {
+                // href not found at all - advance searchPos to prevent infinite loops
+                // Try to find the next potential link position by searching for common link patterns
+                const nextBracket = text.indexOf('[', searchPos);
+                if (nextBracket !== -1) {
+                  searchPos = nextBracket;
+                } else {
+                  // No more brackets found, advance to end of text to stop searching
+                  searchPos = text.length;
+                }
+              }
+            }
+          }
+        } catch (error) {
+          // Fallback to improved regex if Lexer fails
+          // This regex handles URLs with parentheses by using balanced matching
+          const linkPattern = /\[([^\]]*(?:\\.[^\]]*)*)\]\(([^)]*(?:\([^)]*\)[^)]*)*)\)/g;
+          let match;
+          while ((match = linkPattern.exec(text)) !== null) {
+            links.push({
+              raw: match[0],
+              href: match[2],
+              text: match[1].replace(/\\(.)/g, '$1'), // Unescape
+              index: match.index,
+              end: match.index + match[0].length,
+            });
+          }
+        }
+
+        // Sort by index to ensure correct order
+        links.sort((a, b) => a.index - b.index);
+        return links;
+      }
+
+      // Extract all links using Lexer
+      const allLinks = extractLinksWithLexer(modifiedContent);
+
+      if (allLinks.length >= 2) {
+        // Find groups of consecutive links (only whitespace between them)
+        const groups: Array<{ links: typeof allLinks; startIndex: number; endIndex: number }> = [];
+        let currentGroup: typeof allLinks = [allLinks[0]];
+
+        for (let i = 1; i < allLinks.length; i++) {
+          const prevLink = allLinks[i - 1];
+          const currLink = allLinks[i];
+          const between = modifiedContent.slice(prevLink.end, currLink.index);
+
+          // Check if only whitespace between links
+          if (/^\s*$/.test(between)) {
+            currentGroup.push(currLink);
+          } else {
+            // End current group if it has 2+ links
+            if (currentGroup.length >= 2) {
+              groups.push({
+                links: currentGroup,
+                startIndex: currentGroup[0].index,
+                endIndex: currentGroup[currentGroup.length - 1].end,
+              });
+            }
+            // Start new group
+            currentGroup = [currLink];
+          }
+        }
+
+        // Don't forget the last group
+        if (currentGroup.length >= 2) {
+          groups.push({
+            links: currentGroup,
+            startIndex: currentGroup[0].index,
+            endIndex: currentGroup[currentGroup.length - 1].end,
+          });
+        }
+
+        // Replace groups with citation group placeholders (process in reverse to maintain indices)
+        if (groups.length > 0) {
+          let groupProcessed = modifiedContent;
+          for (let g = groups.length - 1; g >= 0; g--) {
+            const group = groups[g];
+            const urls = group.links.map((l) => l.href);
+            const texts = group.links.map((l) => l.text);
+            const groupId = `XCITATIONGRPX${citationGroups.length}XEND`;
+
+            citationGroups.push({ urls, texts, id: groupId });
+
+            // Processing right-to-left means replacements don't affect earlier indices
+            groupProcessed = groupProcessed.slice(0, group.startIndex) + groupId + groupProcessed.slice(group.endIndex);
+          }
+          modifiedContent = groupProcessed;
+        }
+      }
+
+      // Additionally, process citation groups inside protected table rows
+      // Use the same Lexer-based approach for consistency
+      if (typeof tableBlocks !== 'undefined' && tableBlocks.length > 0) {
+        for (let t = 0; t < tableBlocks.length; t++) {
+          let rowContent = tableBlocks[t].content;
+
+          // Extract links using Lexer (same function as above)
+          const rowLinks = extractLinksWithLexer(rowContent);
+
+          if (rowLinks.length < 2) continue;
+
+          // Find groups of consecutive links (only whitespace between them)
+          const groups: Array<{ links: typeof rowLinks; startIndex: number; endIndex: number }> = [];
+          let currentGroup: typeof rowLinks = [rowLinks[0]];
+
+          for (let i = 1; i < rowLinks.length; i++) {
+            const prevLink = rowLinks[i - 1];
+            const currLink = rowLinks[i];
+            const between = rowContent.slice(prevLink.end, currLink.index);
+
+            // Check if only whitespace between links
+            if (/^\s*$/.test(between)) {
+              currentGroup.push(currLink);
+            } else {
+              // End current group if it has 2+ links
+              if (currentGroup.length >= 2) {
+                groups.push({
+                  links: currentGroup,
+                  startIndex: currentGroup[0].index,
+                  endIndex: currentGroup[currentGroup.length - 1].end,
+                });
+              }
+              // Start new group
+              currentGroup = [currLink];
+            }
+          }
+
+          // Don't forget the last group
+          if (currentGroup.length >= 2) {
+            groups.push({
+              links: currentGroup,
+              startIndex: currentGroup[0].index,
+              endIndex: currentGroup[currentGroup.length - 1].end,
+            });
+          }
+
+          if (groups.length === 0) continue;
+
+          // Replace groups with citation group placeholders (process in reverse to maintain indices)
+          let newRow = rowContent;
+          for (let g = groups.length - 1; g >= 0; g--) {
+            const group = groups[g];
+            const urls = group.links.map((l) => l.href);
+            const texts = group.links.map((l) => l.text);
+            const groupId = `XCITATIONGRPX${citationGroups.length}XEND`;
+
+            citationGroups.push({ urls, texts, id: groupId });
+
+            // Processing right-to-left means replacements don't affect earlier indices
+            newRow = newRow.slice(0, group.startIndex) + groupId + newRow.slice(group.endIndex);
+          }
+
+          tableBlocks[t].content = newRow;
+        }
+      }
+
       // Restore protected blocks in the main content and in collected citation texts
       // Use replaceAll or global regex to ensure ALL instances are replaced
       monetaryBlocks.forEach(({ id, content }) => {
@@ -537,6 +1420,10 @@ const useProcessedContent = (content: string) => {
         for (let i = 0; i < citations.length; i++) {
           citations[i].text = citations[i].text.replace(regex, content);
         }
+        // Also restore inside latexBlocks content to prevent placeholders showing in rendered LaTeX
+        for (let i = 0; i < latexBlocks.length; i++) {
+          latexBlocks[i].content = latexBlocks[i].content.replace(regex, content);
+        }
       });
 
       codeBlocks.forEach(({ id, content }) => {
@@ -544,6 +1431,10 @@ const useProcessedContent = (content: string) => {
         modifiedContent = modifiedContent.replace(regex, content);
         for (let i = 0; i < citations.length; i++) {
           citations[i].text = citations[i].text.replace(regex, content);
+        }
+        // Also restore inside latexBlocks content to prevent placeholders showing in rendered LaTeX
+        for (let i = 0; i < latexBlocks.length; i++) {
+          latexBlocks[i].content = latexBlocks[i].content.replace(regex, content);
         }
       });
 
@@ -567,10 +1458,18 @@ const useProcessedContent = (content: string) => {
         }
       });
 
+      // Escape standalone ~ (not part of ~~) to prevent unintended strikethrough.
+      // marked v17 treats ~text~ as <del>, which breaks patterns like ~$230 billion.
+      // Using negative lookbehind/lookahead so intentional ~~text~~ is left intact.
+      modifiedContent = modifiedContent.replace(/(?<![~\\])~(?!~)/g, '\\~');
+
       return {
         processedContent: modifiedContent,
         citations,
+        citationGroups,
         latexBlocks,
+        appPreviewBlocks,
+        downloadBlocks,
         isProcessing: false,
       };
     } catch (error) {
@@ -578,7 +1477,10 @@ const useProcessedContent = (content: string) => {
       return {
         processedContent: content,
         citations: [],
+        citationGroups: [],
         latexBlocks: [],
+        appPreviewBlocks: [],
+        downloadBlocks: [],
         isProcessing: false,
       };
     }
@@ -593,29 +1495,32 @@ const InlineCode: React.FC<{ code: string; elementKey: string }> = React.memo(({
       await navigator.clipboard.writeText(code);
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 1500);
-      toast.success('Code copied to clipboard');
+      sileo.success({
+        title: 'Code copied to clipboard',
+        description: 'You can now paste it anywhere',
+        icon: <Copy className="h-4 w-4" />,
+      });
     } catch (error) {
       console.error('Failed to copy code:', error);
-      toast.error('Failed to copy code');
+      sileo.error({
+        title: 'Failed to copy code',
+        description: 'Please try again or copy manually',
+        icon: <X className="h-4 w-4" />,
+      });
     }
   }, [code]);
 
   return (
     <code
       className={cn(
-        'inline rounded px-1 py-0.5 font-mono text-[0.9em]',
-        'bg-muted/50',
-        'text-foreground/85',
+        'inline rounded px-1.5 py-0.5 font-mono text-[0.8em]',
+        'bg-muted/40 border border-border/30',
+        'text-foreground/80',
         'before:content-none after:content-none',
-        'hover:bg-muted/70 transition-colors duration-150 cursor-pointer',
-        'align-baseline',
+        'hover:bg-muted/60 active:bg-muted/60 transition-colors duration-150 cursor-pointer',
+        'align-baseline touch-manipulation tracking-wide',
         isCopied && 'ring-1 ring-primary/30 bg-primary/5',
       )}
-      style={{
-        fontFamily: geistMono.style.fontFamily,
-        fontSize: '0.85em',
-        lineHeight: 'inherit',
-      }}
       onClick={handleCopy}
       title={isCopied ? 'Copied!' : 'Click to copy'}
     >
@@ -626,9 +1531,75 @@ const InlineCode: React.FC<{ code: string; elementKey: string }> = React.memo(({
 
 InlineCode.displayName = 'InlineCode';
 
+// Safe LaTeX wrapper with error handling
+const SafeLatex: React.FC<{
+  children: string;
+  delimiters: Array<{ left: string; right: string; display: boolean }>;
+  isBlock?: boolean;
+}> = React.memo(({ children, delimiters, isBlock = false }) => {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [children]);
+
+  if (hasError) {
+    // Fallback: render raw LaTeX text in a code-style format
+    return (
+      <code
+        className={cn(
+          'inline rounded px-1 py-0.5 font-mono text-[0.9em]',
+          'bg-muted/50 text-foreground/85',
+          isBlock && 'block my-4 p-2',
+        )}
+        style={{
+          fontFamily: geistMono.style.fontFamily,
+          fontSize: '0.85em',
+        }}
+        title="LaTeX rendering failed - showing raw content"
+      >
+        {children}
+      </code>
+    );
+  }
+
+  try {
+    return (
+      <Latex delimiters={delimiters} strict={false}>
+        {children}
+      </Latex>
+    );
+  } catch (error) {
+    console.warn('LaTeX rendering error:', error, 'Content:', children);
+    setHasError(true);
+    return (
+      <code
+        className={cn(
+          'inline rounded px-1 py-0.5 font-mono text-[0.9em]',
+          'bg-muted/50 text-foreground/85',
+          isBlock && 'block my-4 p-2',
+        )}
+        style={{
+          fontFamily: geistMono.style.fontFamily,
+          fontSize: '0.85em',
+        }}
+        title="LaTeX rendering failed - showing raw content"
+      >
+        {children}
+      </code>
+    );
+  }
+});
+
+SafeLatex.displayName = 'SafeLatex';
+
 const MarkdownTableWithActions: React.FC<{ children: React.ReactNode }> = React.memo(({ children }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const [showActions, setShowActions] = useState(false);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const isMobile = useIsMobile();
 
   const csvUtils = useMemo(
     () => ({
@@ -677,11 +1648,41 @@ const MarkdownTableWithActions: React.FC<{ children: React.ReactNode }> = React.
     }
   }, [csvUtils]);
 
+  const updateScrollIndicators = useCallback(() => {
+    if (!scrollRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+    setCanScrollLeft(scrollLeft > 0);
+    setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
+  }, []);
+
+  useEffect(() => {
+    const scrollEl = scrollRef.current;
+    if (!scrollEl) return;
+
+    updateScrollIndicators();
+    scrollEl.addEventListener('scroll', updateScrollIndicators);
+    const resizeObserver = new ResizeObserver(updateScrollIndicators);
+    resizeObserver.observe(scrollEl);
+
+    return () => {
+      scrollEl.removeEventListener('scroll', updateScrollIndicators);
+      resizeObserver.disconnect();
+    };
+  }, [updateScrollIndicators]);
+
+  const handleTouchStart = useCallback(() => {
+    if (isMobile) {
+      setShowActions((prev) => !prev);
+    }
+  }, [isMobile]);
+
   return (
     <div
-      className="relative group"
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
+      ref={containerRef}
+      className="relative group my-2.5"
+      onMouseEnter={() => !isMobile && setShowActions(true)}
+      onMouseLeave={() => !isMobile && setShowActions(false)}
+      onTouchStart={handleTouchStart}
     >
       <div
         className={cn(
@@ -693,7 +1694,7 @@ const MarkdownTableWithActions: React.FC<{ children: React.ReactNode }> = React.
           <TooltipTrigger asChild>
             <Button
               size="icon"
-              variant="outline"
+              variant="secondary"
               className="size-7 text-xs shadow-sm rounded-sm"
               onClick={handleDownloadCsv}
               aria-label="Download CSV"
@@ -706,8 +1707,24 @@ const MarkdownTableWithActions: React.FC<{ children: React.ReactNode }> = React.
           </TooltipContent>
         </Tooltip>
       </div>
-      <div ref={containerRef}>
-        <Table className="!border !rounded-lg !m-0">{children}</Table>
+      <div className="border border-foreground/10 rounded-sm overflow-hidden">
+        <div
+          ref={scrollRef}
+          className="relative overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent"
+          style={{ scrollbarWidth: 'thin' }}
+        >
+          {canScrollLeft && (
+            <div className="absolute left-0 top-0 bottom-0 w-8 bg-linear-to-r from-background to-transparent pointer-events-none z-10" />
+          )}
+          {canScrollRight && (
+            <div className="absolute right-0 top-0 bottom-0 w-8 bg-linear-to-l from-background to-transparent pointer-events-none z-10" />
+          )}
+          <div>
+            <Table className="m-0! min-w-full border-0! [&>div]:overflow-visible! [&>div]:relative! [&_tr]:border-foreground/10">
+              {children}
+            </Table>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -715,10 +1732,51 @@ const MarkdownTableWithActions: React.FC<{ children: React.ReactNode }> = React.
 
 MarkdownTableWithActions.displayName = 'MarkdownTableWithActions';
 
-const LinkPreview = React.memo(({ href, title }: { href: string; title?: string }) => {
+// Cache for metadata to avoid redundant fetches
+const metadataCache = new Map<string, Promise<any>>();
+
+function fetchMetadata(url: string) {
+  if (!metadataCache.has(url)) {
+    metadataCache.set(
+      url,
+      fetch(`https://metadata.scira.app/?url=${encodeURIComponent(url)}`)
+        .then((res) => res.json())
+        .then((data) => (data.url ? data : null))
+        .catch(() => null),
+    );
+  }
+  return metadataCache.get(url)!;
+}
+
+// Preload metadata for all citation URLs in the content
+function preloadCitationMetadata(content: string) {
+  // Extract all citation URLs from content
+  const citationPattern = /\[([^\]]+)\]\(([^)]+)\)/g;
+  const urls = new Set<string>();
+  let match;
+
+  while ((match = citationPattern.exec(content)) !== null) {
+    const url = match[2];
+    if (isValidUrl(url)) {
+      urls.add(url);
+    }
+  }
+
+  // Start fetching metadata for all URLs in the background
+  urls.forEach((url) => {
+    fetchMetadata(url);
+  });
+}
+
+const LinkPreviewContent = ({ href, title }: { href: string; title?: string }) => {
+  const metadata = use(fetchMetadata(href));
+  const [faviconError, setFaviconError] = useState(false);
+  const [googleFaviconError, setGoogleFaviconError] = useState(false);
+  const [proxyError, setProxyError] = useState(false);
+
   const domain = useMemo(() => {
     try {
-      return new URL(href).hostname;
+      return new URL(href).hostname.replace('www.', '');
     } catch {
       return '';
     }
@@ -726,24 +1784,115 @@ const LinkPreview = React.memo(({ href, title }: { href: string; title?: string 
 
   if (!domain) return null;
 
+  const displayDomain = getDisplayDomain(domain);
+
+  // Fallback to original text if metadata title is "Access Denied" or empty
+  const isAccessDenied = metadata?.title === 'Access Denied';
+  const displayTitle = metadata?.title && !isAccessDenied ? metadata.title : title;
+
+  const metadataFavicon = metadata?.logo;
+  const googleFavicon = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+
+  // Determine favicon source based on error states
+  let favicon: string;
+  let useProxy = false;
+  let showIcon = false;
+
+  if (!faviconError && metadataFavicon) {
+    // Try metadata logo first
+    favicon = metadataFavicon;
+  } else if (!googleFaviconError) {
+    // If metadata logo failed/doesn't exist, try Google favicon
+    favicon = googleFavicon;
+  } else if (!proxyError && metadataFavicon) {
+    // If Google also failed and we have a metadata logo, try proxying it
+    favicon = `/api/proxy-image?url=${encodeURIComponent(metadataFavicon)}`;
+    useProxy = true;
+  } else {
+    // All failed, show globe icon
+    showIcon = true;
+    favicon = '';
+  }
+
+  const handleFaviconError = () => {
+    if (metadataFavicon && !faviconError) {
+      // Metadata logo failed, try Google next
+      setFaviconError(true);
+    } else if (!googleFaviconError) {
+      // Google favicon failed, try proxy next
+      setGoogleFaviconError(true);
+    } else if (!proxyError) {
+      // Proxy failed, show icon
+      setProxyError(true);
+    }
+  };
+
   return (
-    <div className="flex flex-col bg-accent text-xs m-0">
-      <div className="flex items-center h-6 space-x-1.5 px-2 pt-2 text-xs text-muted-foreground">
-        <Image
-          src={`https://www.google.com/s2/favicons?domain=${domain}&sz=128`}
-          alt=""
-          width={12}
-          height={12}
-          className="rounded-sm"
-        />
-        <span className="truncate font-medium">{domain}</span>
+    <div className="flex flex-col text-xs m-0">
+      <div className="flex items-center gap-2 px-3 py-2">
+        {showIcon ? (
+          <div className="w-3.5 h-3.5 flex items-center justify-center text-muted-foreground/70">
+            <Globe size={14} />
+          </div>
+        ) : useProxy ? (
+          <img
+            src={favicon}
+            alt=""
+            width={14}
+            height={14}
+            className="rounded-sm shrink-0"
+            onError={handleFaviconError}
+          />
+        ) : (
+          <Image
+            src={favicon}
+            alt=""
+            width={14}
+            height={14}
+            className="rounded-sm shrink-0"
+            onError={handleFaviconError}
+          />
+        )}
+        <span className="truncate text-muted-foreground text-[10px]">{displayDomain}</span>
       </div>
-      {title && (
-        <div className="px-2 pb-2 pt-1">
-          <h3 className="font-normal text-sm m-0 text-foreground line-clamp-3">{title}</h3>
+      {displayTitle && (
+        <div className="px-3 pb-2.5 pt-0">
+          <h3 className="font-normal text-[11px] m-0 text-foreground/90 line-clamp-2 leading-relaxed">
+            {displayTitle}
+          </h3>
         </div>
       )}
     </div>
+  );
+};
+
+const LinkPreview = React.memo(({ href, title }: { href: string; title?: string }) => {
+  const domain = useMemo(() => {
+    try {
+      return new URL(href).hostname.replace('www.', '');
+    } catch {
+      return '';
+    }
+  }, [href]);
+
+  const displayDomain = getDisplayDomain(domain);
+
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-col text-xs m-0">
+          <div className="flex items-center gap-2 px-3 py-2">
+            <div className="w-3.5 h-3.5 bg-muted rounded-sm shrink-0 animate-pulse" />
+            <span className="truncate text-muted-foreground text-[10px]">{displayDomain}</span>
+          </div>
+          <div className="px-3 pb-2.5 pt-0">
+            <div className="h-3.5 w-3/4 bg-muted animate-pulse rounded"></div>
+          </div>
+        </div>
+      }
+    >
+      <LinkPreviewContent href={href} title={title} />
+    </Suspense>
   );
 });
 
@@ -1229,7 +2378,11 @@ export const CopyButton = React.memo(({ text }: { text: string }) => {
     await navigator.clipboard.writeText(text);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
-    toast.success('Copied to clipboard');
+    sileo.success({
+      title: 'Copied to clipboard',
+      description: 'You can now paste it anywhere',
+      icon: <Copy className="h-4 w-4" />,
+    });
   }, [text]);
 
   return (

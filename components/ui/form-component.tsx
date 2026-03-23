@@ -2,7 +2,12 @@
 // /components/ui/form-component.tsx
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { toast } from 'sonner';
+import { sileo } from 'sileo';
+import { all } from 'better-all';
+import { getBetterAllOptions } from '@/lib/better-all';
+import { getMcpCatalogIcon, MCP_COMPONENT_ICON_URLS } from '@/lib/mcp/catalog-icons';
+import { Github01Icon } from '@hugeicons/core-free-icons';
+import { useDebouncer } from '@tanstack/react-pacer';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import {
@@ -11,6 +16,7 @@ import {
   models,
   requiresAuthentication,
   requiresProSubscription,
+  requiresMaxSubscription,
   hasVisionSupport,
   hasPdfSupport,
   getAcceptedFileTypes,
@@ -18,42 +24,340 @@ import {
   getFilteredModels,
   isModelRestrictedInRegion,
   supportsExtremeMode,
-} from '@/ai/providers';
-import { X, Check, ChevronsUpDown, Wand2, Upload, CheckIcon, Zap, Sparkles, ArrowUpRight } from 'lucide-react';
+  supportsCanvasMode,
+  PROVIDERS,
+  getModelProvider,
+  getModelConfig,
+  type ModelProvider,
+} from '@/ai/models';
+import {
+  X,
+  Check,
+  Upload,
+  CheckIcon,
+  Zap,
+  ArrowUpRight,
+  Search,
+  ChevronDown,
+  Plus,
+  Ghost,
+  Star,
+  AlertCircle,
+  FileText,
+  Lock,
+} from 'lucide-react';
+import { MagicWandIcon } from '@/components/ui/magic-wand-icon';
+import { MagicEditIcon } from '@/components/ui/magic-edit-icon';
+import { ProcessorIcon } from '@/components/ui/processor-icon';
 import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } from '@/components/ui/dialog';
 import { cn, SearchGroup, SearchGroupId, getSearchGroups, SearchProvider } from '@/lib/utils';
 
 import { track } from '@vercel/analytics';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Kbd, KbdGroup } from '@/components/ui/kbd';
 import { ComprehensiveUserData } from '@/hooks/use-user-data';
 import { useUser as useClerkUser } from '@clerk/nextjs';
 import { checkImageModeration, enhancePrompt, getUserCountryCode } from '@/app/actions';
 import { LockIcon, Eye, Brain, FilePdf } from '@phosphor-icons/react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  CpuIcon,
   GlobalSearchIcon,
   AtomicPowerIcon,
   DocumentAttachmentIcon,
   ConnectIcon,
+  StarIcon,
 } from '@hugeicons/core-free-icons';
+import { AgentNetworkIcon } from '@/components/icons/agent-network-icon';
 import { AudioLinesIcon } from '@/components/ui/audio-lines';
 import { GripIcon } from '@/components/ui/grip';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
+import { Kbd } from '@/components/ui/kbd';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
+import TextRotate from '@/components/ui/text-rotate';
+import { AppsIcon } from '@/components/icons/apps-icon';
+import { SarvamLogo } from '@/components/logos/sarvam-logo';
+import type { SVGProps } from 'react';
 import { UseChatHelpers } from '@ai-sdk/react';
 import { ChatMessage } from '@/lib/types';
 import { useLocation } from '@/hooks/use-location';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { CONNECTOR_CONFIGS, CONNECTOR_ICONS, type ConnectorProvider } from '@/lib/connectors';
 import { useUser } from '@/contexts/user-context';
 import { useQuery } from '@tanstack/react-query';
 import { listUserConnectorsAction } from '@/app/actions';
 import { useLanguage } from '@/contexts/language-context';
+
+// Provider Icon Component
+const ProviderIcon = ({
+  provider,
+  size = 18,
+  className = '',
+}: {
+  provider: ModelProvider;
+  size?: number;
+  className?: string;
+}) => {
+  const iconProps = { width: size, height: size, className: cn('shrink-0', className) };
+
+  switch (provider) {
+    case 'scira':
+      return <HugeiconsIcon icon={StarIcon} {...iconProps} />;
+    case 'sarvam':
+      return <SarvamLogo width={size} height={size} className={className} />;
+    case 'xai':
+      return (
+        <svg {...iconProps} className="shrink-0 size-4.5 p-0 m-0" fill="currentColor" viewBox="0 0 841.89 595.28">
+          <path d="m557.09 211.99 8.31 326.37h66.56l8.32-445.18zM640.28 56.91H538.72L379.35 284.53l50.78 72.52zM201.61 538.36h101.56l50.79-72.52-50.79-72.53zM201.61 211.99l228.52 326.37h101.56L303.17 211.99z" />
+        </svg>
+      );
+    case 'openai':
+      return (
+        <svg {...iconProps} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494zM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.033.062L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646zM2.34 7.896a4.485 4.485 0 0 1 2.366-1.973V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.597 3.855l-5.833-3.387L15.119 7.2a.076.076 0 0 1 .071 0l4.83 2.791a4.494 4.494 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.407-.667zm2.01-3.023l-.141-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135l-2.02-1.164a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08-4.778 2.758a.795.795 0 0 0-.392.681zm1.097-2.365l2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z" />
+        </svg>
+      );
+    case 'anthropic':
+      return (
+        <svg {...iconProps} viewBox="0 0 24 24" fill="currentColor" fillRule="evenodd">
+          <path d="M13.827 3.52h3.603L24 20h-3.603l-6.57-16.48zm-7.258 0h3.767L16.906 20h-3.674l-1.343-3.461H5.017l-1.344 3.46H0L6.57 3.522zm4.132 9.959L8.453 7.687 6.205 13.48H10.7z" />
+        </svg>
+      );
+    case 'google':
+      return (
+        <svg {...iconProps} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+        </svg>
+      );
+    case 'alibaba':
+      return (
+        <svg {...iconProps} fill="currentColor" fillRule="evenodd" viewBox="0 0 24 24">
+          <path d="M12.604 1.34c.393.69.784 1.382 1.174 2.075a.18.18 0 00.157.091h5.552c.174 0 .322.11.446.327l1.454 2.57c.19.337.24.478.024.837-.26.43-.513.864-.76 1.3l-.367.658c-.106.196-.223.28-.04.512l2.652 4.637c.172.301.111.494-.043.77-.437.785-.882 1.564-1.335 2.34-.159.272-.352.375-.68.37-.777-.016-1.552-.01-2.327.016a.099.099 0 00-.081.05 575.097 575.097 0 01-2.705 4.74c-.169.293-.38.363-.725.364-.997.003-2.002.004-3.017.002a.537.537 0 01-.465-.271l-1.335-2.323a.09.09 0 00-.083-.049H4.982c-.285.03-.553-.001-.805-.092l-1.603-2.77a.543.543 0 01-.002-.54l1.207-2.12a.198.198 0 000-.197 550.951 550.951 0 01-1.875-3.272l-.79-1.395c-.16-.31-.173-.496.095-.965.465-.813.927-1.625 1.387-2.436.132-.234.304-.334.584-.335a338.3 338.3 0 012.589-.001.124.124 0 00.107-.063l2.806-4.895a.488.488 0 01.422-.246c.524-.001 1.053 0 1.583-.006L11.704 1c.341-.003.724.032.9.34zm-3.432.403a.06.06 0 00-.052.03L6.254 6.788a.157.157 0 01-.135.078H3.253c-.056 0-.07.025-.041.074l5.81 10.156c.025.042.013.062-.034.063l-2.795.015a.218.218 0 00-.2.116l-1.32 2.31c-.044.078-.021.118.068.118l5.716.008c.046 0 .08.02.104.061l1.403 2.454c.046.081.092.082.139 0l5.006-8.76.783-1.382a.055.055 0 01.096 0l1.424 2.53a.122.122 0 00.107.062l2.763-.02a.04.04 0 00.035-.02.041.041 0 000-.04l-2.9-5.086a.108.108 0 010-.113l.293-.507 1.12-1.977c.024-.041.012-.062-.035-.062H9.2c-.059 0-.073-.026-.043-.077l1.434-2.505a.107.107 0 000-.114L9.225 1.774a.06.06 0 00-.053-.031zm6.29 8.02c.046 0 .058.02.034.06l-.832 1.465-2.613 4.585a.056.056 0 01-.05.029.058.058 0 01-.05-.029L8.498 9.841c-.02-.034-.01-.052.028-.054l.216-.012 6.722-.012z" />
+        </svg>
+      );
+    case 'mistral':
+      return (
+        <svg {...iconProps} preserveAspectRatio="xMidYMid" viewBox="0 0 256 233">
+          <path fill="currentColor" d="M186.18182 0h46.54545v46.54545h-46.54545z" />
+          <path fill="currentColor" d="M209.45454 0h46.54545v46.54545h-46.54545z" />
+          <path
+            fill="currentColor"
+            d="M0 0h46.54545v46.54545H0zM0 46.54545h46.54545V93.0909H0zM0 93.09091h46.54545v46.54545H0zM0 139.63636h46.54545v46.54545H0zM0 186.18182h46.54545v46.54545H0z"
+          />
+          <path fill="currentColor" d="M23.27273 0h46.54545v46.54545H23.27273z" />
+          <path
+            fill="currentColor"
+            d="M209.45454 46.54545h46.54545V93.0909h-46.54545zM23.27273 46.54545h46.54545V93.0909H23.27273z"
+          />
+          <path fill="currentColor" d="M139.63636 46.54545h46.54545V93.0909h-46.54545z" />
+          <path
+            fill="currentColor"
+            d="M162.90909 46.54545h46.54545V93.0909h-46.54545zM69.81818 46.54545h46.54545V93.0909H69.81818z"
+          />
+          <path
+            fill="currentColor"
+            d="M116.36364 93.09091h46.54545v46.54545h-46.54545zM162.90909 93.09091h46.54545v46.54545h-46.54545zM69.81818 93.09091h46.54545v46.54545H69.81818z"
+          />
+          <path fill="currentColor" d="M93.09091 139.63636h46.54545v46.54545H93.09091z" />
+          <path fill="currentColor" d="M116.36364 139.63636h46.54545v46.54545h-46.54545z" />
+          <path
+            fill="currentColor"
+            d="M209.45454 93.09091h46.54545v46.54545h-46.54545zM23.27273 93.09091h46.54545v46.54545H23.27273z"
+          />
+          <path fill="currentColor" d="M186.18182 139.63636h46.54545v46.54545h-46.54545z" />
+          <path fill="currentColor" d="M209.45454 139.63636h46.54545v46.54545h-46.54545z" />
+          <path fill="currentColor" d="M186.18182 186.18182h46.54545v46.54545h-46.54545z" />
+          <path fill="currentColor" d="M23.27273 139.63636h46.54545v46.54545H23.27273z" />
+          <path
+            fill="currentColor"
+            d="M209.45454 186.18182h46.54545v46.54545h-46.54545zM23.27273 186.18182h46.54545v46.54545H23.27273z"
+          />
+        </svg>
+      );
+    case 'deepseek':
+      return (
+        <svg {...iconProps} viewBox="0 0 24 24">
+          <path
+            fill="currentColor"
+            d="M23.748 4.482c-.254-.124-.364.113-.512.234-.051.039-.094.09-.137.136-.372.397-.806.657-1.373.626-.829-.046-1.537.214-2.163.848-.133-.782-.575-1.248-1.247-1.548-.352-.156-.708-.311-.955-.65-.172-.241-.219-.51-.305-.774-.055-.16-.11-.323-.293-.35-.2-.031-.278.136-.356.276-.313.572-.434 1.202-.422 1.84.027 1.436.633 2.58 1.838 3.393.137.093.172.187.129.323-.082.28-.18.552-.266.833-.055.179-.137.217-.329.14a5.526 5.526 0 0 1-1.736-1.18c-.857-.828-1.631-1.742-2.597-2.458a11.365 11.365 0 0 0-.689-.471c-.985-.957.13-1.743.388-1.836.27-.098.093-.432-.779-.428-.872.004-1.67.295-2.687.684a3.055 3.055 0 0 1-.465.137 9.597 9.597 0 0 0-2.883-.102c-1.885.21-3.39 1.102-4.497 2.623C.082 8.606-.231 10.684.152 12.85c.403 2.284 1.569 4.175 3.36 5.653 1.858 1.533 3.997 2.284 6.438 2.14 1.482-.085 3.133-.284 4.994-1.86.47.234.962.327 1.78.397.63.059 1.236-.03 1.705-.128.735-.156.684-.837.419-.961-2.155-1.004-1.682-.595-2.113-.926 1.096-1.296 2.746-2.642 3.392-7.003.05-.347.007-.565 0-.845-.004-.17.035-.237.23-.256a4.173 4.173 0 0 0 1.545-.475c1.396-.763 1.96-2.015 2.093-3.517.02-.23-.004-.467-.247-.588zM11.581 18c-2.089-1.642-3.102-2.183-3.52-2.16-.392.024-.321.471-.235.763.09.288.207.486.371.739.114.167.192.416-.113.603-.673.416-1.842-.14-1.897-.167-1.361-.802-2.5-1.86-3.301-3.307-.774-1.393-1.224-2.887-1.298-4.482-.02-.386.093-.522.477-.592a4.696 4.696 0 0 1 1.529-.039c2.132.312 3.946 1.265 5.468 2.774.868.86 1.525 1.887 2.202 2.891.72 1.066 1.494 2.082 2.48 2.914.348.292.625.514.891.677-.802.09-2.14.11-3.054-.614zm1-6.44a.306.306 0 0 1 .415-.287.302.302 0 0 1 .2.288.306.306 0 0 1-.31.307.303.303 0 0 1-.304-.308zm3.11 1.596c-.2.081-.399.151-.59.16a1.245 1.245 0 0 1-.798-.254c-.274-.23-.47-.358-.552-.758a1.73 1.73 0 0 1 .016-.588c.07-.327-.008-.537-.239-.727-.187-.156-.426-.199-.688-.199a.559.559 0 0 1-.254-.078.253.253 0 0 1-.114-.358c.028-.054.16-.186.192-.21.356-.202.767-.136 1.146.016.352.144.618.408 1.001.782.391.451.462.576.685.914.176.265.336.537.445.848.067.195-.019.354-.25.452z"
+          />
+        </svg>
+      );
+    case 'zhipu':
+      return (
+        <svg {...iconProps} fill="currentColor" fillRule="evenodd" viewBox="0 0 24 24">
+          <path d="M12.105 2L9.927 4.953H.653L2.83 2h9.276zM23.254 19.048L21.078 22h-9.242l2.174-2.952h9.244zM24 2L9.264 22H0L14.736 2H24z" />
+        </svg>
+      );
+    case 'cohere':
+      return (
+        <svg {...iconProps} viewBox="0 0 75 75">
+          <path
+            fill="currentColor"
+            fillRule="evenodd"
+            clipRule="evenodd"
+            d="M24.3 44.7c2 0 6-.1 11.6-2.4 6.5-2.7 19.3-7.5 28.6-12.5 6.5-3.5 9.3-8.1 9.3-14.3C73.8 7 66.9 0 58.3 0h-36C10 0 0 10 0 22.3s9.4 22.4 24.3 22.4z"
+          />
+          <path
+            fill="currentColor"
+            fillRule="evenodd"
+            clipRule="evenodd"
+            d="M30.4 60c0-6 3.6-11.5 9.2-13.8l11.3-4.7C62.4 36.8 75 45.2 75 57.6 75 67.2 67.2 75 57.6 75H45.3c-8.2 0-14.9-6.7-14.9-15z"
+          />
+          <path
+            fill="currentColor"
+            d="M12.9 47.6C5.8 47.6 0 53.4 0 60.5v1.7C0 69.2 5.8 75 12.9 75c7.1 0 12.9-5.8 12.9-12.9v-1.7c-.1-7-5.8-12.8-12.9-12.8z"
+          />
+        </svg>
+      );
+    case 'moonshot':
+      return (
+        <svg {...iconProps} fill="currentColor" fillRule="evenodd" viewBox="0 0 24 24">
+          <path d="M1.052 16.916l9.539 2.552a21.007 21.007 0 00.06 2.033l5.956 1.593a11.997 11.997 0 01-5.586.865l-.18-.016-.044-.004-.084-.009-.094-.01a11.605 11.605 0 01-.157-.02l-.107-.014-.11-.016a11.962 11.962 0 01-.32-.051l-.042-.008-.075-.013-.107-.02-.07-.015-.093-.019-.075-.016-.095-.02-.097-.023-.094-.022-.068-.017-.088-.022-.09-.024-.095-.025-.082-.023-.109-.03-.062-.02-.084-.025-.093-.028-.105-.034-.058-.019-.08-.026-.09-.031-.066-.024a6.293 6.293 0 01-.044-.015l-.068-.025-.101-.037-.057-.022-.08-.03-.087-.035-.088-.035-.079-.032-.095-.04-.063-.028-.063-.027a5.655 5.655 0 01-.041-.018l-.066-.03-.103-.047-.052-.024-.096-.046-.062-.03-.084-.04-.086-.044-.093-.047-.052-.027-.103-.055-.057-.03-.058-.032a6.49 6.49 0 01-.046-.026l-.094-.053-.06-.034-.051-.03-.072-.041-.082-.05-.093-.056-.052-.032-.084-.053-.061-.039-.079-.05-.07-.047-.053-.035a7.785 7.785 0 01-.054-.036l-.044-.03-.044-.03a6.066 6.066 0 01-.04-.028l-.057-.04-.076-.054-.069-.05-.074-.054-.056-.042-.076-.057-.076-.059-.086-.067-.045-.035-.064-.052-.074-.06-.089-.073-.046-.039-.046-.039a7.516 7.516 0 01-.043-.037l-.045-.04-.061-.053-.07-.062-.068-.06-.062-.058-.067-.062-.053-.05-.088-.084a13.28 13.28 0 01-.099-.097l-.029-.028-.041-.042-.069-.07-.05-.051-.05-.053a6.457 6.457 0 01-.168-.179l-.08-.088-.062-.07-.071-.08-.042-.049-.053-.062-.058-.068-.046-.056a7.175 7.175 0 01-.027-.033l-.045-.055-.066-.082-.041-.052-.05-.064-.02-.025a11.99 11.99 0 01-1.44-2.402zm-1.02-5.794l11.353 3.037a20.468 20.468 0 00-.469 2.011l10.817 2.894a12.076 12.076 0 01-1.845 2.005L.657 15.923l-.016-.046-.035-.104a11.965 11.965 0 01-.05-.153l-.007-.023a11.896 11.896 0 01-.207-.741l-.03-.126-.018-.08-.021-.097-.018-.081-.018-.09-.017-.084-.018-.094c-.026-.141-.05-.283-.071-.426l-.017-.118-.011-.083-.013-.102a12.01 12.01 0 01-.019-.161l-.005-.047a12.12 12.12 0 01-.034-2.145zm1.593-5.15l11.948 3.196c-.368.605-.705 1.231-1.01 1.875l11.295 3.022c-.142.82-.368 1.612-.668 2.365l-11.55-3.09L.124 10.26l.015-.1.008-.049.01-.067.015-.087.018-.098c.026-.148.056-.295.088-.442l.028-.124.02-.085.024-.097c.022-.09.045-.18.07-.268l.028-.102.023-.083.03-.1.025-.082.03-.096.026-.082.031-.095a11.896 11.896 0 011.01-2.232zm4.442-4.4L17.352 4.59a20.77 20.77 0 00-1.688 1.721l7.823 2.093c.267.852.442 1.744.513 2.665L2.106 5.213l.045-.065.027-.04.04-.055.046-.065.055-.076.054-.072.064-.086.05-.065.057-.073.055-.07.06-.074.055-.069.065-.077.054-.066.066-.077.053-.06.072-.082.053-.06.067-.074.054-.058.073-.078.058-.06.063-.067.168-.17.1-.098.059-.056.076-.071a12.084 12.084 0 012.272-1.677zM12.017 0h.097l.082.001.069.001.054.002.068.002.046.001.076.003.047.002.06.003.054.002.087.005.105.007.144.011.088.007.044.004.077.008.082.008.047.005.102.012.05.006.108.014.081.01.042.006.065.01.207.032.07.012.065.011.14.026.092.018.11.022.046.01.075.016.041.01L14.7.3l.042.01.065.015.049.012.071.017.096.024.112.03.113.03.113.032.05.015.07.02.078.024.073.023.05.016.05.016.076.025.099.033.102.036.048.017.064.023.093.034.11.041.116.045.1.04.047.02.06.024.041.018.063.026.04.018.057.025.11.048.1.046.074.035.075.036.06.028.092.046.091.045.102.052.053.028.049.026.046.024.06.033.041.022.052.029.088.05.106.06.087.051.057.034.053.032.096.059.088.055.098.062.036.024.064.041.084.056.04.027.062.042.062.043.023.017c.054.037.108.075.161.114l.083.06.065.048.056.043.086.065.082.064.04.03.05.041.086.069.079.065.085.071c.712.6 1.353 1.283 1.909 2.031L7.222.994l.062-.027.065-.028.081-.034.086-.035c.113-.045.227-.09.341-.131l.096-.035.093-.033.084-.03.096-.031c.087-.03.176-.058.264-.085l.091-.027.086-.025.102-.03.085-.023.1-.026L9.04.37l.09-.023.091-.022.095-.022.09-.02.098-.021.091-.02.095-.018.092-.018.1-.018.091-.016.098-.017.092-.014.097-.015.092-.013.102-.013.091-.012.105-.012.09-.01.105-.01c.093-.01.186-.018.28-.024l.106-.008.09-.005.11-.006.093-.004.1-.004.097-.002.099-.002.197-.002z" />
+        </svg>
+      );
+    case 'minimax':
+      return (
+        <svg {...iconProps} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M11.43 3.92a.86.86 0 1 0-1.718 0v14.236a1.999 1.999 0 0 1-3.997 0V9.022a.86.86 0 1 0-1.718 0v3.87a1.999 1.999 0 0 1-3.997 0V11.49a.57.57 0 0 1 1.139 0v1.404a.86.86 0 0 0 1.719 0V9.022a1.999 1.999 0 0 1 3.997 0v9.134a.86.86 0 0 0 1.719 0V3.92a1.998 1.998 0 1 1 3.996 0v11.788a.57.57 0 1 1-1.139 0zm10.572 3.105a2 2 0 0 0-1.999 1.997v7.63a.86.86 0 0 1-1.718 0V3.923a1.999 1.999 0 0 0-3.997 0v16.16a.86.86 0 0 1-1.719 0V18.08a.57.57 0 1 0-1.138 0v2a1.998 1.998 0 0 0 3.996 0V3.92a.86.86 0 0 1 1.719 0v12.73a1.999 1.999 0 0 0 3.996 0V9.023a.86.86 0 1 1 1.72 0v6.686a.57.57 0 0 0 1.138 0V9.022a2 2 0 0 0-1.998-1.997" />
+        </svg>
+      );
+    case 'bytedance':
+      return (
+        <svg {...iconProps} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19.8772 1.4685 24 2.5326v18.9426l-4.1228 1.0563V1.4685zm-13.3481 9.428 4.115 1.0641v8.9786l-4.115 1.0642v-11.107zM0 2.572l4.115 1.0642v16.7354L0 21.428V2.572zm17.4553 5.6205v11.107l-4.1228-1.0642V9.2568l4.1228-1.0642z" />
+        </svg>
+      );
+    case 'arcee':
+      return (
+        <svg {...iconProps} viewBox="0 0 82 72" fill="none">
+          <path
+            d="M41 1L81 71H1L41 1ZM41 1L41 48.1579M1.09847 71L41 48.1579M41 48.1579L80.9015 71"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeMiterlimit="10"
+            strokeLinejoin="round"
+          />
+        </svg>
+      );
+    case 'vercel':
+      return (
+        <svg {...iconProps} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M24 22.525H0l12-21.05 12 21.05z" />
+        </svg>
+      );
+    case 'amazon':
+      return (
+        <svg {...iconProps} viewBox="0 0 32 32" fillRule="evenodd">
+          <path
+            fill="currentColor"
+            d="M28.312 28.26C25.003 30.7 20.208 32 16.08 32c-5.8 0-11.002-2.14-14.945-5.703-.3-.28-.032-.662.34-.444C5.73 28.33 11 29.82 16.426 29.82a29.73 29.73 0 0 0 11.406-2.332c.56-.238 1.03.367.48.773m1.376-1.575c-.42-.54-2.796-.255-3.86-.13-.325.04-.374-.243-.082-.446 1.9-1.33 4.994-.947 5.356-.5s-.094 3.56-1.87 5.044c-.273.228-.533.107-.4-.196.4-.996 1.294-3.23.87-3.772"
+          />
+          <path
+            fill="currentColor"
+            d="M18.43 13.864c0 1.692.043 3.103-.812 4.605-.7 1.22-1.8 1.973-3.005 1.973-1.667 0-2.644-1.27-2.644-3.145 0-3.7 3.316-4.373 6.462-4.373v.94m4.38 10.584c-.287.257-.702.275-1.026.104-1.44-1.197-1.704-1.753-2.492-2.895-2.382 2.43-4.074 3.157-7.158 3.157-3.658 0-6.498-2.254-6.498-6.767 0-3.524 1.905-5.924 4.63-7.097 2.357-1.038 5.65-1.22 8.165-1.5V8.9c0-1.032.08-2.254-.53-3.145-.525-.8-1.54-1.13-2.437-1.13-1.655 0-3.127.85-3.487 2.608-.073.4-.36.776-.757.794L7 7.555c-.354-.08-.75-.366-.647-.9C7.328 1.54 11.945 0 16.074 0c2.113 0 4.874.562 6.54 2.162 2.113 1.973 1.912 4.605 1.912 7.47V16.4c0 2.034.843 2.925 1.637 4.025.275.4.336.86-.018 1.154a184.26 184.26 0 0 0-3.328 2.883l-.006-.012"
+          />
+        </svg>
+      );
+    case 'xiaomi':
+      return (
+        <svg {...iconProps} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19.96 20a.32.32 0 0 1-.32-.32V4.32a.32.32 0 0 1 .32-.32h3.71a.32.32 0 0 1 .33.32v15.36a.32.32 0 0 1-.33.32zm-6.22 0s-.3-.09-.3-.32v-9.43A2.18 2.18 0 0 0 11.24 8H4.3c-.4 0-.3.3-.3.3v11.38c0 .27-.3.32-.3.32H.33a.32.32 0 0 1-.33-.32V4.32A.32.32 0 0 1 .33 4h12.86a4.28 4.28 0 0 1 4.25 4.27l.01 11.41a.32.32 0 0 1-.32.32zm-6.9 0a.3.3 0 0 1-.3-.3v-9a.3.3 0 0 1 .3-.3h3.77a.3.3 0 0 1 .29.3v9a.3.3 0 0 1-.3.3z" />
+        </svg>
+      );
+    case 'kwaipilot':
+      return (
+        <svg {...iconProps} fill="currentColor" fillRule="evenodd" viewBox="0 0 24 24">
+          <path
+            clipRule="evenodd"
+            d="M11.765.03C5.327.03.108 5.25.108 11.686c0 3.514 1.556 6.665 4.015 8.804L9.89 8.665h6.451L9.31 23.083c.807.173 1.63.26 2.455.26 6.438 0 11.657-5.22 11.657-11.658S18.202.028 11.765.028V.03z"
+          />
+        </svg>
+      );
+    case 'stepfun':
+      return (
+        <svg {...iconProps} fill="currentColor" fillRule="evenodd" viewBox="0 0 24 24">
+          <path d="M22.012 0h1.032v.927H24v.968h-.956V3.78h-1.032V1.896h-1.878v-.97h1.878V0zM2.6 12.371V1.87h.969v10.502h-.97zm10.423.66h10.95v.918h-6.208v9.579h-4.742V13.03zM5.629 3.333v12.356H0v4.51h10.386V8L20.859 8l-.003-4.668-15.227.001z" />
+        </svg>
+      );
+    case 'inception':
+      return (
+        <svg {...iconProps} fill="currentColor" fillRule="evenodd" viewBox="0 0 24 24">
+          <path d="M14.767 1H7.884L1 7.883v6.884h6.884V7.883h6.883V1zM9.234 23h6.882L23 16.116V9.233h-6.884v6.883H9.234V23z" />
+        </svg>
+      );
+    case 'nvidia':
+      return <NVIDIA {...iconProps} />;
+    default:
+      return (
+        <svg {...iconProps} viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="12" cy="12" r="10" />
+        </svg>
+      );
+  }
+};
+
+// Provider order for sidebar (most popular first)
+const PROVIDER_ORDER: (ModelProvider | 'all')[] = [
+  'all',
+  'xai',
+  'openai',
+  'mistral',
+  'anthropic',
+  'google',
+  'sarvam',
+  'nvidia',
+  'inception',
+  'alibaba',
+  'bytedance',
+  'zhipu',
+  'minimax',
+  'deepseek',
+  'moonshot',
+  'cohere',
+  'arcee',
+  'vercel',
+  'amazon',
+  'xiaomi',
+  'kwaipilot',
+  'stepfun',
+];
+
+let modelUpgradeDialogModelValueCache: string | null = null;
+let modelSwitcherOpenCache = false;
+let cachedCountryCode: string | null = null;
+let countryCodeRequest: Promise<string | null> | null = null;
+
+async function getCountryCodeOnce(): Promise<string | null> {
+  if (cachedCountryCode !== null) return cachedCountryCode;
+  if (countryCodeRequest) return countryCodeRequest;
+
+  countryCodeRequest = getUserCountryCode()
+    .then((code) => {
+      cachedCountryCode = code;
+      return code;
+    })
+    .catch(() => null)
+    .finally(() => {
+      countryCodeRequest = null;
+    });
+
+  return countryCodeRequest;
+}
+
+interface TypewriterResumeCache {
+  target: string;
+  index: number;
+  speed: number;
+}
+
+// Preserve in-progress prompt enhancement across transient remounts.
+let pendingTypewriterResumeCache: TypewriterResumeCache | null = null;
 
 interface ModelSwitcherProps {
   selectedModel: string;
@@ -66,6 +370,8 @@ interface ModelSwitcherProps {
   subscriptionData?: any;
   user?: ComprehensiveUserData | null;
   selectedGroup: SearchGroupId;
+  autoRoutedModel?: { model: string; route: string } | null;
+  inputRef?: React.RefObject<HTMLTextAreaElement | null>;
 }
 
 const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
@@ -75,11 +381,12 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
     className,
     attachments,
     messages,
-    status,
     onModelSelect,
     subscriptionData,
     user,
     selectedGroup,
+    autoRoutedModel,
+    inputRef: externalInputRef,
   }) => {
     const { isProUser } = useUser();
 
@@ -89,9 +396,13 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
 
     // Fetch country code on mount
     useEffect(() => {
-      getUserCountryCode().then((code) => {
-        setCountryCode(code);
+      let mounted = true;
+      getCountryCodeOnce().then((code) => {
+        if (mounted) setCountryCode(code);
       });
+      return () => {
+        mounted = false;
+      };
     }, []);
 
     const availableModels = useMemo(() => getFilteredModels(countryCode || undefined), [countryCode]);
@@ -100,13 +411,30 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
     const [selectedAuthModel, setSelectedAuthModel] = useState<(typeof models)[0] | null>(null);
     const [open, setOpen] = useState(false);
 
-    const location = useLocation();
     const isMobile = useIsMobile();
+    const haptics = useWebHaptics();
+
+    // ⌘M keyboard shortcut to toggle model switcher
+    useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'm') {
+          e.preventDefault();
+          setOpen(!modelSwitcherOpenCache);
+        }
+      };
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [setOpen]);
 
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedProvider, setSelectedProvider] = useState<ModelProvider | 'all'>('all');
+    const [showScrollIndicator, setShowScrollIndicator] = useState(true);
+    const providerSidebarRef = useRef<HTMLDivElement>(null);
+    const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+    const modelListRef = useRef<HTMLDivElement>(null);
 
-    // Global model order (Pro users): top-level hook to satisfy Rules of Hooks
-    const [globalModelOrder] = useLocalStorage<string[]>('scira-model-order-global', [] as string[]);
+    // Preferred models: only show these in the picker (empty = show all)
+    const [preferredModels, setPreferredModels] = useSyncedPreferences<string[]>('scira-preferred-models', []);
 
     const normalizeText = useCallback((input: string): string => {
       return input
@@ -137,16 +465,24 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
     const searchIndex = useMemo<Record<string, SearchIndexEntry>>(() => {
       const index: Record<string, SearchIndexEntry> = {};
       for (const m of availableModels) {
+        // Get provider name for indexing
+        const providerKey = m.provider || getModelProvider(m.value, m.label);
+        const providerName = PROVIDERS[providerKey]?.name || '';
+
         const aggregate = [
           m.label,
           m.description,
           m.category,
+          providerName,
+          m.value, // Include model ID for exact matches
           m.vision ? 'vision' : '',
           m.reasoning ? 'reasoning' : '',
           m.pdf ? 'pdf' : '',
           m.experimental ? 'experimental' : '',
           m.pro ? 'pro' : '',
           m.requiresAuth ? 'auth' : '',
+          m.isNew ? 'new' : '',
+          m.fast ? 'fast' : '',
         ].join(' ');
         const normalized = normalizeText(aggregate);
         const labelNorm = normalizeText(m.label);
@@ -164,36 +500,34 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       (modelValue: string, query: string): number => {
         const entry = searchIndex[modelValue];
         if (!entry) return 0;
-        const tokens = tokenize(query);
-        if (tokens.length === 0) return 1;
-        const filteredTokens = tokens.filter((t) => t.length >= 2 || /^\d$/.test(t));
-        let matchedCount = 0;
+
+        const normalizedQuery = normalizeText(query);
+        if (!normalizedQuery) return 0;
+
         let score = 0;
 
-        for (const token of filteredTokens) {
-          if (!token) continue;
-
-          const inLabel = entry.labelNorm.includes(token);
-          const inAll = entry.normalized.includes(token);
-
-          if (inAll) {
-            matchedCount += 1;
-            score += inLabel ? 3 : 1;
-
-            if (new RegExp(`\\b${token}`).test(entry.labelNorm)) score += 2;
-            else if (new RegExp(`\\b${token}`).test(entry.normalized)) score += 1;
+        // Check if the full query matches anywhere
+        if (entry.normalized.includes(normalizedQuery)) {
+          score += 5;
+          // Bonus for label match
+          if (entry.labelNorm.includes(normalizedQuery)) {
+            score += 5;
+          }
+          // Bonus for starts with
+          if (entry.labelNorm.startsWith(normalizedQuery)) {
+            score += 3;
           }
         }
 
-        const phraseNoSpace = normalizeText(query).replace(/\s+/g, '');
-        if (phraseNoSpace.length >= 2) {
-          if (entry.normalizedNoSpace.includes(phraseNoSpace)) score += 2;
-          if (entry.labelNoSpace.includes(phraseNoSpace)) score += 3;
-          if (entry.labelNoSpace.startsWith(phraseNoSpace)) score += 2;
+        // Also check individual tokens for partial matches
+        const tokens = tokenize(query).filter((t) => t.length >= 1);
+        for (const token of tokens) {
+          if (entry.labelNorm.includes(token)) {
+            score += 3;
+          } else if (entry.normalized.includes(token)) {
+            score += 1;
+          }
         }
-
-        if (matchedCount === 0 && phraseNoSpace.length < 2) return 0;
-        if (matchedCount === filteredTokens.length && filteredTokens.length > 0) score += 2;
 
         return score;
       },
@@ -246,19 +580,6 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       return attachmentHasImage || messagesHaveImage;
     }, [attachments, messages, isFilePart]);
 
-    const hasPdfAttachments = useMemo(() => {
-      const attachmentHasPdf = attachments.some((att) => {
-        const ct = att.contentType || att.mediaType || '';
-        return ct === 'application/pdf';
-      });
-      const messagesHavePdf = messages.some((msg) =>
-        (msg.parts || []).some(
-          (part) => isFilePart(part) && typeof part.mediaType === 'string' && part.mediaType === 'application/pdf',
-        ),
-      );
-      return attachmentHasPdf || messagesHavePdf;
-    }, [attachments, messages, isFilePart]);
-
     const filteredModels = useMemo(() => {
       let filtered = availableModels;
 
@@ -278,21 +599,84 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       }
 
       return filtered;
-    }, [availableModels, hasImageAttachments, hasPdfAttachments, selectedGroup]);
+    }, [
+      availableModels,
+      preferredModels,
+      hasImageAttachments,
+      selectedGroup,
+      selectedProvider,
+      selectedModel,
+      setSelectedModel,
+      user,
+      isSubscriptionLoading,
+    ]);
 
     // Show all models (including Pro) for everyone; locked models will prompt auth/upgrade on click
-    const visibleModelsForList = useMemo(() => filteredModels, [filteredModels]);
+    const visibleModelsForList = useMemo(() => {
+      let modelsToShow = filteredModels;
+
+      // Sort models: favorites first, then new models, then by auth/plan status
+      // Locked models go last for users who can't access them (free, pro-without-max, or signed-out)
+      const shouldSortLockedLast = !user || !isProUser || !isMaxUser;
+      const preferredSet = new Set(preferredModels || []);
+
+      if (modelsToShow.length > 0) {
+        const favoriteModels: typeof modelsToShow = [];
+        const newModels: typeof modelsToShow = [];
+        const freeModels: typeof modelsToShow = [];
+        const lockedModels: typeof modelsToShow = [];
+        const regularModels: typeof modelsToShow = [];
+
+        for (const model of modelsToShow) {
+          const isFavorite = preferredSet.has(model.value);
+          const isNew = model.isNew === true;
+          const needsAuth = model.requiresAuth === true;
+          const needsPro = requiresProSubscription(model.value) && !isProUser;
+          const needsMax = requiresMaxSubscription(model.value) && !isMaxUser;
+          const isLocked = needsAuth || needsPro || needsMax;
+
+          if (isFavorite) {
+            favoriteModels.push(model);
+          } else if (isNew) {
+            newModels.push(model);
+          } else if (shouldSortLockedLast) {
+            if (isLocked) {
+              lockedModels.push(model);
+            } else {
+              freeModels.push(model);
+            }
+          } else {
+            regularModels.push(model);
+          }
+        }
+
+        if (shouldSortLockedLast) {
+          return [...favoriteModels, ...newModels, ...freeModels, ...lockedModels];
+        }
+        return [...favoriteModels, ...newModels, ...regularModels];
+      }
+
+      return modelsToShow;
+    }, [filteredModels, selectedProvider, isProUser, isMaxUser, user, preferredModels]);
 
     const rankedModels = useMemo(() => {
       const query = searchQuery.trim();
       if (!query) return null;
-      const scored = visibleModelsForList
+      const preferredSet = new Set(preferredModels || []);
+      const scored = availableModels
         .map((m) => ({ model: m, score: computeScore(m.value, query) }))
         .filter((x) => x.score > 0);
 
       const normQuery = normalizeText(query);
       scored.sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
+        // Prioritize favorites
+        const aIsFavorite = preferredSet.has(a.model.value) ? 1 : 0;
+        const bIsFavorite = preferredSet.has(b.model.value) ? 1 : 0;
+        if (bIsFavorite !== aIsFavorite) return bIsFavorite - aIsFavorite;
+        const aIsNew = a.model.isNew ? 1 : 0;
+        const bIsNew = b.model.isNew ? 1 : 0;
+        if (bIsNew !== aIsNew) return bIsNew - aIsNew;
         const aLabel = normalizeText(a.model.label);
         const bLabel = normalizeText(b.model.label);
         const aExact = aLabel === normQuery ? 1 : 0;
@@ -305,7 +689,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       });
 
       return scored.map((s) => s.model);
-    }, [visibleModelsForList, searchQuery, computeScore, normalizeText]);
+    }, [availableModels, searchQuery, computeScore, normalizeText, preferredModels]);
 
     const sortedModels = useMemo(() => visibleModelsForList, [visibleModelsForList]);
 
@@ -344,6 +728,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         ...baseOrder.filter((c) => categoriesPresent.includes(c)),
         ...categoriesPresent.filter((c) => !baseOrder.includes(c)),
       ];
+      const preferredSet = new Set(preferredModels || []);
       const normalizedByCategory = normalizedOrder
         .filter((category) => groupedModels[category] && groupedModels[category].length > 0)
         .map((category) => {
@@ -352,6 +737,11 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
           // Preserve original order when no overrides are set; apply only explicit positions
           const positionById = new Map(order.map((id, idx) => [id, idx] as const));
           const orderedModels = [...modelsInCategory].sort((a, b) => {
+            // Prioritize favorites first
+            const aIsFavorite = preferredSet.has(a.value) ? 1 : 0;
+            const bIsFavorite = preferredSet.has(b.value) ? 1 : 0;
+            if (bIsFavorite !== aIsFavorite) return bIsFavorite - aIsFavorite;
+            // Then apply custom order if set
             const ia = positionById.get(a.value);
             const ib = positionById.get(b.value);
             if (ia !== undefined && ib !== undefined) return ia - ib;
@@ -363,19 +753,12 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         });
 
       if (isProUser) {
-        // If a global order exists, use it to flatten and order the combined list
         const flat = normalizedByCategory.flatMap(([, ms]) => ms);
-        if (globalModelOrder && globalModelOrder.length > 0) {
-          const byId = new Map(flat.map((m) => [m.value, m] as const));
-          const ordered = globalModelOrder.map((id) => byId.get(id)).filter(Boolean) as typeof flat;
-          const remaining = flat.filter((m) => !globalModelOrder.includes(m.value));
-          return [['all', [...ordered, ...remaining]] as const];
-        }
         return [['all', flat] as const];
       }
 
       return normalizedByCategory;
-    }, [groupedModels, isProUser, modelCategoryOrder, modelOrderMap, globalModelOrder]);
+    }, [groupedModels, isProUser, modelCategoryOrder, modelOrderMap, preferredModels]);
 
     const [isMounted, setIsMounted] = useState(false);
 
@@ -388,11 +771,13 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       [availableModels, selectedModel],
     );
 
-    // Auto-switch away from restricted or pro models when necessary
+    // Auto-switch away from restricted or paid models when necessary
     useEffect(() => {
+      if (user === undefined) return;
       if (isSubscriptionLoading) return;
 
       const currentModelRequiresPro = requiresProSubscription(selectedModel);
+      const currentModelRequiresMax = requiresMaxSubscription(selectedModel);
       const currentModelExists = availableModels.find((m) => m.value === selectedModel);
       const isCurrentModelRestricted = isModelRestrictedInRegion(selectedModel, countryCode || undefined);
 
@@ -415,7 +800,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         // Show a toast notification to inform the user
         toast.info('Switched to default model because the selected model is currently unavailable.');
       }
-    }, [selectedModel, isProUser, isSubscriptionLoading, setSelectedModel, availableModels, countryCode]);
+    }, [selectedModel, isProUser, isMaxUser, isSubscriptionLoading, setSelectedModel, countryCode, user, currentModel]);
 
     const handleModelChange = useCallback(
       (value: string) => {
@@ -429,6 +814,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         }
 
         if (requiresAuth) {
+          haptics.trigger('warning');
           setSelectedAuthModel(model);
           setShowSignInDialog(true);
           return;
@@ -436,6 +822,7 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
 
         console.log('Selected model:', model.value);
         setSelectedModel(model.value.trim());
+        haptics.trigger('selection');
 
         if (onModelSelect) {
           onModelSelect(model);
@@ -444,49 +831,30 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
       [availableModels, user, isSubscriptionLoading, setSelectedModel, onModelSelect],
     );
 
-    // Shared command content renderer (not a component) to preserve focus
-    const renderModelCommandContent = () => (
-      <Command
-        className={cn(isMobile ? 'flex-1 h-full border-0 bg-transparent rounded-lg' : 'rounded-lg')}
-        filter={() => 1}
-        shouldFilter={false}
-      >
-        {!isMobile && (
-          <CommandInput
-            placeholder="Search models..."
-            className="h-9"
-            value={searchQuery}
-            onValueChange={setSearchQuery}
-          />
-        )}
-        <CommandEmpty>No model found.</CommandEmpty>
-        <CommandList className={isMobile ? 'flex-1 !max-h-full p-2' : 'max-h-[15em]'}>
-          {rankedModels && searchQuery.trim() ? (
-            rankedModels.length > 0 ? (
-              <CommandGroup key="best-matches">
-                <div
-                  className={cn('font-medium text-muted-foreground px-2 py-1', isMobile ? 'text-xs' : 'text-[10px]')}
-                >
-                  Best matches
-                </div>
-                {rankedModels.map((model) => {
-                  const requiresAuth = requiresAuthentication(model.value) && !user;
-                  const requiresPro = requiresProSubscription(model.value) && !isProUser;
-                  const isLocked = requiresAuth || requiresPro;
+    // Get providers that have models in the current filtered set
+    const activeProviders = useMemo(() => {
+      const providerSet = new Set<ModelProvider>();
+      for (const model of availableModels) {
+        const provider = model.provider || getModelProvider(model.value, model.label);
+        providerSet.add(provider);
+      }
+      return PROVIDER_ORDER.filter((p) => p === 'all' || providerSet.has(p as ModelProvider));
+    }, [availableModels]);
 
-                  if (isLocked) {
-                    return (
-                      <div
-                        key={model.value}
-                        className={cn(
-                          'flex items-center justify-between px-2 py-1.5 mb-0.5 rounded-lg text-xs cursor-pointer',
-                          'transition-all duration-200',
-                          'opacity-50 hover:opacity-70 hover:bg-accent',
-                        )}
-                        onClick={() => {
-                          if (isSubscriptionLoading) {
-                            return;
-                          }
+    // Get model count per provider
+    // 'all' count reflects preferred models filter, individual providers show their full count
+    const providerModelCounts = useMemo(() => {
+      const allBase =
+        preferredModels && preferredModels.length > 0
+          ? availableModels.filter((m) => preferredModels.includes(m.value))
+          : availableModels;
+      const counts: Record<string, number> = { all: allBase.length };
+      for (const model of availableModels) {
+        const provider = model.provider || getModelProvider(model.value, model.label);
+        counts[provider] = (counts[provider] || 0) + 1;
+      }
+      return counts;
+    }, [availableModels, preferredModels]);
 
                           if (requiresAuth) {
                             setSelectedAuthModel(model);
@@ -844,27 +1212,392 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
               ),
             )
           )}
-        </CommandList>
-      </Command>
+        >
+          {/* Provider Icon */}
+          <div
+            className={cn(
+              'shrink-0 mt-0.5 p-1.5 rounded-md transition-colors duration-150',
+              isSelected
+                ? 'bg-primary/12 text-primary'
+                : 'bg-secondary/60 text-foreground/70 group-hover:bg-secondary/80',
+            )}
+          >
+            {isAutoRouter ? (
+              <MagicWandIcon size={isMobile ? 16 : 14} className={cn(isMobile ? 'size-4' : 'size-3.5')} />
+            ) : (
+              <ProviderIcon provider={modelProvider} size={isMobile ? 16 : 14} className="text-inherit!" />
+            )}
+          </div>
+
+          {/* Model Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {/* Model Name */}
+              <span
+                className={cn(
+                  'font-medium truncate transition-colors duration-150',
+                  isMobile ? 'text-sm' : 'text-xs',
+                  isSelected && 'text-primary',
+                )}
+              >
+                {searchQuery && !isMobile ? (
+                  <span dangerouslySetInnerHTML={{ __html: buildHighlightHtml(model.label) }} />
+                ) : (
+                  model.label
+                )}
+              </span>
+
+              {/* Badges */}
+              {requiresMax && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-primary/10 text-primary leading-none">
+                  MAX
+                </span>
+              )}
+              {requiresPro && !isProUser && !requiresMax && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-primary/10 text-primary leading-none">
+                  PRO
+                </span>
+              )}
+              {requiresAuth && !user && <LockIcon className="size-3 text-muted-foreground/60" />}
+              {isAutoRouter && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-primary/10 text-primary leading-none">
+                  AUTO
+                </span>
+              )}
+              {model.isNew && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 leading-none">
+                  NEW
+                </span>
+              )}
+
+              {/* Favorite Star */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const isFav = preferredModels.includes(model.value);
+                      if (isFav) {
+                        setPreferredModels(preferredModels.filter((id) => id !== model.value));
+                      } else {
+                        setPreferredModels([...preferredModels, model.value]);
+                      }
+                    }}
+                    className={cn(
+                      'inline-flex items-center justify-center p-0.5 rounded transition-colors',
+                      preferredModels.includes(model.value)
+                        ? 'text-amber-500'
+                        : 'text-muted-foreground/30 opacity-0 group-hover:opacity-100',
+                      isMobile && 'opacity-100 p-1',
+                    )}
+                  >
+                    <Star className={cn('size-3', preferredModels.includes(model.value) && 'fill-current')} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  {preferredModels.includes(model.value) ? 'Remove from favorites' : 'Add to favorites'}
+                </TooltipContent>
+              </Tooltip>
+            </div>
+
+            {/* Description */}
+            <p
+              className={cn(
+                'text-muted-foreground/70 truncate mt-0.5 leading-snug',
+                isMobile ? 'text-xs' : 'text-[10px]',
+              )}
+            >
+              {model.description}
+            </p>
+          </div>
+
+          {/* Right side: capabilities + check */}
+          <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+            {/* Capability Icons */}
+            <div className="flex items-center gap-0.5">
+              {model.fast && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className={cn('p-0.5 rounded', isMobile && 'p-1')}>
+                      <Zap className={cn('text-amber-500/70', isMobile ? 'size-3' : 'size-2.5')} />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    Fast
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {model.vision && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className={cn('p-0.5 rounded', isMobile && 'p-1')}>
+                      <Eye className={cn('text-muted-foreground/50', isMobile ? 'size-3' : 'size-2.5')} />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    Vision
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {model.reasoning && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className={cn('p-0.5 rounded', isMobile && 'p-1')}>
+                      <Brain className={cn('text-muted-foreground/50', isMobile ? 'size-3' : 'size-2.5')} />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    Reasoning
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {model.pdf && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className={cn('p-0.5 rounded', isMobile && 'p-1')}>
+                      <FilePdf className={cn('text-muted-foreground/50', isMobile ? 'size-3' : 'size-2.5')} />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    PDF Support
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+
+            {/* Selected Check */}
+            {isSelected && !isLocked && (
+              <div className="size-4 rounded-full bg-primary flex items-center justify-center">
+                <Check className="size-2.5 text-primary-foreground" strokeWidth={3} />
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    // Shared command content renderer with provider sidebar
+    const renderModelCommandContent = () => (
+      <TooltipProvider delayDuration={300}>
+        <div className={cn('flex flex-1 min-h-0', isMobile ? 'flex-col' : 'flex-row h-full')}>
+          {/* Provider Sidebar */}
+          <div
+            className={cn(
+              'shrink-0 border-border/50 relative',
+              isMobile ? 'flex flex-row border-b' : 'flex flex-col w-10 border-r',
+            )}
+          >
+            <div
+              ref={providerSidebarRef}
+              onScroll={(e) => {
+                const target = e.currentTarget;
+                const isAtBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 10;
+                setShowScrollIndicator(!isAtBottom);
+              }}
+              className={cn(
+                isMobile
+                  ? 'flex flex-row gap-0.5 px-2 py-1.5 overflow-x-auto'
+                  : 'flex flex-col gap-0.5 p-1 overflow-y-auto flex-1',
+              )}
+            >
+              {activeProviders.map((provider) => {
+                const isAll = provider === 'all';
+                const isActive = selectedProvider === provider;
+                const count = providerModelCounts[provider] || 0;
+                const hasNew = !isAll && providersWithNewModels.has(provider);
+
+                return (
+                  <Tooltip key={provider}>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => {
+                          haptics.trigger('selection');
+                          setSelectedProvider(provider);
+                        }}
+                        tabIndex={-1}
+                        className={cn(
+                          'relative flex items-center justify-center rounded-md transition-all duration-150',
+                          isMobile ? 'p-2 shrink-0' : 'p-1.5 w-full',
+                          isActive
+                            ? 'bg-primary/10 text-primary'
+                            : 'hover:bg-accent/60 text-muted-foreground/60 hover:text-foreground',
+                        )}
+                      >
+                        <span className="relative">
+                          {hasNew && (
+                            <span className="absolute inset-0 -m-0.5 rounded-full bg-amber-400/15 dark:bg-amber-500/10 blur-[3px]" />
+                          )}
+                          {isAll ? (
+                            <HugeiconsIcon icon={StarIcon} size={isMobile ? 16 : 14} />
+                          ) : (
+                            <ProviderIcon provider={provider as ModelProvider} size={isMobile ? 16 : 14} />
+                          )}
+                          {hasNew && (
+                            <svg
+                              className="absolute -top-1.5 -right-1.5 size-2.5 text-amber-500 dark:text-amber-400"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                            >
+                              <path
+                                d="M6 5.5C6 5.224 5.776 5 5.5 5s-.5.224-.5.5c0 .98-.217 1.573-.572 1.928C4.073 7.783 3.48 8 2.5 8c-.276 0-.5.224-.5.5s.224.5.5.5c.98 0 1.573.217 1.928.572C4.783 9.927 5 10.52 5 11.5c0 .276.224.5.5.5s.5-.224.5-.5c0-.98.217-1.573.572-1.928C6.927 9.217 7.52 9 8.5 9c.276 0 .5-.224.5-.5S8.776 8 8.5 8c-.98 0-1.573-.217-1.928-.572C6.217 7.073 6 6.48 6 5.5Z"
+                                fill="currentColor"
+                              />
+                              <path
+                                d="M11 1.5c0-.276-.224-.5-.5-.5s-.5.224-.5.5c0 .633-.141.975-.333 1.167-.192.192-.534.333-1.167.333-.276 0-.5.224-.5.5s.224.5.5.5c.633 0 .975.141 1.167.333.192.192.333.534.333 1.167 0 .276.224.5.5.5s.5-.224.5-.5c0-.633.141-.975.333-1.167.192-.192.534-.333 1.167-.333.276 0 .5-.224.5-.5s-.224-.5-.5-.5c-.633 0-.975-.141-1.167-.333C11.141 2.475 11 2.133 11 1.5Z"
+                                fill="currentColor"
+                              />
+                              <path
+                                fillRule="evenodd"
+                                clipRule="evenodd"
+                                d="M21 15c-5.556 0-8-2.444-8-8 0 5.556-2.444 8-8 8 5.556 0 8 2.444 8 8 0-5.556 2.444-8 8-8Z"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          )}
+                        </span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side={isMobile ? 'bottom' : 'left'} className="text-xs">
+                      {isAll
+                        ? preferredModels && preferredModels.length > 0
+                          ? 'Favorites'
+                          : 'All Models'
+                        : PROVIDERS[provider as ModelProvider].name}
+                      {hasNew ? ' (New Model!)' : ''} ({count})
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </div>
+            {/* Scroll fade indicator - desktop only */}
+            {!isMobile && showScrollIndicator && (
+              <div className="absolute bottom-0 left-0 right-0 h-8 pointer-events-none flex items-end justify-center pb-1 transition-opacity duration-300">
+                <div className="absolute inset-0 bg-linear-to-t from-background via-background/80 to-transparent" />
+                <ChevronDown className="size-3 text-muted-foreground/60 relative z-10 animate-bounce" />
+              </div>
+            )}
+          </div>
+
+          {/* Main Content */}
+          <div className="flex flex-col min-w-0 min-h-0 flex-1 overflow-hidden">
+            {/* Search Bar */}
+            <div className="px-2 pt-2 pb-1.5 shrink-0">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground/50" />
+                <input
+                  type="text"
+                  placeholder="Search models..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={handleModelListKeyDown}
+                  autoFocus={!isMobile}
+                  role="combobox"
+                  aria-expanded={true}
+                  aria-controls="model-listbox"
+                  aria-activedescendant={
+                    focusedIndex >= 0 ? `model-option-${displayModels[focusedIndex]?.value}` : undefined
+                  }
+                  className={cn(
+                    'w-full pl-8 pr-3 py-1.5 text-xs rounded-lg',
+                    'bg-secondary/30 border border-border/40',
+                    'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40',
+                    'placeholder:text-muted-foreground/50',
+                    'transition-[box-shadow,border-color] duration-200',
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Provider Header */}
+            {selectedProvider !== 'all' && (
+              <div className="mx-2 mb-1 px-2 py-1.5 flex items-center gap-2 rounded-md bg-secondary/30 shrink-0">
+                <ProviderIcon
+                  provider={selectedProvider as ModelProvider}
+                  size={13}
+                  className="text-muted-foreground/70"
+                />
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  {PROVIDERS[selectedProvider as ModelProvider].name}
+                </span>
+                <span className="text-[10px] text-muted-foreground/50 ml-auto">
+                  {providerModelCounts[selectedProvider] || 0} models
+                </span>
+              </div>
+            )}
+
+            {/* Upgrade Banner (for non-pro users) */}
+            {!isProUser && (
+              <div
+                onClick={() => {
+                  setShowUpgradeDialog(true);
+                }}
+                className="mx-2 mb-1 p-2 rounded-lg bg-linear-to-r from-primary/6 via-secondary/4 to-accent/6 border border-primary/15 cursor-pointer hover:border-primary/30 transition-colors duration-200 shrink-0"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-medium">Unlock all models</span>
+                      <ProBadge className="scale-[0.7] origin-left" />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground/60 mt-0.5">Starting at ${PRICING.PRO_MONTHLY}/mo</p>
+                  </div>
+                  <Button type="button" size="sm" className="h-6 text-[10px] px-2.5 rounded-md shrink-0">
+                    Upgrade
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Model List */}
+            <div
+              ref={modelListRef}
+              role="listbox"
+              id="model-listbox"
+              className="flex-1 overflow-y-auto px-1 py-0.5 min-h-0"
+            >
+              {displayModels.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 gap-2">
+                  <Search className="size-5 text-muted-foreground/30" />
+                  <p className="text-xs text-muted-foreground/60">No models found</p>
+                </div>
+              ) : (
+                <div className="space-y-px">
+                  {searchQuery.trim() && rankedModels && rankedModels.length > 0 && (
+                    <div className="px-3 py-1 text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">
+                      Results
+                    </div>
+                  )}
+                  {displayModels.map((model, index) => renderModelCard(model, index))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </TooltipProvider>
     );
 
     // Common trigger button component
+    const currentModelProvider =
+      currentModel?.provider || (currentModel ? getModelProvider(currentModel.value, currentModel.label) : undefined);
+
     const TriggerButton = React.forwardRef<
       React.ComponentRef<typeof Button>,
       React.ComponentPropsWithoutRef<typeof Button>
     >((props, ref) => (
       <Button
         ref={ref}
-        variant="outline"
+        type="button"
+        variant="ghost"
         role="combobox"
         aria-expanded={open}
         size="sm"
         className={cn(
-          'flex items-center gap-2 px-3 h-7.5 rounded-lg',
-          'border border-border',
-          'bg-background text-foreground',
-          'hover:bg-accent transition-colors',
-          'focus:!outline-none focus:!ring-0',
+          'flex items-center gap-1.5 px-2.5 h-8 rounded-full',
+          'bg-transparent text-foreground',
+          'hover:bg-foreground/5! transition-all duration-200',
           'shadow-none',
           className,
         )}
@@ -878,10 +1611,32 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
 
     TriggerButton.displayName = 'TriggerButton';
 
+    // Refocus the main textarea when the model switcher closes (mobile drawer)
+    const handleDrawerOpenChange = useCallback(
+      (nextOpen: boolean) => {
+        setOpen(nextOpen);
+        if (nextOpen) haptics.trigger('light');
+        if (!nextOpen) {
+          requestAnimationFrame(() => {
+            externalInputRef?.current?.focus();
+          });
+        }
+      },
+      [externalInputRef, haptics],
+    );
+
+    const handlePopoverOpenChange = useCallback(
+      (nextOpen: boolean) => {
+        setOpen(nextOpen);
+        if (nextOpen) haptics.trigger('light');
+      },
+      [haptics],
+    );
+
     return (
       <>
         {isMobile ? (
-          <Drawer open={open} onOpenChange={setOpen}>
+          <Drawer open={open} onOpenChange={handleDrawerOpenChange}>
             <DrawerTrigger asChild>
               <TriggerButton />
             </DrawerTrigger>
@@ -892,33 +1647,97 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
                   Select Model
                 </DrawerTitle>
               </DrawerHeader>
-              <div className="flex-1 flex flex-col min-h-0">{renderModelCommandContent()}</div>
+              <div className="flex-1 flex flex-col min-h-0 overflow-hidden">{renderModelCommandContent()}</div>
             </DrawerContent>
           </Drawer>
         ) : (
-          <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-              <TriggerButton />
-            </PopoverTrigger>
+          <Popover open={open} onOpenChange={handlePopoverOpenChange}>
+            <Tooltip delayDuration={300}>
+              <TooltipTrigger asChild>
+                <PopoverTrigger asChild>
+                  <TriggerButton />
+                </PopoverTrigger>
+              </TooltipTrigger>
+              {!open && (
+                <TooltipContent
+                  side="bottom"
+                  sideOffset={6}
+                  className="border-0 backdrop-blur-xs py-2 px-3 shadow-none!"
+                >
+                  <span className="font-medium text-[11px]">Switch model</span>
+                  <Kbd className="ml-1.5 h-4 min-w-4 text-[10px]">⌘M</Kbd>
+                </TooltipContent>
+              )}
+            </Tooltip>
             <PopoverContent
-              className="w-[90vw] sm:w-[20em] max-w-[20em] p-0 font-sans rounded-lg bg-popover z-40 border !shadow-none"
-              align="start"
+              className="w-[90vw] sm:w-[26em] max-w-[26em] h-[300px] p-0 font-sans rounded-lg bg-popover z-40 border border-border/60 shadow-none overflow-hidden"
+              align="end"
               side="bottom"
-              sideOffset={4}
+              sideOffset={6}
               avoidCollisions={true}
-              collisionPadding={8}
+              collisionPadding={12}
+              onOpenAutoFocus={(e) => e.preventDefault()}
+              onCloseAutoFocus={(e) => {
+                e.preventDefault();
+                externalInputRef?.current?.focus();
+              }}
             >
               {renderModelCommandContent()}
             </PopoverContent>
           </Popover>
         )}
+        {/* Upgrade Dialog */}
+        <Dialog
+          open={showUpgradeDialog}
+          onOpenChange={(nextOpen) => {
+            // Prevent lifecycle/cleanup events from auto-closing this dialog.
+            // We only allow explicit close actions (e.g. "Not now").
+            if (nextOpen) setShowUpgradeDialog(true);
+          }}
+        >
+          <DialogContent
+            className="sm:max-w-[400px] p-0 gap-0 overflow-hidden"
+            showCloseButton={false}
+            onInteractOutside={(event) => event.preventDefault()}
+            onFocusOutside={(event) => event.preventDefault()}
+          >
+            {/* Hero */}
+            <div className="relative px-6 pt-8 pb-6 text-center">
+              <div className="absolute inset-0 bg-[url('/placeholder.png')] bg-cover bg-center">
+                <div className="absolute inset-0 bg-linear-to-t from-background via-background/80 to-background/40" />
+              </div>
+              <div className="relative z-10">
+                {selectedProModel?.label ? (
+                  <div className="space-y-1.5">
+                    <p className="text-lg font-semibold tracking-tight">{selectedProModel.label}</p>
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span className="text-xs text-muted-foreground">requires</span>
+                      {selectedRequiresMax ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary leading-none uppercase tracking-wider">
+                          Max
+                        </span>
+                      ) : (
+                        <ProBadge />
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-2">
+                    <p className="text-3xl font-semibold tracking-tight font-be-vietnam-pro">scira</p>
+                    <ProBadge />
+                  </div>
+                )}
 
         <Dialog open={showSignInDialog} onOpenChange={setShowSignInDialog}>
-          <DialogContent className="sm:max-w-[420px] p-0 gap-0 bg-background" showCloseButton={false}>
-            <DialogHeader className="p-2">
-              <div className="relative w-full p-6 rounded-md text-white overflow-hidden">
-                <div className="absolute inset-0 bg-[url('/placeholder.png')] bg-cover bg-center rounded-sm">
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-black/10"></div>
+          <DialogContent className="sm:max-w-[400px] p-0 gap-0 overflow-hidden" showCloseButton={false}>
+            {/* Hero */}
+            <div className="relative px-6 pt-8 pb-6 text-center">
+              <div className="absolute inset-0 bg-[url('/placeholder.png')] bg-cover bg-center">
+                <div className="absolute inset-0 bg-linear-to-t from-background via-background/80 to-background/40" />
+              </div>
+              <div className="relative z-10 space-y-1.5">
+                <div className="w-10 h-10 rounded-xl bg-muted/50 flex items-center justify-center mx-auto mb-3">
+                  <LockIcon className="w-5 h-5 text-muted-foreground" />
                 </div>
                 <div className="relative z-10 flex flex-col gap-4">
                   <DialogTitle className="flex items-center gap-3 text-white">
@@ -957,49 +1776,32 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
                     }}
                     className="backdrop-blur-md bg-white/90 border border-white/20 text-black hover:bg-white w-full font-medium"
                   >
-                    Sign in
-                  </Button>
-                </div>
-              </div>
-            </DialogHeader>
-
-            <div className="px-6 py-6 flex flex-col gap-4">
-              <div className="flex items-center gap-4">
-                <CheckIcon className="size-4 text-primary flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Access better models</p>
-                  <p className="text-xs text-muted-foreground">GPT-5 Nano and more premium models</p>
-                </div>
+                    <CheckIcon className="size-3 text-primary shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-medium leading-tight">{f.title}</p>
+                      <p className="font-pixel text-[8px] text-muted-foreground/50 uppercase tracking-wider mt-0.5">
+                        {f.desc}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              <div className="flex items-center gap-4">
-                <CheckIcon className="size-4 text-primary flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Save search history</p>
-                  <p className="text-xs text-muted-foreground">Keep track of your conversations</p>
-                </div>
-              </div>
+              <Button
+                onClick={() => {
+                  window.location.href = '/sign-in';
+                }}
+                className="w-full rounded-lg h-9"
+              >
+                Sign in
+              </Button>
 
-              <div className="flex items-center gap-4">
-                <CheckIcon className="size-4 text-primary flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Free to start</p>
-                  <p className="text-xs text-muted-foreground">No payment required for basic features</p>
-                </div>
-              </div>
-
-              <div className="flex gap-2 w-full items-center mt-4">
-                <div className="flex-1 border-b border-foreground/10" />
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowSignInDialog(false)}
-                  size="sm"
-                  className="text-muted-foreground hover:text-foreground text-xs px-3"
-                >
-                  Maybe later
-                </Button>
-                <div className="flex-1 border-b border-foreground/10" />
-              </div>
+              <button
+                onClick={() => setShowSignInDialog(false)}
+                className="w-full text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors py-1"
+              >
+                Maybe later
+              </button>
             </div>
           </DialogContent>
         </Dialog>
@@ -1040,26 +1842,12 @@ const StopIcon = ({ size = 16 }: { size?: number }) => {
 };
 
 const MAX_FILES = 4;
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB for images
+const MAX_DOCUMENT_SIZE = 50 * 1024 * 1024; // 50MB for documents
 const MAX_INPUT_CHARS = 50000;
 
-const fileToDataURL = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => resolve(e.target?.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-};
-
-// Debounce utility function
-const debounce = <T extends (...args: any[]) => any>(func: T, wait: number): T => {
-  let timeout: NodeJS.Timeout;
-  return ((...args: any[]) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func.apply(null, args), wait);
-  }) as T;
-};
+const isImageFile = (file: File): boolean => file.type.startsWith('image/');
+const getMaxSizeForFile = (file: File): number => (isImageFile(file) ? MAX_IMAGE_SIZE : MAX_DOCUMENT_SIZE);
 
 const truncateFilename = (filename: string, maxLength: number = 20) => {
   if (filename.length <= maxLength) return filename;
@@ -1076,7 +1864,7 @@ const AttachmentPreview: React.FC<{
   const formatFileSize = useCallback((bytes: number): string => {
     if (bytes < 1024) return bytes + ' bytes';
     else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-    else return (bytes / 1048576).toFixed(1) + ' MB' + (bytes > MAX_FILE_SIZE ? ' (exceeds 5MB limit)' : '');
+    else return (bytes / 1048576).toFixed(1) + ' MB';
   }, []);
 
   const isUploadingAttachment = useCallback(
@@ -1092,6 +1880,26 @@ const AttachmentPreview: React.FC<{
         return attachment.file.type === 'application/pdf';
       }
       return (attachment as Attachment).contentType === 'application/pdf';
+    },
+    [isUploadingAttachment],
+  );
+
+  const getDocumentType = useCallback(
+    (attachment: Attachment | UploadingAttachment): 'pdf' | 'csv' | 'xlsx' | 'docx' | 'image' | null => {
+      const contentType = isUploadingAttachment(attachment)
+        ? attachment.file.type
+        : (attachment as Attachment).contentType;
+
+      if (contentType === 'application/pdf') return 'pdf';
+      if (contentType === 'text/csv') return 'csv';
+      if (contentType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') return 'docx';
+      if (
+        contentType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+        contentType === 'application/vnd.ms-excel'
+      )
+        return 'xlsx';
+      if (contentType?.startsWith('image/')) return 'image';
+      return null;
     },
     [isUploadingAttachment],
   );
@@ -1112,7 +1920,7 @@ const AttachmentPreview: React.FC<{
         'hover:bg-background',
         'transition-all duration-200',
         'group',
-        '!shadow-none',
+        'shadow-none!',
       )}
     >
       {isUploading ? (
@@ -1162,31 +1970,62 @@ const AttachmentPreview: React.FC<{
         </div>
       ) : (
         <div className="w-8 h-8 rounded-lg overflow-hidden bg-muted shrink-0 ring-1 ring-border flex items-center justify-center">
-          {isPdf(attachment) ? (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="text-red-500"
-            >
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <path d="M9 15v-2h6v2"></path>
-              <path d="M12 18v-5"></path>
-            </svg>
-          ) : (
-            <img
-              src={(attachment as Attachment).url}
-              alt={`Preview of ${attachment.name}`}
-              className="h-full w-full object-cover"
-            />
-          )}
+          {(() => {
+            const docType = getDocumentType(attachment);
+            if (docType === 'image') {
+              return (
+                <img
+                  src={(attachment as Attachment).url}
+                  alt={`Preview of ${attachment.name}`}
+                  className="h-full w-full object-cover"
+                />
+              );
+            }
+            // All document types (pdf, csv, xlsx, docx)
+            return (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-muted-foreground"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                {docType === 'pdf' && (
+                  <>
+                    <path d="M9 15v-2h6v2"></path>
+                    <path d="M12 18v-5"></path>
+                  </>
+                )}
+                {docType === 'csv' && (
+                  <>
+                    <line x1="8" y1="13" x2="16" y2="13"></line>
+                    <line x1="8" y1="17" x2="16" y2="17"></line>
+                  </>
+                )}
+                {docType === 'xlsx' && (
+                  <>
+                    <rect x="8" y="12" width="8" height="6" rx="1"></rect>
+                    <line x1="12" y1="12" x2="12" y2="18"></line>
+                    <line x1="8" y1="15" x2="16" y2="15"></line>
+                  </>
+                )}
+                {docType === 'docx' && (
+                  <>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <line x1="10" y1="9" x2="8" y2="9"></line>
+                  </>
+                )}
+              </svg>
+            );
+          })()}
         </div>
       )}
       <div className="grow min-w-0">
@@ -1212,7 +2051,7 @@ const AttachmentPreview: React.FC<{
           'opacity-0 group-hover:opacity-100',
           'scale-75 group-hover:scale-100',
           'hover:bg-muted/50',
-          '!shadow-none',
+          'shadow-none!',
         )}
       >
         <X className="h-3 w-3 text-muted-foreground" />
@@ -1244,7 +2083,7 @@ interface FormComponentProps {
   selectedModel: string;
   setSelectedModel: (value: string) => void;
   resetSuggestedQuestions: () => void;
-  lastSubmittedQueryRef: React.MutableRefObject<string>;
+  lastSubmittedQueryRef: React.RefObject<string>;
   selectedGroup: SearchGroupId;
   setSelectedGroup: React.Dispatch<React.SetStateAction<SearchGroupId>>;
   showExperimentalModels: boolean;
@@ -1254,6 +2093,15 @@ interface FormComponentProps {
   onOpenSettings?: (tab?: string) => void;
   selectedConnectors?: ConnectorProvider[];
   setSelectedConnectors?: React.Dispatch<React.SetStateAction<ConnectorProvider[]>>;
+  usageData?: { messageCount: number; extremeSearchCount: number; error: string | null } | null;
+  isTemporaryChatEnabled: boolean;
+  isTemporaryChat: boolean;
+  isTemporaryChatLocked: boolean;
+  setIsTemporaryChatEnabled: (value: boolean | ((prev: boolean) => boolean)) => void;
+  isMultiAgentModeEnabled?: boolean;
+  setIsMultiAgentModeEnabled?: (value: boolean | ((prev: boolean) => boolean)) => void;
+  autoRoutedModel?: { model: string; route: string } | null;
+  onBeforeSubmit?: () => void;
 }
 
 interface GroupSelectorProps {
@@ -1262,6 +2110,9 @@ interface GroupSelectorProps {
   status: UseChatHelpers<ChatMessage>['status'];
   onOpenSettings?: (tab?: string) => void;
   isProUser?: boolean;
+  isAuthenticated?: boolean;
+  usageData?: { messageCount: number; extremeSearchCount: number; error: string | null } | null;
+  onShowUpgrade?: () => void;
 }
 
 interface ConnectorSelectorProps {
@@ -1276,9 +2127,9 @@ const ConnectorSelector: React.FC<ConnectorSelectorProps> = React.memo(
   ({ selectedConnectors, onConnectorToggle, user, isProUser }) => {
     const [open, setOpen] = useState(false);
     const isMobile = useIsMobile();
+    const haptics = useWebHaptics();
 
-    // Get user's connected connectors
-    const { data: connectorsData, isLoading: connectorsLoading } = useQuery({
+    const { data: connectorsData } = useQuery({
       queryKey: ['connectors', user?.id],
       queryFn: listUserConnectorsAction,
       enabled: !!user && isProUser,
@@ -1291,10 +2142,8 @@ const ConnectorSelector: React.FC<ConnectorSelectorProps> = React.memo(
     );
 
     const selectedCount = selectedConnectors.length;
-    const isAllSelected = selectedConnectors.length === availableConnectors.length;
     const isSingleConnector = availableConnectors.length === 1;
 
-    // Auto-select all connectors if none selected (must be before early return to maintain hook order)
     React.useEffect(() => {
       if (isProUser && selectedCount === 0 && availableConnectors.length > 0) {
         availableConnectors.forEach(([provider]) => {
@@ -1303,48 +2152,42 @@ const ConnectorSelector: React.FC<ConnectorSelectorProps> = React.memo(
       }
     }, [isProUser, selectedCount, availableConnectors, onConnectorToggle]);
 
-    if (!isProUser || availableConnectors.length === 0) {
-      return null;
-    }
+    if (!isProUser || availableConnectors.length === 0) return null;
 
-    const handleSelectAll = () => {
-      // Don't allow deselecting all if only one connector
-      if (isSingleConnector) return;
-
-      if (isAllSelected) {
-        // Deselect all
-        availableConnectors.forEach(([provider]) => {
-          if (selectedConnectors.includes(provider as ConnectorProvider)) {
-            onConnectorToggle(provider as ConnectorProvider);
-          }
-        });
-      } else {
-        // Select all
-        availableConnectors.forEach(([provider]) => {
-          if (!selectedConnectors.includes(provider as ConnectorProvider)) {
-            onConnectorToggle(provider as ConnectorProvider);
-          }
-        });
-      }
-    };
-
-    const handleClearAll = () => {
-      if (isSingleConnector) return;
-
-      selectedConnectors.forEach((provider) => {
-        if (availableConnectors.some(([p]) => p === provider)) {
-          onConnectorToggle(provider as ConnectorProvider);
-        }
-      });
-    };
-
-    const handleConnectorToggle = (provider: ConnectorProvider) => {
-      // Don't allow deselecting if only one connector
-      if (isSingleConnector && selectedConnectors.includes(provider)) {
-        return;
-      }
+    const handleToggle = (provider: ConnectorProvider) => {
+      if (isSingleConnector && selectedConnectors.includes(provider)) return;
+      haptics.trigger('selection');
       onConnectorToggle(provider);
     };
+
+    const handleOpenChange = useCallback(
+      (nextOpen: boolean) => {
+        setOpen(nextOpen);
+        if (nextOpen) haptics.trigger('light');
+      },
+      [haptics],
+    );
+
+    const connectorItems = availableConnectors.map(([provider, config]) => {
+      const IconComponent = CONNECTOR_ICONS[config.icon];
+      const isChecked = selectedConnectors.includes(provider as ConnectorProvider);
+      const isDisabled = isSingleConnector && isChecked;
+      return (
+        <div
+          key={provider}
+          className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-accent transition-colors"
+        >
+          {IconComponent && <IconComponent className="size-4 shrink-0" />}
+          <span className="flex-1 text-[13px]">{config.name}</span>
+          <Switch
+            checked={isChecked}
+            onCheckedChange={() => handleToggle(provider as ConnectorProvider)}
+            disabled={isDisabled}
+            className="scale-75 origin-right"
+          />
+        </div>
+      );
+    });
 
     if (isMobile) {
       return (
@@ -1383,34 +2226,20 @@ const ConnectorSelector: React.FC<ConnectorSelectorProps> = React.memo(
     }
 
     return (
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm" className="h-8 px-2 text-xs">
             <HugeiconsIcon icon={ConnectIcon} size={16} color="#9ca3af" strokeWidth={1.5} />
             <span className="ml-1">{selectedCount > 0 ? `${selectedCount} active` : 'Select'}</span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-60 p-2" align="start">
-          <div className="space-y-1 max-h-64 overflow-auto">
-            {availableConnectors.map(([provider, config]) => (
-              <div key={provider} className="flex items-center justify-between p-2 hover:bg-muted rounded">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center justify-center w-4 h-4">
-                    {(() => {
-                      const IconComponent = CONNECTOR_ICONS[config.icon];
-                      return IconComponent ? <IconComponent className="w-4 h-4" /> : null;
-                    })()}
-                  </div>
-                  <span className="font-medium text-sm">{config.name}</span>
-                </div>
-                <Switch
-                  checked={selectedConnectors.includes(provider as ConnectorProvider)}
-                  onCheckedChange={() => handleConnectorToggle(provider as ConnectorProvider)}
-                  disabled={isSingleConnector && selectedConnectors.includes(provider as ConnectorProvider)}
-                />
-              </div>
-            ))}
-          </div>
+        <PopoverContent
+          className="w-52 p-1 font-sans rounded-lg bg-popover border shadow-lg"
+          align="start"
+          side="bottom"
+          sideOffset={6}
+        >
+          {connectorItems}
         </PopoverContent>
       </Popover>
     );
@@ -1418,6 +2247,417 @@ const ConnectorSelector: React.FC<ConnectorSelectorProps> = React.memo(
 );
 
 ConnectorSelector.displayName = 'ConnectorSelector';
+
+interface McpServerSelectorProps {
+  user: ComprehensiveUserData | null;
+  isProUser?: boolean;
+}
+
+const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({ user, isProUser }) => {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
+  const haptics = useWebHaptics();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['mcpServers', user?.id],
+    queryFn: async () => {
+      const response = await fetch('/api/mcp/servers', { cache: 'no-store' });
+      if (!response.ok) throw new Error('Failed to load MCP servers');
+      return response.json() as Promise<{
+        servers: Array<{
+          id: string;
+          name: string;
+          url: string;
+          isEnabled: boolean;
+          transportType: string;
+          authType: string;
+          isOAuthConnected: boolean;
+        }>;
+      }>;
+    },
+    enabled: Boolean(user?.id && isProUser),
+    staleTime: 10_000,
+  });
+
+  const servers = data?.servers ?? [];
+  // Only count servers that are actually usable (OAuth servers must be connected)
+  const isReady = (s: { authType: string; isOAuthConnected: boolean }) => s.authType !== 'oauth' || s.isOAuthConnected;
+  const enabledCount = servers.filter((s) => s.isEnabled && isReady(s)).length;
+  const showSearch = servers.length > 6;
+
+  const filteredServers = useMemo(() => {
+    const list = search.trim()
+      ? servers.filter(
+          (s) =>
+            s.name.toLowerCase().includes(search.toLowerCase()) || s.url.toLowerCase().includes(search.toLowerCase()),
+        )
+      : servers;
+    return [...list].sort((a, b) => {
+      const score = (server: (typeof list)[number]) => {
+        const ready = isReady(server);
+        if (server.isEnabled && ready) return 3;
+        if (server.isEnabled && !ready) return 2;
+        if (!server.isEnabled && ready) return 1;
+        return 0;
+      };
+
+      const rankDiff = score(b) - score(a);
+      if (rankDiff !== 0) return rankDiff;
+      return a.name.localeCompare(b.name);
+    });
+  }, [servers, search]);
+
+  const handleToggle = (id: string, currentEnabled: boolean) => {
+    haptics.trigger('selection');
+    // Optimistic update — flip instantly in cache
+    queryClient.setQueryData(['mcpServers', user?.id], (old: any) => {
+      if (!old?.servers) return old;
+      return { ...old, servers: old.servers.map((s: any) => (s.id === id ? { ...s, isEnabled: !currentEnabled } : s)) };
+    });
+    // Fire-and-forget sync
+    fetch(`/api/mcp/servers/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isEnabled: !currentEnabled }),
+    }).catch(() => {
+      // Revert on failure
+      queryClient.setQueryData(['mcpServers', user?.id], (old: any) => {
+        if (!old?.servers) return old;
+        return {
+          ...old,
+          servers: old.servers.map((s: any) => (s.id === id ? { ...s, isEnabled: currentEnabled } : s)),
+        };
+      });
+    });
+  };
+
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      setOpen(nextOpen);
+      if (nextOpen) haptics.trigger('light');
+      if (!nextOpen) setSearch('');
+    },
+    [haptics],
+  );
+
+  if (!isProUser || servers.length === 0) return null;
+
+  const serverItems = (
+    <div className="flex flex-col min-h-0">
+      {showSearch && (
+        <div className="px-2 pt-2 pb-1.5">
+          <input
+            type="text"
+            placeholder="Search apps..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-muted/60 text-xs rounded-md px-2.5 py-1.5 outline-none placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-ring"
+          />
+        </div>
+      )}
+
+      <div className={cn('overflow-y-auto max-h-[70vh] sm:max-h-[260px] px-1.5 pb-1.5', !showSearch && 'pt-1.5')}>
+        {filteredServers.length === 0 ? (
+          <div className="px-3 py-6 text-center text-xs text-muted-foreground">No servers match</div>
+        ) : (
+          filteredServers.map((server) => {
+            const ready = isReady(server);
+            const hostname = (() => {
+              try {
+                return new URL(server.url).hostname;
+              } catch {
+                return server.url;
+              }
+            })();
+            const rootDomain = (() => {
+              const parts = hostname.split('.');
+              if (parts.length <= 2) return hostname;
+              const last2 = parts.slice(-2).join('.');
+              const sldTlds = new Set([
+                'gov.in',
+                'co.in',
+                'org.in',
+                'net.in',
+                'ac.in',
+                'co.uk',
+                'org.uk',
+                'me.uk',
+                'net.uk',
+                'ac.uk',
+                'co.jp',
+                'co.nz',
+                'co.za',
+                'co.kr',
+                'co.il',
+                'com.au',
+                'net.au',
+                'org.au',
+                'com.br',
+                'net.br',
+                'org.br',
+                'nih.gov',
+              ]);
+              return sldTlds.has(last2) ? parts.slice(-3).join('.') : last2;
+            })();
+            const isGitHub = MCP_COMPONENT_ICON_URLS.has(server.url.replace(/\/+$/, ''));
+            const faviconSrc = isGitHub
+              ? null
+              : (getMcpCatalogIcon(server.url) ??
+                `/api/proxy-image?url=${encodeURIComponent(`https://www.google.com/s2/favicons?domain=${rootDomain}&sz=128`)}`);
+            return (
+              <div
+                key={server.id}
+                onClick={() => {
+                  if (ready) {
+                    handleToggle(server.id, server.isEnabled);
+                    return;
+                  }
+                  haptics.trigger('warning');
+                  window.location.href = '/apps';
+                }}
+                className={cn(
+                  'flex items-center gap-2.5 px-2 py-2 rounded-md transition-colors',
+                  ready ? 'hover:bg-accent cursor-pointer' : 'hover:bg-accent/50 cursor-pointer opacity-80',
+                )}
+              >
+                {isGitHub ? (
+                  <HugeiconsIcon icon={Github01Icon} size={20} className="shrink-0 text-foreground" />
+                ) : (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={faviconSrc!}
+                    alt=""
+                    width={20}
+                    height={20}
+                    className="shrink-0 rounded object-contain"
+                    loading="lazy"
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-medium truncate leading-tight">{server.name}</div>
+                  {!ready && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        haptics.trigger('warning');
+                        window.location.href = '/apps';
+                      }}
+                      className="inline-flex items-center gap-1 text-[11px] text-primary hover:text-primary/85 transition-colors"
+                    >
+                      Link app and complete setup
+                      <ArrowUpRight className="size-3" />
+                    </button>
+                  )}
+                </div>
+                <Checkbox
+                  checked={server.isEnabled && ready}
+                  onCheckedChange={() => ready && handleToggle(server.id, server.isEnabled)}
+                  onClick={(e) => e.stopPropagation()}
+                  disabled={!ready}
+                  className="shrink-0"
+                />
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+
+  const triggerButton = (
+    <button className="flex items-center gap-1.5 px-2.5 h-8 rounded-full bg-primary/8 text-primary/80 text-[12px] font-medium hover:bg-primary/12 hover:text-primary transition-colors">
+      <AppsIcon width={14} height={14} />
+      <span>Apps</span>
+      {enabledCount > 0 && (
+        <span className="flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-primary/15 text-[10px] font-mono tabular-nums leading-none">
+          {enabledCount}
+        </span>
+      )}
+    </button>
+  );
+
+  const drawerItems = (
+    <div className="flex flex-col min-h-0 flex-1">
+      {showSearch && (
+        <div className="px-3 pt-2 pb-2 shrink-0">
+          <input
+            type="text"
+            placeholder="Search apps..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-muted/60 text-sm rounded-lg px-3 py-2.5 outline-none placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-ring"
+          />
+        </div>
+      )}
+      <div className={cn('overflow-y-auto flex-1 px-2 pb-2', !showSearch && 'pt-2')}>
+        {filteredServers.length === 0 ? (
+          <div className="px-3 py-8 text-center text-sm text-muted-foreground">No servers match</div>
+        ) : (
+          filteredServers.map((server) => {
+            const ready = isReady(server);
+            const hostname = (() => {
+              try {
+                return new URL(server.url).hostname;
+              } catch {
+                return server.url;
+              }
+            })();
+            const rootDomain = (() => {
+              const parts = hostname.split('.');
+              if (parts.length <= 2) return hostname;
+              const last2 = parts.slice(-2).join('.');
+              const sldTlds = new Set([
+                'gov.in',
+                'co.in',
+                'org.in',
+                'net.in',
+                'ac.in',
+                'co.uk',
+                'org.uk',
+                'me.uk',
+                'net.uk',
+                'ac.uk',
+                'co.jp',
+                'co.nz',
+                'co.za',
+                'co.kr',
+                'co.il',
+                'com.au',
+                'net.au',
+                'org.au',
+                'com.br',
+                'net.br',
+                'org.br',
+                'nih.gov',
+              ]);
+              return sldTlds.has(last2) ? parts.slice(-3).join('.') : last2;
+            })();
+            const isGitHubMobile = MCP_COMPONENT_ICON_URLS.has(server.url.replace(/\/+$/, ''));
+            const faviconSrcMobile = isGitHubMobile
+              ? null
+              : (getMcpCatalogIcon(server.url) ??
+                `/api/proxy-image?url=${encodeURIComponent(`https://www.google.com/s2/favicons?domain=${rootDomain}&sz=128`)}`);
+            return (
+              <div
+                key={server.id}
+                onClick={() => {
+                  if (ready) {
+                    handleToggle(server.id, server.isEnabled);
+                    return;
+                  }
+                  haptics.trigger('warning');
+                  window.location.href = '/apps';
+                }}
+                className={cn(
+                  'flex items-center gap-3.5 px-3 py-3 rounded-xl transition-colors',
+                  ready
+                    ? 'hover:bg-accent active:bg-accent cursor-pointer'
+                    : 'hover:bg-accent/50 active:bg-accent/50 cursor-pointer opacity-80',
+                )}
+              >
+                {isGitHubMobile ? (
+                  <HugeiconsIcon icon={Github01Icon} size={28} className="shrink-0 text-foreground" />
+                ) : (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={faviconSrcMobile!}
+                    alt=""
+                    width={28}
+                    height={28}
+                    className="shrink-0 rounded-md object-contain"
+                    loading="lazy"
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="text-[15px] font-medium truncate leading-tight">{server.name}</div>
+                  {!ready && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        haptics.trigger('warning');
+                        window.location.href = '/apps';
+                      }}
+                      className="inline-flex items-center gap-1 text-[12px] text-primary hover:text-primary/85 transition-colors mt-0.5"
+                    >
+                      Link app and complete setup
+                      <ArrowUpRight className="size-3.5" />
+                    </button>
+                  )}
+                </div>
+                <Checkbox
+                  checked={server.isEnabled && ready}
+                  onCheckedChange={() => ready && handleToggle(server.id, server.isEnabled)}
+                  onClick={(e) => e.stopPropagation()}
+                  disabled={!ready}
+                  className="shrink-0 size-5"
+                />
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={handleOpenChange}>
+        <DrawerTrigger asChild>{triggerButton}</DrawerTrigger>
+        <DrawerContent className="max-h-[80vh] h-full flex flex-col overflow-hidden">
+          <DrawerHeader className="text-left pb-1 shrink-0">
+            <DrawerTitle className="text-lg font-light tracking-tight font-be-vietnam-pro">scira apps</DrawerTitle>
+          </DrawerHeader>
+          <div className="flex-1 flex flex-col min-h-0 px-1 pb-4">
+            {isLoading ? <div className="px-3 py-3 text-sm text-muted-foreground">Loading…</div> : drawerItems}
+          </div>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
+  return (
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>{triggerButton}</PopoverTrigger>
+      <PopoverContent
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        className="w-72 p-0 font-sans rounded-xl bg-popover border shadow-none overflow-hidden"
+        align="start"
+        side="bottom"
+        sideOffset={4}
+      >
+        {isLoading ? <div className="px-3 py-3 text-xs text-muted-foreground">Loading…</div> : serverItems}
+      </PopoverContent>
+    </Popover>
+  );
+});
+
+McpServerSelector.displayName = 'McpServerSelector';
+
+const WEB_SEARCH_PROVIDERS: Array<{
+  value: SearchProvider;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: 'exa',
+    label: 'Exa',
+    description: 'Enhanced and faster neural web search with images and filtering.',
+  },
+  {
+    value: 'firecrawl',
+    label: 'Firecrawl',
+    description: 'Web, news, and image search with content scraping capabilities.',
+  },
+  {
+    value: 'parallel',
+    label: 'Parallel AI',
+    description: 'Base and premium web search with Parallel’s Firecrawl image support.',
+  },
+];
 
 const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
   ({ selectedGroup, onGroupSelect, status, onOpenSettings, isProUser }) => {
@@ -1433,8 +2673,21 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
 
     const isExtreme = selectedGroup === 'extreme';
 
+    // Check usage limits
+    const messageCountExceeded = Boolean(
+      !isProUser && usageData && usageData.messageCount >= SEARCH_LIMITS.DAILY_SEARCH_LIMIT,
+    );
+    const extremeSearchCountExceeded = Boolean(
+      !isProUser && usageData && usageData.extremeSearchCount >= SEARCH_LIMITS.EXTREME_SEARCH_LIMIT,
+    );
+
     // Get search provider from localStorage with reactive updates
-    const [searchProvider] = useLocalStorage<SearchProvider>('scira-search-provider', 'parallel');
+    const [searchProvider, setSearchProvider] = useLocalStorage<SearchProvider>('scira-search-provider', 'exa');
+    const [providerMenuOpen, setProviderMenuOpen] = useState(false);
+    const currentProviderOption = useMemo(
+      () => WEB_SEARCH_PROVIDERS.find((option) => option.value === searchProvider) ?? WEB_SEARCH_PROVIDERS[0],
+      [searchProvider],
+    );
 
     // Get dynamic search groups based on the selected search provider
     const dynamicSearchGroups = useMemo(() => {
@@ -1474,25 +2727,15 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
           if (!group.show) return false;
           if ('requireAuth' in group && group.requireAuth && !isSignedIn) return false;
           // Don't filter out Pro-only groups, show them with Pro indicator
-          if (group.id === 'extreme') return false; // Exclude extreme from dropdown
+          if (group.id === 'extreme' || group.id === 'canvas') return false; // Exclude extreme/canvas from dropdown (accessed via / trigger)
           return true;
         }),
       [dynamicSearchGroups, isSignedIn],
     );
 
-    // Persisted order for groups - must match settings-dialog.tsx
-    const [groupOrder] = useLocalStorage<SearchGroupId[]>(
-      'scira-group-order',
-      dynamicSearchGroups.map((g) => g.id),
-    );
-
-    // Merge group order with current groups (same logic as settings-dialog.tsx)
-    const mergedGroupOrder = useMemo(() => {
-      const currentIds = dynamicSearchGroups.map((g) => g.id);
-      const filteredExisting = (groupOrder || []).filter((id) => currentIds.includes(id));
-      const missing = currentIds.filter((id) => !filteredExisting.includes(id));
-      return [...filteredExisting, ...missing] as SearchGroupId[];
-    }, [dynamicSearchGroups, groupOrder]);
+    // Visible modes: only show selected modes (empty = show all)
+    const [visibleModes] = useSyncedPreferences<string[]>('scira-visible-modes', []);
+    const [modeOrderInner] = useSyncedPreferences<string[]>('scira-group-order', []);
 
     const orderedVisibleGroups = useMemo(() => {
       const order = mergedGroupOrder;
@@ -1507,6 +2750,162 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
       [orderedVisibleGroups, selectedGroup],
     );
 
+    const groupTooltipContent = useMemo(() => {
+      if (isExtreme) {
+        return (
+          <div className="grid gap-2 text-left">
+            <div className="flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <HugeiconsIcon icon={GlobalSearchIcon} size={16} color="currentColor" />
+              </div>
+              <p className="text-xs font-semibold text-foreground">Switch back to search modes</p>
+            </div>
+            <p className="text-xs leading-snug text-muted-foreground">
+              Choose a different search experience from the list.
+            </p>
+            {!isProUser && messageCountExceeded && (
+              <div className="grid gap-1.5 border-t border-border pt-2">
+                <p className="text-[11px] text-destructive/90">
+                  Daily limit reached ({SEARCH_LIMITS.DAILY_SEARCH_LIMIT} searches)
+                </p>
+                <a
+                  href="/pricing"
+                  className="group inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
+                >
+                  Upgrade for unlimited
+                  <ArrowUpRight className="size-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                </a>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      if (!selectedGroupData) {
+        return <p className="text-xs text-muted-foreground">Choose a search mode to get started.</p>;
+      }
+
+      return (
+        <div className="grid gap-2 text-left">
+          <div className="flex items-center gap-2">
+            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <FlexibleIcon icon={selectedGroupData.icon} size={16} color="currentColor" strokeWidth={2} />
+            </div>
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-semibold text-foreground">{selectedGroupData.name} Active</p>
+              {'requirePro' in selectedGroupData && selectedGroupData.requirePro && !isProUser && (
+                <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-primary/10 text-primary border border-primary/20">
+                  PRO
+                </span>
+              )}
+            </div>
+          </div>
+          <p className="text-xs leading-snug text-muted-foreground">{selectedGroupData.description}</p>
+          {!isProUser && usageData && (
+            <p className="text-[11px] text-muted-foreground/80">
+              {usageData.messageCount} / {SEARCH_LIMITS.DAILY_SEARCH_LIMIT} searches used today
+            </p>
+          )}
+          <p className="text-[11px] text-muted-foreground/80 italic">Click to switch search mode.</p>
+          {!isProUser && (
+            <div className="grid gap-1.5 border-t border-border pt-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <HugeiconsIcon icon={Crown02Icon} size={16} color="currentColor" strokeWidth={2} />
+                </div>
+                <span>
+                  {'requirePro' in selectedGroupData && selectedGroupData.requirePro
+                    ? 'Unlock with Pro'
+                    : 'Unlimited with Pro'}
+                </span>
+              </div>
+              <a
+                href="/pricing"
+                className="group inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
+              >
+                {'requirePro' in selectedGroupData && selectedGroupData.requirePro
+                  ? 'Explore pricing'
+                  : 'Upgrade to Pro'}
+                <ArrowUpRight className="size-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </a>
+            </div>
+          )}
+        </div>
+      );
+    }, [isExtreme, selectedGroupData, isProUser, messageCountExceeded, usageData]);
+
+    const extremeTooltipContent = useMemo(() => {
+      // Check if extreme search limit is exceeded
+      if (!isProUser && extremeSearchCountExceeded && !isExtreme) {
+        return (
+          <div className="grid gap-2 text-left">
+            <div className="flex items-center gap-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-destructive/10 text-destructive">
+                <HugeiconsIcon icon={AtomicPowerIcon} size={16} color="currentColor" strokeWidth={2} />
+              </div>
+              <p className="text-xs font-semibold text-foreground">Monthly Limit Reached</p>
+            </div>
+            <p className="text-xs leading-snug text-muted-foreground">
+              You've used {SEARCH_LIMITS.EXTREME_SEARCH_LIMIT} extreme searches this month.
+            </p>
+            <div className="grid gap-1.5 border-t border-border pt-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <HugeiconsIcon icon={Crown02Icon} size={16} color="currentColor" strokeWidth={2} />
+                </div>
+                <span>Unlimited with Pro</span>
+              </div>
+              <a
+                href="/pricing"
+                className="group inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
+              >
+                Upgrade to Pro
+                <ArrowUpRight className="size-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </a>
+            </div>
+          </div>
+        );
+      }
+
+      const title = isExtreme ? 'Extreme Search Active' : isAuthenticated ? 'Extreme Search' : 'Sign in Required';
+
+      return (
+        <div className="grid gap-2 text-left">
+          <div className="flex items-center gap-2">
+            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <HugeiconsIcon icon={AtomicPowerIcon} size={16} color="currentColor" strokeWidth={2} />
+            </div>
+            <p className="text-xs font-semibold text-foreground">{title}</p>
+          </div>
+          <p className="text-xs leading-snug text-muted-foreground">
+            Extreme research with multiple sources and in-depth analysis with 3x sources.
+          </p>
+          {!isProUser && usageData && (
+            <p className="text-[11px] text-muted-foreground/80">
+              {usageData.extremeSearchCount} / {SEARCH_LIMITS.EXTREME_SEARCH_LIMIT} used this month
+            </p>
+          )}
+          {!isProUser && (
+            <div className="grid gap-1.5 border-t border-border pt-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <HugeiconsIcon icon={Crown02Icon} size={16} color="currentColor" strokeWidth={2} />
+                </div>
+                <span>Unlimited with Pro</span>
+              </div>
+              <a
+                href="/pricing"
+                className="group inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
+              >
+                Explore pricing
+                <ArrowUpRight className="size-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </a>
+            </div>
+          )}
+        </div>
+      );
+    }, [isExtreme, isProUser, isAuthenticated, extremeSearchCountExceeded, usageData]);
+
     const handleToggleExtreme = useCallback(() => {
       if (isExtreme) {
         // Switch back to web mode
@@ -1519,6 +2918,12 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
         if (!isSignedIn) {
           // Redirect to sign in page
           window.location.href = '/sign-in';
+          return;
+        }
+
+        // Check if extreme search limit is exceeded (for non-Pro users)
+        if (!isProUser && extremeSearchCountExceeded) {
+          onShowUpgrade?.();
           return;
         }
 
@@ -1537,10 +2942,9 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
 
         if (selectedGroup) {
           // Check if this is a Pro-only group and user is not Pro
-          if ('requirePro' in selectedGroup && selectedGroup.requirePro && !isProUser && onOpenSettings) {
-            // Open settings to upgrade
-            onOpenSettings('subscription');
+          if ('requirePro' in selectedGroup && selectedGroup.requirePro && !isProUser) {
             setOpen(false);
+            onShowUpgrade?.();
             return;
           }
 
@@ -1599,11 +3003,12 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
 
     // Shared content component
     const GroupSelectionContent = () => (
-      <Command
-        className="rounded-lg"
-        filter={(value, search) => {
-          const group = visibleGroups.find((g) => g.id === value);
-          if (!group || !search) return 1;
+      <div className="p-2">
+        {/* Group grid */}
+        <div className="grid grid-cols-5 gap-1.5">
+          {orderedVisibleGroups.map((group) => {
+            const isGroupDisabled = !isProUser && messageCountExceeded && !('requirePro' in group && group.requirePro);
+            const isSelected = selectedGroup === group.id;
 
           const searchTerm = search.toLowerCase();
           const searchableFields = [group.name, group.description, group.id].join(' ').toLowerCase();
@@ -1635,23 +3040,45 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                       <span className="font-medium truncate text-[11px] text-foreground">{group.name}</span>
                       {/* Self-hosted: no PRO tag in search modes */}
                     </div>
-                    <div className="text-[9px] text-muted-foreground truncate leading-tight text-wrap!">
-                      {group.description}
-                    </div>
-                  </div>
-                </div>
-                <Check className={cn('ml-auto h-4 w-4', selectedGroup === group.id ? 'opacity-100' : 'opacity-0')} />
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        </CommandList>
-      </Command>
+
+                    {/* Name */}
+                    <span
+                      className={cn(
+                        'text-[9px] font-medium text-center leading-tight line-clamp-1',
+                        isSelected ? 'text-foreground' : 'text-muted-foreground',
+                      )}
+                    >
+                      {group.name}
+                    </span>
+
+                    {/* Badges */}
+                    {'requirePro' in group && group.requirePro && !isProUser && (
+                      <span className="inline-flex items-center px-1 rounded text-[7px] font-semibold bg-primary/10 text-primary">
+                        PRO
+                      </span>
+                    )}
+                    {isGroupDisabled && (
+                      <span className="inline-flex items-center px-1 rounded text-[7px] font-semibold bg-destructive/10 text-destructive">
+                        LIMIT
+                      </span>
+                    )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs max-w-[160px]">
+                  <p className="font-medium">{group.name}</p>
+                  <p className="text-primary-foreground/80 text-[10px] leading-snug">{group.description}</p>
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </div>
+      </div>
     );
 
     return (
       <div className="flex items-center">
         {/* Toggle Switch Container */}
-        <div className="flex items-center bg-background border border-accent/50 rounded-lg !gap-1 !py-1 !px-0.75 h-8">
+        <div className="flex items-center bg-background border border-accent/50 rounded-lg gap-1! py-1! px-0.75! h-8!">
           {/* Group Selector Side - Conditional Rendering for Mobile/Desktop */}
           {isMobile ? (
             <Drawer open={open} onOpenChange={handleOpenChange}>
@@ -1664,6 +3091,7 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                       aria-expanded={open}
                       size="sm"
                       onClick={handleGroupSelectorClick}
+                      disabled={!isProUser && !isExtreme && messageCountExceeded}
                       className={cn(
                         'flex items-center gap-1.5 !m-0 !px-1.5 h-6 !rounded-md transition-all cursor-pointer',
                         isMounted && !isExtreme
@@ -1742,17 +3170,18 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                               <span className="font-medium text-sm text-foreground">{group.name}</span>
                               {/* Self-hosted: no PRO label */}
                             </div>
-                            <div className="text-xs text-muted-foreground mt-0.5">{group.description}</div>
-                          </div>
+                            <div className="ml-3 flex items-center gap-1.5">
+                              <Check
+                                className={cn(
+                                  'h-5 w-5 shrink-0',
+                                  selectedGroup === group.id ? 'opacity-100' : 'opacity-0',
+                                )}
+                              />
+                            </div>
+                          </button>
                         </div>
-                        <Check
-                          className={cn(
-                            'ml-3 h-5 w-5 shrink-0',
-                            selectedGroup === group.id ? 'opacity-100' : 'opacity-0',
-                          )}
-                        />
-                      </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </DrawerContent>
@@ -1767,6 +3196,7 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                       role="combobox"
                       aria-expanded={open}
                       size="sm"
+                      disabled={!isProUser && !isExtreme && messageCountExceeded}
                       className={cn(
                         'flex items-center gap-1.5 !m-0 !px-1.5 h-6 !rounded-md transition-all cursor-pointer',
                         isMounted && !isExtreme
@@ -1821,7 +3251,7 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                 </TooltipContent>
               </Tooltip>
               <PopoverContent
-                className="w-[90vw] sm:w-[14em] max-w-[14em] p-0 font-sans rounded-lg bg-popover z-50 border !shadow-none"
+                className="w-[90vw] sm:w-auto p-0 font-sans rounded-lg bg-popover z-50 border shadow-none"
                 align="start"
                 side="bottom"
                 sideOffset={4}
@@ -1840,13 +3270,16 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                 variant="ghost"
                 size="sm"
                 onClick={handleToggleExtreme}
+                disabled={!isProUser && extremeSearchCountExceeded && !isExtreme}
                 className={cn(
                   'flex items-center gap-1.5 px-3 h-6 rounded-md transition-all',
                   isMounted && isExtreme
                     ? 'bg-accent text-foreground hover:bg-accent/80'
                     : !isSignedIn
                       ? 'text-muted-foreground/50 cursor-pointer'
-                      : 'text-muted-foreground hover:bg-accent',
+                      : !isProUser && extremeSearchCountExceeded
+                        ? 'text-muted-foreground/30 cursor-not-allowed'
+                        : 'text-muted-foreground hover:bg-accent',
                 )}
               >
                 {isMounted && <HugeiconsIcon icon={AtomicPowerIcon} size={30} color="#9ca3af" strokeWidth={2} />}
@@ -1909,10 +3342,22 @@ const FormComponent: React.FC<FormComponentProps> = ({
   setHasSubmitted,
   isLimitBlocked = false,
   onOpenSettings,
+  usageData,
   selectedConnectors = [],
   setSelectedConnectors,
+  isTemporaryChatEnabled,
+  isTemporaryChat,
+  isTemporaryChatLocked,
+  setIsTemporaryChatEnabled,
+  isMultiAgentModeEnabled = false,
+  setIsMultiAgentModeEnabled,
+  autoRoutedModel,
+  onBeforeSubmit,
 }) => {
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
+  const canvasEnabled = process.env.NEXT_PUBLIC_CANVAS_ENABLED === 'true';
+  const mcpEnabled = process.env.NEXT_PUBLIC_MCP_ENABLED === 'true';
+  const formQueryClient = useQueryClient();
   const isMounted = useRef(true);
   const isCompositionActive = useRef(false);
   const { t } = useLanguage();
@@ -1930,6 +3375,63 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const [isTypewriting, setIsTypewriting] = useState(false);
   const [showSignInDialog, setShowSignInDialog] = useState(false);
 
+  // Inline trigger popup state: '@' for sources, '/' for modes (extreme/connectors)
+  const [triggerPopup, setTriggerPopup] = useState<'@' | '/' | null>(null);
+  const [triggerFilter, setTriggerFilter] = useState('');
+  const [triggerHighlightIndex, setTriggerHighlightIndex] = useState(0);
+  const triggerPopupScrollRef = useRef<HTMLDivElement>(null);
+
+  // Autocomplete suggestions state
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestionIndex, setSuggestionIndex] = useState(-1);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestAbortRef = useRef<AbortController | null>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+
+  const [plusMenuOpen, setPlusMenuOpen] = useState(false);
+  const [plusMenuCanScroll, setPlusMenuCanScroll] = useState(true);
+  const plusMenuScrollRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+  const isMobile = useIsMobile();
+  const haptics = useWebHaptics();
+
+  useEffect(() => {
+    setInputRef.current = setInput;
+  }, [setInput]);
+
+  useEffect(() => {
+    latestInputRef.current = input;
+  }, [input]);
+
+  const handlePlusMenuScroll = useCallback(() => {
+    const el = plusMenuScrollRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 12;
+    setPlusMenuCanScroll(!atBottom);
+  }, []);
+
+  const handlePlusMenuOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      setPlusMenuOpen(nextOpen);
+      if (nextOpen) haptics.trigger('light');
+    },
+    [haptics],
+  );
+
+  // Reset scroll indicator when menu opens
+  useEffect(() => {
+    if (plusMenuOpen) {
+      setPlusMenuCanScroll(true);
+      // Check after render if content is actually scrollable
+      requestAnimationFrame(() => {
+        const el = plusMenuScrollRef.current;
+        if (el) {
+          setPlusMenuCanScroll(el.scrollHeight > el.clientHeight);
+        }
+      });
+    }
+  }, [plusMenuOpen]);
+
   // Combined state for animations to avoid restart issues
   const isEnhancementActive = isEnhancing || isTypewriting;
   const audioLinesRef = useRef<any>(null);
@@ -1945,6 +3447,131 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
   const hasInteracted = useMemo(() => messages.length > 0, [messages.length]);
 
+  // Search groups for the plus menu
+  const [searchProvider] = useSyncedPreferences<SearchProvider>('scira-search-provider', 'exa');
+  const dynamicSearchGroups = useMemo(() => getSearchGroups(searchProvider), [searchProvider]);
+  const [visibleModesOuter] = useSyncedPreferences<string[]>('scira-visible-modes', []);
+  const [modeOrderOuter] = useSyncedPreferences<string[]>('scira-group-order', []);
+  const isExtreme = selectedGroup === 'extreme';
+  const extremeSearchCountExceeded = Boolean(
+    !isProUser && usageData && usageData.extremeSearchCount >= SEARCH_LIMITS.EXTREME_SEARCH_LIMIT,
+  );
+
+  // Shared helper: sort groups by user-defined order (empty = default order)
+  const applyModeOrder = useCallback(
+    <T extends { id: string }>(groups: T[]): T[] => {
+      if (!modeOrderOuter || modeOrderOuter.length === 0) return groups;
+      const orderMap = new Map(modeOrderOuter.map((id, i) => [id, i]));
+      return [...groups].sort((a, b) => {
+        const ai = orderMap.get(a.id) ?? Infinity;
+        const bi = orderMap.get(b.id) ?? Infinity;
+        return ai - bi;
+      });
+    },
+    [modeOrderOuter],
+  );
+
+  const plusMenuGroups = useMemo(() => {
+    let filtered = dynamicSearchGroups.filter((group) => {
+      if (!group.show) return false;
+      if ('requireAuth' in group && group.requireAuth && !user) return false;
+      if (group.id === 'extreme' || group.id === 'canvas' || group.id === 'mcp') return false;
+      return true;
+    });
+    if (visibleModesOuter && visibleModesOuter.length > 0) {
+      const modeSet = new Set(visibleModesOuter);
+      filtered = filtered.filter((g) => modeSet.has(g.id));
+    }
+    return applyModeOrder(filtered);
+  }, [dynamicSearchGroups, visibleModesOuter, user, applyModeOrder]);
+
+  // Base groups for @ trigger (all visible groups)
+  const sourceGroups = useMemo(() => {
+    let allVisible = dynamicSearchGroups.filter((group) => {
+      if (!group.show) return false;
+      if ('requireAuth' in group && group.requireAuth && !user) return false;
+      if (group.id === 'extreme' || group.id === 'connectors' || group.id === 'canvas' || group.id === 'mcp')
+        return false;
+      return true;
+    });
+    if (visibleModesOuter && visibleModesOuter.length > 0) {
+      const modeSet = new Set(visibleModesOuter);
+      allVisible = allVisible.filter((g) => modeSet.has(g.id));
+    }
+    return applyModeOrder(allVisible);
+  }, [dynamicSearchGroups, visibleModesOuter, user, applyModeOrder]);
+
+  // Base groups for / trigger (extreme, apps, multi-agent, canvas)
+  const modeGroups = useMemo(() => {
+    const modeIds = new Set(['extreme', 'multi-agent']);
+    if (canvasEnabled) modeIds.add('canvas');
+    if (mcpEnabled) modeIds.add('mcp');
+    const filtered = dynamicSearchGroups.filter((group) => {
+      if (!group.show) return false;
+      return modeIds.has(group.id);
+    });
+    const order = ['extreme', 'mcp', 'multi-agent', 'canvas'];
+    return filtered.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+  }, [dynamicSearchGroups, canvasEnabled, mcpEnabled]);
+
+  useEffect(() => {
+    if (!setIsMultiAgentModeEnabled) return;
+    if (selectedGroup === 'multi-agent') {
+      if (!isEnhancing && !isTypewriting) {
+        setIsMultiAgentModeEnabled(true);
+      }
+      return;
+    }
+    setIsMultiAgentModeEnabled(false);
+  }, [selectedGroup, isEnhancing, isTypewriting, setIsMultiAgentModeEnabled]);
+
+  // Active group list based on which trigger is open
+  const triggerBaseGroups = triggerPopup === '/' ? modeGroups : sourceGroups;
+
+  const filteredTriggerGroups = useMemo(() => {
+    if (!triggerFilter) return triggerBaseGroups;
+    const lower = triggerFilter.toLowerCase();
+    return triggerBaseGroups.filter((g) => g.name.toLowerCase().includes(lower) || g.id.toLowerCase().includes(lower));
+  }, [triggerBaseGroups, triggerFilter]);
+
+  // Whether the temp/private toggle appears in the / trigger popup (only before chat starts)
+  const showTempInTrigger = useMemo(() => {
+    if (triggerPopup !== '/') return false;
+    if (!user || hasInteracted) return false;
+    if (!triggerFilter) return true;
+    const lower = triggerFilter.toLowerCase();
+    return 'temporary'.includes(lower) || 'private'.includes(lower);
+  }, [triggerPopup, user, hasInteracted, triggerFilter]);
+
+  const showMultiAgentInTrigger = useMemo(() => {
+    if (triggerPopup !== '/') return false;
+    if (!user || !setIsMultiAgentModeEnabled) return false;
+    const isAlreadyInModeGroups = filteredTriggerGroups.some((group) => group.id === 'multi-agent');
+    if (isAlreadyInModeGroups) return false;
+    if (!triggerFilter) return true;
+    const lower = triggerFilter.toLowerCase();
+    return 'multi-agent'.includes(lower) || 'multi agent'.includes(lower) || 'research'.includes(lower);
+  }, [triggerPopup, user, setIsMultiAgentModeEnabled, triggerFilter, filteredTriggerGroups]);
+
+  const triggerTotalItems =
+    filteredTriggerGroups.length + (showMultiAgentInTrigger ? 1 : 0) + (showTempInTrigger ? 1 : 0);
+
+  // Reset highlight when filter or trigger changes
+  useEffect(() => {
+    setTriggerHighlightIndex(0);
+  }, [triggerFilter, triggerPopup]);
+
+  // Auto-scroll highlighted item into view
+  useEffect(() => {
+    if (!triggerPopup) return;
+    const container = triggerPopupScrollRef.current;
+    if (!container) return;
+    const item = container.querySelector(`[data-at-index="${triggerHighlightIndex}"]`);
+    if (item) {
+      item.scrollIntoView({ block: 'nearest' });
+    }
+  }, [triggerHighlightIndex, triggerPopup]);
+
   const cleanupMediaRecorder = useCallback(() => {
     if (mediaRecorderRef.current?.stream) {
       mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
@@ -1957,25 +3584,38 @@ const FormComponent: React.FC<FormComponentProps> = ({
     isMounted.current = true;
     return () => {
       isMounted.current = false;
+      if (typewriterTimeoutRef.current) {
+        clearTimeout(typewriterTimeoutRef.current);
+        typewriterTimeoutRef.current = null;
+      }
+      // Persist progress so a transient remount can resume smoothly.
+      if (pendingTypewriterTargetRef.current) {
+        const target = pendingTypewriterTargetRef.current;
+        const typedLength = Math.min(target.length, Math.max(latestInputRef.current.length, 1));
+        pendingTypewriterResumeCache = {
+          target,
+          index: typedLength,
+          speed: typewriterSpeedRef.current,
+        };
+        pendingTypewriterTargetRef.current = null;
+      }
       cleanupMediaRecorder();
     };
   }, [cleanupMediaRecorder]);
 
   const handleEnhance = useCallback(async () => {
     if (!input || input.trim().length === 0) {
-      toast.error('Please enter a prompt to enhance');
+      haptics.trigger('error');
+      sileo.error({ title: 'Please enter a prompt to enhance' });
       return;
     }
     if (isProcessing || isEnhancing) return;
 
     const originalInput = input;
+    setIsEnhancing(true);
 
-    try {
-      setIsEnhancing(true);
-      toast.loading('Enhancing your prompt...', { id: 'enhance-prompt' });
-
+    const enhanceAsync = async () => {
       const result = await enhancePrompt(input);
-
       if (result?.success && result.enhanced) {
         // Set enhanced input
         setInput(result.enhanced);
@@ -1987,6 +3627,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
         setInput(originalInput);
         toast.error(result?.error || 'Failed to enhance prompt', { id: 'enhance-prompt' });
         setIsEnhancing(false);
+        haptics.trigger('success');
+        return result;
       }
     } catch (e) {
       setInput(originalInput);
@@ -1999,22 +3641,26 @@ const FormComponent: React.FC<FormComponentProps> = ({
     if (isRecording && mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
       cleanupMediaRecorder();
+      haptics.trigger('selection');
     } else {
       try {
         // Check if user is signed in
         if (!user) {
+          haptics.trigger('warning');
           setShowSignInDialog(true);
           return;
         }
 
         // Environment and feature checks
         if (typeof window === 'undefined') {
-          toast.error('Voice recording is only available in the browser.');
+          haptics.trigger('error');
+          sileo.error({ title: 'Voice recording is only available in the browser.' });
           return;
         }
 
         if (!navigator.mediaDevices?.getUserMedia) {
-          toast.error('Voice recording is not supported in this browser.');
+          haptics.trigger('error');
+          sileo.error({ title: 'Voice recording is not supported in this browser.' });
           return;
         }
 
@@ -2024,7 +3670,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
           if (permApi?.query) {
             const status = await permApi.query({ name: 'microphone' as any });
             if (status?.state === 'denied') {
-              toast.error('Microphone access is denied. Enable it in your browser settings.');
+              haptics.trigger('error');
+              sileo.error({ title: 'Microphone access is denied. Enable it in your browser settings.' });
               return;
             }
           }
@@ -2090,7 +3737,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
               }
             } catch (error) {
               console.error('Error during transcription request:', error);
-              toast.error('Failed to transcribe audio. Please try again.');
+              haptics.trigger('error');
+              sileo.error({ title: 'Failed to transcribe audio. Please try again.' });
             } finally {
               cleanupMediaRecorder();
             }
@@ -2099,7 +3747,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
         recorder.addEventListener('error', (e) => {
           console.error('MediaRecorder error:', e);
-          toast.error('Recording failed. Please try again or switch browser.');
+          haptics.trigger('error');
+          sileo.error({ title: 'Recording failed. Please try again or switch browser.' });
           cleanupMediaRecorder();
         });
 
@@ -2109,27 +3758,132 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
         recorder.start();
         setIsRecording(true);
+        haptics.trigger('medium');
       } catch (error) {
         console.error('Error accessing microphone:', error);
-        toast.error('Could not access microphone. Please allow mic permission.');
+        haptics.trigger('error');
+        sileo.error({ title: 'Could not access microphone. Please allow mic permission.' });
         setIsRecording(false);
       }
     }
-  }, [isRecording, cleanupMediaRecorder, setInput, user, setShowSignInDialog]);
+  }, [isRecording, cleanupMediaRecorder, setInput, user, setShowSignInDialog, haptics]);
+
+  // Autocomplete: in-memory cache for instant repeat lookups
+  const suggestCacheRef = useRef<Map<string, string[]>>(new Map());
+
+  const fetchSuggestions = useCallback(
+    async (query: string) => {
+      const q = query.trim().toLowerCase();
+      if (hasInteracted || q.length < 1 || triggerPopup !== null) {
+        setSuggestions([]);
+        setShowSuggestions(false);
+        return;
+      }
+
+      // Instant hit from memory cache
+      const cached = suggestCacheRef.current.get(q);
+      if (cached) {
+        setSuggestions(cached);
+        setSuggestionIndex(-1);
+        setShowSuggestions(cached.length > 0);
+        return;
+      }
+
+      // Abort any in-flight request
+      suggestAbortRef.current?.abort();
+      const controller = new AbortController();
+      suggestAbortRef.current = controller;
+
+      try {
+        const res = await fetch(`/api/suggest?q=${encodeURIComponent(q)}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error('suggest failed');
+        const data = await res.json();
+        const items: string[] = Array.isArray(data?.suggestions) ? data.suggestions : [];
+        if (!controller.signal.aborted) {
+          // Cache the result (cap at 200 entries to avoid memory leak)
+          if (suggestCacheRef.current.size > 200) {
+            const firstKey = suggestCacheRef.current.keys().next().value;
+            if (firstKey) suggestCacheRef.current.delete(firstKey);
+          }
+          suggestCacheRef.current.set(q, items);
+          setSuggestions(items);
+          setSuggestionIndex(-1);
+          setShowSuggestions(items.length > 0);
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setSuggestions([]);
+          setShowSuggestions(false);
+        }
+      }
+    },
+    [hasInteracted, triggerPopup],
+  );
+
+  const suggestDebouncer = useDebouncer(fetchSuggestions, { wait: 50, key: 'autocomplete' });
+
+  // Cleanup abort controller on unmount
+  useEffect(() => {
+    return () => {
+      suggestAbortRef.current?.abort();
+    };
+  }, []);
+
+  // Hide suggestions when messages appear (conversation started)
+  useEffect(() => {
+    if (hasInteracted) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      suggestAbortRef.current?.abort();
+    }
+  }, [hasInteracted]);
 
   const handleInput = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>) => {
       event.preventDefault();
       const newValue = event.target.value;
+      const cursorPos = event.target.selectionStart ?? newValue.length;
 
       if (newValue.length > MAX_INPUT_CHARS) {
         setInput(newValue);
-        toast.error(`Your input exceeds the maximum of ${MAX_INPUT_CHARS} characters.`);
+        sileo.error({ title: `Your input exceeds the maximum of ${MAX_INPUT_CHARS} characters.` });
       } else {
         setInput(newValue);
       }
+
+      // Detect @ or / trigger for inline popup
+      // Walk backwards from cursor to find an active trigger character
+      let foundTrigger: '@' | '/' | null = null;
+      let triggerPos = -1;
+      for (let i = cursorPos - 1; i >= 0; i--) {
+        if (newValue[i] === '@' || newValue[i] === '/') {
+          // Trigger must be at start of input or preceded by whitespace
+          if (i === 0 || /\s/.test(newValue[i - 1])) {
+            foundTrigger = newValue[i] as '@' | '/';
+            triggerPos = i;
+          }
+          break;
+        }
+        // Stop at whitespace — no trigger in this word
+        if (/\s/.test(newValue[i])) break;
+      }
+
+      if (foundTrigger && triggerPos !== -1) {
+        const filter = newValue.slice(triggerPos + 1, cursorPos);
+        setTriggerFilter(filter);
+        setTriggerPopup(foundTrigger);
+        // Hide autocomplete when trigger popup is active
+        setShowSuggestions(false);
+      } else {
+        setTriggerPopup(null);
+        setTriggerFilter('');
+        // Trigger autocomplete fetch (debounced)
+        suggestDebouncer.maybeExecute(newValue);
+      }
     },
-    [setInput],
+    [setInput, suggestDebouncer],
   );
 
   const handleGroupSelect = useCallback(
@@ -2139,10 +3893,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
         // Auto-switch to extreme-enabled model when extreme mode is selected
         if (group.id === 'extreme' && !supportsExtremeMode(selectedModel)) {
-          // Get all available models and filter for extreme support
-          const allModels = models;
-          const extremeModels = allModels.filter((model) => {
-            // Check if model supports extreme mode
+          const extremeModels = models.filter((model) => {
             if (!supportsExtremeMode(model.value)) return false;
 
             // Check authentication requirement
@@ -2166,7 +3917,11 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
             console.log(`Auto-switching to extreme-enabled model '${targetModel.value}' for extreme mode`);
             setSelectedModel(targetModel.value);
-            toast.info(`Switched to ${targetModel.label} for extreme mode`);
+            sileo.info({
+              title: `Switched to ${targetModel.label} for extreme mode`,
+              description: 'Model automatically changed for extreme search',
+              icon: <Zap className="h-4 w-4" />,
+            });
           }
         }
 
@@ -2175,6 +3930,140 @@ const FormComponent: React.FC<FormComponentProps> = ({
     },
     [setSelectedGroup, inputRef, isEnhancing, isTypewriting, selectedModel, setSelectedModel, user, isProUser],
   );
+
+  // Handle trigger popup group selection: switch mode + strip the trigger text from input
+  const handleTriggerSelect = useCallback(
+    (group: SearchGroup) => {
+      // Check pro requirement
+      if ('requirePro' in group && group.requirePro && !isProUser) {
+        setTriggerPopup(null);
+        setTriggerFilter('');
+        setShowUpgradeDialog(true);
+        return;
+      }
+
+      handleGroupSelect(group);
+
+      // Strip the trigger text (@ or /) from input
+      const trigger = triggerPopup;
+      const textarea = inputRef.current;
+      if (textarea && trigger) {
+        const val = textarea.value;
+        const cursorPos = textarea.selectionStart ?? val.length;
+        // Walk backwards from cursor to find the trigger character
+        let tPos = -1;
+        for (let i = cursorPos - 1; i >= 0; i--) {
+          if (val[i] === trigger) {
+            tPos = i;
+            break;
+          }
+          if (val[i] === ' ' || val[i] === '\n') break;
+        }
+        if (tPos !== -1) {
+          const before = val.slice(0, tPos);
+          const after = val.slice(cursorPos);
+          const newVal = (before + after).trimStart();
+          setInput(newVal);
+          requestAnimationFrame(() => {
+            if (inputRef.current) {
+              const newPos = Math.min(tPos, newVal.length);
+              inputRef.current.setSelectionRange(newPos, newPos);
+              inputRef.current.focus();
+            }
+          });
+        }
+      }
+
+      setTriggerPopup(null);
+      setTriggerFilter('');
+    },
+    [handleGroupSelect, inputRef, setInput, isProUser, triggerPopup],
+  );
+
+  // Handle temp/private toggle from / trigger popup
+  const handleTriggerTempSelect = useCallback(() => {
+    if (!isTemporaryChatLocked) {
+      setIsTemporaryChatEnabled((prev: boolean) => !prev);
+    }
+
+    // Strip the trigger text (/) from input
+    const trigger = triggerPopup;
+    const textarea = inputRef.current;
+    if (textarea && trigger) {
+      const val = textarea.value;
+      const cursorPos = textarea.selectionStart ?? val.length;
+      let tPos = -1;
+      for (let i = cursorPos - 1; i >= 0; i--) {
+        if (val[i] === trigger) {
+          tPos = i;
+          break;
+        }
+        if (val[i] === ' ' || val[i] === '\n') break;
+      }
+      if (tPos !== -1) {
+        const before = val.slice(0, tPos);
+        const after = val.slice(cursorPos);
+        const newVal = (before + after).trimStart();
+        setInput(newVal);
+        requestAnimationFrame(() => {
+          if (inputRef.current) {
+            const newPos = Math.min(tPos, newVal.length);
+            inputRef.current.setSelectionRange(newPos, newPos);
+            inputRef.current.focus();
+          }
+        });
+      }
+    }
+
+    setTriggerPopup(null);
+    setTriggerFilter('');
+  }, [isTemporaryChatLocked, setIsTemporaryChatEnabled, triggerPopup, inputRef, setInput]);
+
+  const handleTriggerMultiAgentSelect = useCallback(() => {
+    if (!setIsMultiAgentModeEnabled) return;
+
+    if (!isProUser) {
+      setTriggerPopup(null);
+      setTriggerFilter('');
+      setShowUpgradeDialog(true);
+      return;
+    }
+
+    const isTurningOff = selectedGroup === 'multi-agent' || isMultiAgentModeEnabled;
+    setSelectedGroup(isTurningOff ? 'web' : 'multi-agent');
+    setIsMultiAgentModeEnabled(!isTurningOff);
+
+    const trigger = triggerPopup;
+    const textarea = inputRef.current;
+    if (textarea && trigger) {
+      const val = textarea.value;
+      const cursorPos = textarea.selectionStart ?? val.length;
+      let tPos = -1;
+      for (let i = cursorPos - 1; i >= 0; i--) {
+        if (val[i] === trigger) {
+          tPos = i;
+          break;
+        }
+        if (val[i] === ' ' || val[i] === '\n') break;
+      }
+      if (tPos !== -1) {
+        const before = val.slice(0, tPos);
+        const after = val.slice(cursorPos);
+        const newVal = (before + after).trimStart();
+        setInput(newVal);
+        requestAnimationFrame(() => {
+          if (inputRef.current) {
+            const newPos = Math.min(tPos, newVal.length);
+            inputRef.current.setSelectionRange(newPos, newPos);
+            inputRef.current.focus();
+          }
+        });
+      }
+    }
+
+    setTriggerPopup(null);
+    setTriggerFilter('');
+  }, [setIsMultiAgentModeEnabled, isProUser, triggerPopup, inputRef, setInput, setShowUpgradeDialog, setSelectedGroup]);
 
   const handleConnectorToggle = useCallback(
     (provider: ConnectorProvider) => {
@@ -2191,29 +4080,118 @@ const FormComponent: React.FC<FormComponentProps> = ({
     [setSelectedConnectors],
   );
 
-  const uploadFile = useCallback(async (file: File): Promise<Attachment> => {
-    const formData = new FormData();
-    formData.append('file', file);
+  // Plus menu group select with pro/auth/connector guards
+  const handlePlusMenuGroupSelect = useCallback(
+    async (group: SearchGroup) => {
+      // Check if this is a Pro-only group and user is not Pro
+      if ('requirePro' in group && group.requirePro && !isProUser) {
+        haptics.trigger('warning');
+        setPlusMenuOpen(false);
+        setShowUpgradeDialog(true);
+        return;
+      }
 
+      // Check if connectors group is selected but no connectors are connected
+      if (group.id === 'connectors' && user && onOpenSettings && isProUser) {
+        try {
+          const result = await listUserConnectorsAction();
+          if (result.success && result.connections.length === 0) {
+            onOpenSettings('connectors');
+            setPlusMenuOpen(false);
+            return;
+          }
+        } catch (error) {
+          console.error('Error checking connectors:', error);
+        }
+      }
+
+      haptics.trigger('selection');
+      handleGroupSelect(group);
+      setPlusMenuOpen(false);
+    },
+    [isProUser, user, onOpenSettings, handleGroupSelect, haptics],
+  );
+
+  // Deep research (extreme) toggle from plus menu
+  const handlePlusMenuExtreme = useCallback(() => {
+    if (isExtreme) {
+      haptics.trigger('selection');
+      // Switch back to web mode
+      const webGroup = dynamicSearchGroups.find((g) => g.id === 'web');
+      if (webGroup) handleGroupSelect(webGroup);
+    } else {
+      if (!user) {
+        haptics.trigger('warning');
+        window.location.href = '/sign-in';
+        setPlusMenuOpen(false);
+        return;
+      }
+      if (!isProUser && extremeSearchCountExceeded) {
+        haptics.trigger('warning');
+        setPlusMenuOpen(false);
+        setShowUpgradeDialog(true);
+        return;
+      }
+      haptics.trigger('selection');
+      const extremeGroup = dynamicSearchGroups.find((g) => g.id === 'extreme');
+      if (extremeGroup) handleGroupSelect(extremeGroup);
+    }
+    setPlusMenuOpen(false);
+  }, [isExtreme, dynamicSearchGroups, handleGroupSelect, user, isProUser, extremeSearchCountExceeded, haptics]);
+
+  const uploadFile = useCallback(async (file: File): Promise<Attachment> => {
     try {
       console.log('Uploading file:', file.name, file.type, file.size);
-      const response = await fetch('/api/upload', {
+
+      // Step 1: Get presigned URL from our API
+      const presignResponse = await fetch('/api/upload', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filename: file.name,
+          contentType: file.type,
+          size: file.size,
+        }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Upload successful:', data);
-        return data;
-      } else {
-        const errorText = await response.text();
-        console.error('Upload failed with status:', response.status, errorText);
-        throw new Error(`Failed to upload file: ${response.status} ${errorText}`);
+      if (!presignResponse.ok) {
+        const errorText = await presignResponse.text();
+        console.error('Failed to get presigned URL:', presignResponse.status, errorText);
+        throw new Error(`Failed to get upload URL: ${presignResponse.status} ${errorText}`);
       }
+
+      const { presignedUrl, url } = await presignResponse.json();
+
+      // Step 2: Upload directly to R2 using presigned URL
+      const uploadResponse = await fetch(presignedUrl, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        console.error('Direct upload failed:', uploadResponse.status);
+        throw new Error(`Failed to upload file: ${uploadResponse.status}`);
+      }
+
+      console.log('Upload successful:', url);
+      return {
+        name: file.name,
+        contentType: file.type,
+        url,
+        size: file.size,
+      };
     } catch (error) {
       console.error('Error uploading file:', error);
-      toast.error(`Failed to upload ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      sileo.error({
+        title: `Failed to upload ${file.name}`,
+        description: error instanceof Error ? error.message : 'Unknown error',
+        icon: <X className="h-4 w-4" />,
+      });
       throw error;
     }
   }, []);
@@ -2233,12 +4211,21 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
       const imageFiles: File[] = [];
       const pdfFiles: File[] = [];
+      const documentFiles: File[] = []; // CSV, DOCX, XLSX for file_query_search
       const unsupportedFiles: File[] = [];
       const oversizedFiles: File[] = [];
       const blockedPdfFiles: File[] = [];
 
+      // Supported document types for file_query_search tool
+      const documentMimeTypes = [
+        'text/csv',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+        'application/vnd.ms-excel', // .xls
+      ];
+
       files.forEach((file) => {
-        if (file.size > MAX_FILE_SIZE) {
+        if (file.size > getMaxSizeForFile(file)) {
           oversizedFiles.push(file);
           return;
         }
@@ -2251,6 +4238,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
           } else {
             pdfFiles.push(file);
           }
+        } else if (documentMimeTypes.includes(file.type)) {
+          documentFiles.push(file);
         } else {
           unsupportedFiles.push(file);
         }
@@ -2261,7 +4250,11 @@ const FormComponent: React.FC<FormComponentProps> = ({
           'Unsupported files:',
           unsupportedFiles.map((f) => `${f.name} (${f.type})`),
         );
-        toast.error(`Some files are not supported: ${unsupportedFiles.map((f) => f.name).join(', ')}`);
+        sileo.error({
+          title: `Some files are not supported`,
+          description: unsupportedFiles.map((f) => f.name).join(', '),
+          icon: <FileText className="h-4 w-4" />,
+        });
       }
 
       if (blockedPdfFiles.length > 0) {
@@ -2269,44 +4262,22 @@ const FormComponent: React.FC<FormComponentProps> = ({
           'Blocked PDF files for non-Pro user:',
           blockedPdfFiles.map((f) => f.name),
         );
-        toast.error(`PDF uploads require Pro subscription. Upgrade to access PDF analysis.`, {
-          action: {
-            label: 'Upgrade',
-            onClick: () => (window.location.href = '/pricing'),
-          },
+        sileo.error({
+          title: 'PDF uploads require Pro subscription',
+          description: 'Upgrade to access PDF analysis',
+          icon: <Lock className="h-4 w-4" />,
         });
       }
 
-      if (imageFiles.length === 0 && pdfFiles.length === 0) {
+      if (imageFiles.length === 0 && pdfFiles.length === 0 && documentFiles.length === 0) {
         console.log('No supported files found');
         event.target.value = '';
         return;
       }
 
-      const currentModelData = models.find((m) => m.value === selectedModel);
-      if (pdfFiles.length > 0 && (!currentModelData || !currentModelData.pdf)) {
-        console.log('PDFs detected, switching to compatible model');
-
-        const compatibleModel = models.find((m) => m.pdf && m.vision);
-
-        if (compatibleModel) {
-          console.log('Switching to compatible model:', compatibleModel.value);
-          setSelectedModel(compatibleModel.value);
-        } else {
-          console.warn('No PDF-compatible model found');
-          toast.error('PDFs are only supported by Gemini and Claude models');
-
-          if (imageFiles.length === 0) {
-            event.target.value = '';
-            return;
-          }
-        }
-      }
-
-      let validFiles: File[] = [...imageFiles];
-      if (hasPdfSupport(selectedModel) || pdfFiles.length > 0) {
-        validFiles = [...validFiles, ...pdfFiles];
-      }
+      // PDFs are always processed via file_query_search tool (works with any model)
+      // No need to switch models - PDF content is extracted and searched via the tool
+      let validFiles: File[] = [...imageFiles, ...documentFiles, ...pdfFiles];
 
       console.log(
         'Valid files for upload:',
@@ -2315,7 +4286,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
       const totalAttachments = attachments.length + validFiles.length;
       if (totalAttachments > MAX_FILES) {
-        toast.error(`You can only attach up to ${MAX_FILES} files.`);
+        sileo.error({ title: `You can only attach up to ${MAX_FILES} files.` });
         event.target.value = '';
         return;
       }
@@ -2324,35 +4295,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
         console.error('No valid files to upload');
         event.target.value = '';
         return;
-      }
-
-      if (imageFiles.length > 0) {
-        try {
-          console.log('Checking image moderation for', imageFiles.length, 'images');
-          toast.info('Checking images for safety...');
-
-          const imageDataURLs = await Promise.all(imageFiles.map((file) => fileToDataURL(file)));
-
-          const moderationResult = await checkImageModeration(imageDataURLs);
-          console.log('Moderation result:', moderationResult);
-
-          if (moderationResult !== 'safe') {
-            const [status, category] = moderationResult.split('\n');
-            if (status === 'unsafe') {
-              console.warn('Unsafe image detected, category:', category);
-              toast.error(`Image content violates safety guidelines (${category}). Please choose different images.`);
-              event.target.value = '';
-              return;
-            }
-          }
-
-          console.log('Images passed moderation check');
-        } catch (error) {
-          console.error('Error during image moderation:', error);
-          toast.error('Unable to verify image safety. Please try again.');
-          event.target.value = '';
-          return;
-        }
       }
 
       setUploadQueue(validFiles.map((file) => file.name));
@@ -2377,15 +4319,25 @@ const FormComponent: React.FC<FormComponentProps> = ({
         if (uploadedAttachments.length > 0) {
           setAttachments((currentAttachments) => [...currentAttachments, ...uploadedAttachments]);
 
-          toast.success(
-            `${uploadedAttachments.length} file${uploadedAttachments.length > 1 ? 's' : ''} uploaded successfully`,
-          );
+          sileo.success({
+            title: `${uploadedAttachments.length} file${uploadedAttachments.length > 1 ? 's' : ''} uploaded successfully`,
+            description: 'Your files are ready to use',
+            icon: <Upload className="h-4 w-4" />,
+          });
         } else {
-          toast.error('No files were successfully uploaded');
+          sileo.error({
+            title: 'No files were successfully uploaded',
+            description: 'Please check your files and try again',
+            icon: <X className="h-4 w-4" />,
+          });
         }
       } catch (error) {
         console.error('Error uploading files!', error);
-        toast.error('Failed to upload one or more files. Please try again.');
+        sileo.error({
+          title: 'Failed to upload one or more files',
+          description: 'Please try again',
+          icon: <X className="h-4 w-4" />,
+        });
       } finally {
         setUploadQueue([]);
         event.target.value = '';
@@ -2395,10 +4347,30 @@ const FormComponent: React.FC<FormComponentProps> = ({
   );
 
   const removeAttachment = useCallback(
-    (index: number) => {
+    async (index: number) => {
+      // Get the attachment to delete
+      const attachmentToDelete = attachments[index];
+
+      // Delete from R2 storage if it's an uploaded file (has mplx/ in the path)
+      if (attachmentToDelete?.url && attachmentToDelete.url.includes('/scira/')) {
+        try {
+          await fetch('/api/upload', {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ url: attachmentToDelete.url }),
+          });
+        } catch (error) {
+          console.error('Failed to delete file from storage:', error);
+          // Continue with local removal even if API call fails
+        }
+      }
+
+      // Remove from state
       setAttachments((prev) => prev.filter((_, i) => i !== index));
     },
-    [setAttachments],
+    [attachments, setAttachments],
   );
 
   const handleDragOver = useCallback(
@@ -2441,22 +4413,31 @@ const FormComponent: React.FC<FormComponentProps> = ({
       );
 
       if (allFiles.length === 0) {
-        toast.error('No files detected in drop');
+        sileo.error({ title: 'No files detected in drop' });
         return;
       }
 
-      toast.info(`Detected ${allFiles.length} dropped files`);
+      sileo.info({ title: `Detected ${allFiles.length} dropped files` });
 
       const imageFiles: File[] = [];
       const pdfFiles: File[] = [];
+      const documentFiles: File[] = []; // CSV, DOCX, XLSX for file_query_search
       const unsupportedFiles: File[] = [];
       const oversizedFiles: File[] = [];
       const blockedPdfFiles: File[] = [];
 
+      // Supported document types for file_query_search tool
+      const documentMimeTypes = [
+        'text/csv',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+        'application/vnd.ms-excel', // .xls
+      ];
+
       allFiles.forEach((file) => {
         console.log(`Processing file: ${file.name} (${file.type})`);
 
-        if (file.size > MAX_FILE_SIZE) {
+        if (file.size > getMaxSizeForFile(file)) {
           oversizedFiles.push(file);
           return;
         }
@@ -2469,13 +4450,15 @@ const FormComponent: React.FC<FormComponentProps> = ({
           } else {
             pdfFiles.push(file);
           }
+        } else if (documentMimeTypes.includes(file.type)) {
+          documentFiles.push(file);
         } else {
           unsupportedFiles.push(file);
         }
       });
 
       console.log(
-        `Images: ${imageFiles.length}, PDFs: ${pdfFiles.length}, Unsupported: ${unsupportedFiles.length}, Oversized: ${oversizedFiles.length}`,
+        `Images: ${imageFiles.length}, PDFs: ${pdfFiles.length}, Documents: ${documentFiles.length}, Unsupported: ${unsupportedFiles.length}, Oversized: ${oversizedFiles.length}`,
       );
 
       if (unsupportedFiles.length > 0) {
@@ -2483,7 +4466,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
           'Unsupported files:',
           unsupportedFiles.map((f) => `${f.name} (${f.type})`),
         );
-        toast.error(`Some files not supported: ${unsupportedFiles.map((f) => f.name).join(', ')}`);
+        sileo.error({ title: `Some files not supported: ${unsupportedFiles.map((f) => f.name).join(', ')}` });
       }
 
       if (oversizedFiles.length > 0) {
@@ -2491,7 +4474,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
           'Oversized files:',
           oversizedFiles.map((f) => `${f.name} (${f.size} bytes)`),
         );
-        toast.error(`Some files exceed the 5MB limit: ${oversizedFiles.map((f) => f.name).join(', ')}`);
+        sileo.error({ title: `Some files exceed the 5MB limit: ${oversizedFiles.map((f) => f.name).join(', ')}` });
       }
 
       if (blockedPdfFiles.length > 0) {
@@ -2499,40 +4482,25 @@ const FormComponent: React.FC<FormComponentProps> = ({
           'Blocked PDF files for non-Pro user:',
           blockedPdfFiles.map((f) => f.name),
         );
-        toast.error(`PDF uploads require Pro subscription. Upgrade to access PDF analysis.`, {
-          action: {
-            label: 'Upgrade',
-            onClick: () => (window.location.href = '/pricing'),
-          },
+        sileo.error({
+          title: 'PDF uploads require Pro subscription',
+          description: 'Upgrade to access PDF analysis',
+          icon: <Lock className="h-4 w-4" />,
         });
       }
 
-      if (imageFiles.length === 0 && pdfFiles.length === 0) {
-        toast.error('Only image and PDF files are supported');
+      if (imageFiles.length === 0 && pdfFiles.length === 0 && documentFiles.length === 0) {
+        sileo.error({
+          title: 'Unsupported file type',
+          description: 'Only image, PDF, and document files (CSV, DOCX, XLSX) are supported',
+          icon: <FileText className="h-4 w-4" />,
+        });
         return;
       }
 
-      const currentModelData = models.find((m) => m.value === selectedModel);
-      if (pdfFiles.length > 0 && (!currentModelData || !currentModelData.pdf)) {
-        console.log('PDFs detected, switching to compatible model');
-
-        const compatibleModel = models.find((m) => m.pdf && m.vision);
-
-        if (compatibleModel) {
-          console.log('Switching to compatible model:', compatibleModel.value);
-          setSelectedModel(compatibleModel.value);
-          toast.info(`Switching to ${compatibleModel.label} to support PDF files`);
-        } else {
-          console.warn('No PDF-compatible model found');
-          toast.error('PDFs are only supported by Gemini and Claude models');
-          if (imageFiles.length === 0) return;
-        }
-      }
-
-      let validFiles: File[] = [...imageFiles];
-      if (hasPdfSupport(selectedModel) || pdfFiles.length > 0) {
-        validFiles = [...validFiles, ...pdfFiles];
-      }
+      // PDFs are always processed via file_query_search tool (works with any model)
+      // No need to switch models - PDF content is extracted and searched via the tool
+      let validFiles: File[] = [...imageFiles, ...documentFiles, ...pdfFiles];
 
       console.log(
         'Files to upload:',
@@ -2541,63 +4509,26 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
       const totalAttachments = attachments.length + validFiles.length;
       if (totalAttachments > MAX_FILES) {
-        toast.error(`You can only attach up to ${MAX_FILES} files.`);
+        sileo.error({ title: `You can only attach up to ${MAX_FILES} files.` });
         return;
       }
 
       if (validFiles.length === 0) {
         console.error('No valid files to upload after filtering');
-        toast.error('No valid files to upload');
+        sileo.error({ title: 'No valid files to upload' });
         return;
       }
 
-      if (imageFiles.length > 0) {
-        try {
-          console.log('Checking image moderation for', imageFiles.length, 'images');
-          toast.info('Checking images for safety...');
-
-          const imageDataURLs = await Promise.all(imageFiles.map((file) => fileToDataURL(file)));
-
-          const moderationResult = await checkImageModeration(imageDataURLs);
-          console.log('Moderation result:', moderationResult);
-
-          if (moderationResult !== 'safe') {
-            const [status, category] = moderationResult.split('\n');
-            if (status === 'unsafe') {
-              console.warn('Unsafe image detected, category:', category);
-              toast.error(`Image content violates safety guidelines (${category}). Please choose different images.`);
-              return;
-            }
-          }
-
-          console.log('Images passed moderation check');
-        } catch (error) {
-          console.error('Error during image moderation:', error);
-          toast.error('Unable to verify image safety. Please try again.');
-          return;
-        }
-      }
-
-      if (!currentModelData?.vision) {
-        let visionModel: string;
-
-        if (pdfFiles.length > 0) {
-          const pdfCompatibleModel = models.find((m) => m.vision && m.pdf);
-          if (pdfCompatibleModel) {
-            visionModel = pdfCompatibleModel.value;
-          } else {
-            visionModel = getFirstVisionModel();
-          }
-        } else {
-          visionModel = getFirstVisionModel();
-        }
-
+      // Only switch to vision model if there are images (not for document-only uploads)
+      const currentModelData = models.find((m) => m.value === selectedModel);
+      if (!currentModelData?.vision && imageFiles.length > 0) {
+        const visionModel = getFirstVisionModel();
         console.log('Switching to vision model:', visionModel);
         setSelectedModel(visionModel);
       }
 
       setUploadQueue(validFiles.map((file) => file.name));
-      toast.info(`Starting upload of ${validFiles.length} files...`);
+      sileo.info({ title: `Starting upload of ${validFiles.length} files...` });
 
       setTimeout(async () => {
         try {
@@ -2620,15 +4551,15 @@ const FormComponent: React.FC<FormComponentProps> = ({
           if (uploadedAttachments.length > 0) {
             setAttachments((currentAttachments) => [...currentAttachments, ...uploadedAttachments]);
 
-            toast.success(
-              `${uploadedAttachments.length} file${uploadedAttachments.length > 1 ? 's' : ''} uploaded successfully`,
-            );
+            sileo.success({
+              title: `${uploadedAttachments.length} file${uploadedAttachments.length > 1 ? 's' : ''} uploaded successfully`,
+            });
           } else {
-            toast.error('No files were successfully uploaded');
+            sileo.error({ title: 'No files were successfully uploaded' });
           }
         } catch (error) {
           console.error('Error during file upload:', error);
-          toast.error('Upload failed. Please check console for details.');
+          sileo.error({ title: 'Upload failed. Please check console for details.' });
         } finally {
           setUploadQueue([]);
         }
@@ -2648,21 +4579,25 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
       const totalAttachments = attachments.length + imageItems.length;
       if (totalAttachments > MAX_FILES) {
-        toast.error(`You can only attach up to ${MAX_FILES} files.`);
+        sileo.error({ title: `You can only attach up to ${MAX_FILES} files.` });
         return;
       }
 
       const files = imageItems.map((item) => item.getAsFile()).filter(Boolean) as File[];
-      const oversizedFiles = files.filter((file) => file.size > MAX_FILE_SIZE);
+      const oversizedFiles = files.filter((file) => file.size > getMaxSizeForFile(file));
 
       if (oversizedFiles.length > 0) {
         console.log(
           'Oversized files:',
           oversizedFiles.map((f) => `${f.name} (${f.size} bytes)`),
         );
-        toast.error(`Some files exceed the 5MB limit: ${oversizedFiles.map((f) => f.name || 'unnamed').join(', ')}`);
+        sileo.error({
+          title: 'Some files exceed the size limit',
+          description: oversizedFiles.map((f) => f.name || 'unnamed').join(', '),
+          icon: <AlertCircle className="h-4 w-4" />,
+        });
 
-        const validFiles = files.filter((file) => file.size <= MAX_FILE_SIZE);
+        const validFiles = files.filter((file) => file.size <= getMaxSizeForFile(file));
         if (validFiles.length === 0) return;
       }
 
@@ -2672,49 +4607,24 @@ const FormComponent: React.FC<FormComponentProps> = ({
         setSelectedModel(visionModel);
       }
 
-      const filesToUpload = oversizedFiles.length > 0 ? files.filter((file) => file.size <= MAX_FILE_SIZE) : files;
-
-      if (filesToUpload.length > 0) {
-        try {
-          console.log('Checking image moderation for', filesToUpload.length, 'pasted images');
-          toast.info('Checking pasted images for safety...');
-
-          const imageDataURLs = await Promise.all(filesToUpload.map((file) => fileToDataURL(file)));
-
-          const moderationResult = await checkImageModeration(imageDataURLs);
-          console.log('Moderation result:', moderationResult);
-
-          if (moderationResult !== 'safe') {
-            const [status, category] = moderationResult.split('\n');
-            if (status === 'unsafe') {
-              console.warn('Unsafe pasted image detected, category:', category);
-              toast.error(
-                `Pasted image content violates safety guidelines (${category}). Please choose different images.`,
-              );
-              return;
-            }
-          }
-
-          console.log('Pasted images passed moderation check');
-        } catch (error) {
-          console.error('Error during pasted image moderation:', error);
-          toast.error('Unable to verify pasted image safety. Please try again.');
-          return;
-        }
-      }
+      const filesToUpload =
+        oversizedFiles.length > 0 ? files.filter((file) => file.size <= getMaxSizeForFile(file)) : files;
 
       setUploadQueue(filesToUpload.map((file, i) => file.name || `Pasted Image ${i + 1}`));
 
       try {
-        const uploadPromises = filesToUpload.map((file) => uploadFile(file));
-        const uploadedAttachments = await Promise.all(uploadPromises);
+        const uploadMap = await all(
+          Object.fromEntries(filesToUpload.map((file, index) => [`file:${index}`, async () => uploadFile(file)])),
+          getBetterAllOptions(),
+        );
+        const uploadedAttachments = filesToUpload.map((_, index) => uploadMap[`file:${index}`]);
 
         setAttachments((currentAttachments) => [...currentAttachments, ...uploadedAttachments]);
 
-        toast.success('Image pasted successfully');
+        sileo.success({ title: 'Image pasted successfully' });
       } catch (error) {
         console.error('Error uploading pasted files!', error);
-        toast.error('Failed to upload pasted image. Please try again.');
+        sileo.error({ title: 'Failed to upload pasted image. Please try again.' });
       } finally {
         setUploadQueue([]);
       }
@@ -2736,118 +4646,180 @@ const FormComponent: React.FC<FormComponentProps> = ({
     }
   }, [status, inputRef]);
 
-  const onSubmit = useCallback(
-    (event: React.FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-
-      if (status !== 'ready') {
-        toast.error('Please wait for the current response to complete!');
+  const updateChatUrl = useCallback(
+    (chatIdToAdd: string) => {
+      if (!user) {
         return;
       }
-
-      if (isRecording) {
-        toast.error('Please stop recording before submitting!');
-        return;
-      }
-
-      const shouldBypassLimitsForThisModel = shouldBypassRateLimits(selectedModel, user);
-
-      if (isLimitBlocked && !shouldBypassLimitsForThisModel) {
-        toast.error('Daily search limit reached. Please upgrade to Pro for unlimited searches.');
-        return;
-      }
-
-      if (input.length > MAX_INPUT_CHARS) {
-        toast.error(`Your input exceeds the maximum of ${MAX_INPUT_CHARS} characters. Please shorten your message.`);
-        return;
-      }
-
-      if (input.trim() || attachments.length > 0) {
-        track('model_selected', {
-          model: selectedModel,
-        });
-
-        if (user) {
-          window.history.replaceState({}, '', `/search/${chatId}`);
-        }
-
-        setHasSubmitted(true);
-        lastSubmittedQueryRef.current = input.trim();
-
-        sendMessage({
-          role: 'user',
-          parts: [
-            ...attachments.map((attachment) => ({
-              type: 'file' as const,
-              url: attachment.url,
-              name: attachment.name,
-              mediaType: attachment.contentType || attachment.mediaType || '',
-            })),
-            {
-              type: 'text',
-              text: input,
-            },
-          ],
-        });
-
-        setInput('');
-        setAttachments([]);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-      } else {
-        toast.error('Please enter a search query or attach an image.');
+      const currentPath = window.location.pathname;
+      if (currentPath === '/' || currentPath === '/new') {
+        window.history.pushState({}, '', `/search/${chatIdToAdd}`);
       }
     },
-    [
-      input,
-      attachments,
-      sendMessage,
-      setInput,
-      setAttachments,
-      fileInputRef,
-      lastSubmittedQueryRef,
-      status,
-      selectedModel,
-      setHasSubmitted,
-      isLimitBlocked,
-      user,
-      isRecording,
-      chatId,
-    ],
+    [user],
   );
 
-  // Create a ref to track if submission is in progress
-  const isSubmittingRef = useRef(false);
-
-  const submitForm = useCallback(() => {
-    // Prevent multiple rapid submissions
-    if (isSubmittingRef.current) {
+  const executeSubmit = useCallback(() => {
+    if (status !== 'ready') {
+      haptics.trigger('warning');
+      sileo.error({
+        title: 'Please wait for the current response to complete',
+        description: 'Wait for the current message to finish',
+        icon: <AlertCircle className="h-4 w-4" />,
+      });
       return;
     }
 
-    isSubmittingRef.current = true;
-
-    onSubmit({ preventDefault: () => {}, stopPropagation: () => {} } as React.FormEvent<HTMLFormElement>);
-    resetSuggestedQuestions();
-
-    // Handle iOS keyboard behavior differently
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    if (isIOS) {
-      inputRef.current?.blur();
-    } else {
-      inputRef.current?.focus();
+    if (isRecording) {
+      haptics.trigger('warning');
+      sileo.error({
+        title: 'Please stop recording before submitting',
+        description: 'Stop the voice recording first',
+        icon: <AlertCircle className="h-4 w-4" />,
+      });
+      return;
     }
 
-    // Reset the flag after a short delay
-    setTimeout(() => {
-      isSubmittingRef.current = false;
-    }, 500);
-  }, [onSubmit, resetSuggestedQuestions, inputRef]);
+    const shouldBypassLimitsForThisModel = shouldBypassRateLimits(selectedModel, user);
+
+    if (isMultiAgentModeEnabled && !isProUser) {
+      haptics.trigger('warning');
+      sileo.error({
+        title: 'Multi-agent research requires Pro',
+        description: 'Upgrade to Pro to use xAI multi-agent research',
+        icon: <Lock className="h-4 w-4" />,
+      });
+      return;
+    }
+
+    if (isLimitBlocked && !shouldBypassLimitsForThisModel) {
+      haptics.trigger('warning');
+      sileo.error({
+        title: 'Daily search limit reached',
+        description: 'Upgrade to Pro for unlimited searches',
+        icon: <Lock className="h-4 w-4" />,
+      });
+      return;
+    }
+
+    if (input.length > MAX_INPUT_CHARS) {
+      haptics.trigger('error');
+      sileo.error({
+        title: `Input exceeds ${MAX_INPUT_CHARS} characters`,
+        description: 'Please shorten your message',
+        icon: <AlertCircle className="h-4 w-4" />,
+      });
+      return;
+    }
+
+    if (selectedGroup === 'mcp') {
+      const mcpCache = formQueryClient.getQueryData<{
+        servers: Array<{ isEnabled: boolean; authType: string; isOAuthConnected: boolean }>;
+      }>(['mcpServers', user?.id]);
+      const hasEnabledApp = mcpCache?.servers?.some((s) => {
+        const ready = s.authType !== 'oauth' || s.isOAuthConnected;
+        return s.isEnabled && ready;
+      });
+      if (!hasEnabledApp) {
+        haptics.trigger('warning');
+        sileo.error({
+          title: 'No apps enabled',
+          description: 'Enable at least one app to use this mode',
+          icon: <AlertCircle className="h-4 w-4" />,
+        });
+        return;
+      }
+    }
+
+    if (input.trim() || attachments.length > 0) {
+      haptics.trigger('medium');
+      track('model_selected', {
+        model: selectedModel,
+      });
+
+      onBeforeSubmit?.();
+      setHasSubmitted(true);
+      lastSubmittedQueryRef.current = input.trim();
+
+      // Keep URL in sync as soon as submit starts for authenticated users.
+      if (!isTemporaryChatEnabled) {
+        updateChatUrl(chatId);
+      }
+
+      // Send the message
+      sendMessage({
+        role: 'user',
+        parts: [
+          ...attachments.map((attachment) => ({
+            type: 'file' as const,
+            url: attachment.url,
+            name: attachment.name,
+            mediaType: attachment.contentType || attachment.mediaType || '',
+          })),
+          {
+            type: 'text',
+            text: input,
+          },
+        ],
+      });
+
+      setInput('');
+      // Immediately reset textarea height to avoid jank from debounced resize
+      if (inputRef.current) {
+        inputRef.current.style.height = 'auto';
+        inputRef.current.style.overflowY = 'hidden';
+      }
+      setAttachments([]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+
+      resetSuggestedQuestions();
+
+      // Clear autocomplete suggestions on submit
+      setSuggestions([]);
+      setShowSuggestions(false);
+      setSuggestionIndex(-1);
+      suggestAbortRef.current?.abort();
+
+      // Handle iOS keyboard behavior differently
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      if (isIOS) {
+        inputRef.current?.blur();
+      } else {
+        inputRef.current?.focus();
+      }
+    } else {
+      haptics.trigger('error');
+      sileo.error({ title: 'Please enter a search query or attach an image.' });
+    }
+  }, [
+    haptics,
+    status,
+    isRecording,
+    selectedModel,
+    user,
+    isLimitBlocked,
+    input,
+    attachments,
+    sendMessage,
+    updateChatUrl,
+    chatId,
+    isTemporaryChatEnabled,
+    setInput,
+    setAttachments,
+    fileInputRef,
+    resetSuggestedQuestions,
+    inputRef,
+    setHasSubmitted,
+    lastSubmittedQueryRef,
+  ]);
+
+  const submitForm = useCallback(() => executeSubmit(), [executeSubmit]);
 
   const triggerFileInput = useCallback(() => {
     if (attachments.length >= MAX_FILES) {
-      toast.error(`You can only attach up to ${MAX_FILES} images.`);
+      sileo.error({ title: `You can only attach up to ${MAX_FILES} images.` });
       return;
     }
 
@@ -2858,8 +4830,104 @@ const FormComponent: React.FC<FormComponentProps> = ({
     }
   }, [attachments.length, status, fileInputRef]);
 
+  // ⌘U shortcut to upload files
+  useEffect(() => {
+    const handleFileShortcut = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'u') {
+        event.preventDefault();
+        triggerFileInput();
+      }
+    };
+    document.addEventListener('keydown', handleFileShortcut);
+    return () => document.removeEventListener('keydown', handleFileShortcut);
+  }, [triggerFileInput]);
+
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // When autocomplete suggestions are showing, intercept navigation keys
+      if (showSuggestions && suggestions.length > 0) {
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          setSuggestionIndex((prev) => (prev + 1) % suggestions.length);
+          return;
+        }
+        if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          setSuggestionIndex((prev) => (prev - 1 + suggestions.length) % suggestions.length);
+          return;
+        }
+        if (event.key === 'Enter' && !isCompositionActive.current && suggestionIndex >= 0) {
+          event.preventDefault();
+          setInput(suggestions[suggestionIndex]);
+          setSuggestions([]);
+          setShowSuggestions(false);
+          setSuggestionIndex(-1);
+          return;
+        }
+        if (event.key === 'Tab' && suggestionIndex >= 0) {
+          event.preventDefault();
+          setInput(suggestions[suggestionIndex]);
+          setSuggestions([]);
+          setShowSuggestions(false);
+          setSuggestionIndex(-1);
+          return;
+        }
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          setShowSuggestions(false);
+          setSuggestionIndex(-1);
+          return;
+        }
+      }
+
+      // When trigger popup is open, intercept navigation keys
+      if (triggerPopup && triggerTotalItems > 0) {
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          setTriggerHighlightIndex((prev) => (prev + 1) % triggerTotalItems);
+          return;
+        }
+        if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          setTriggerHighlightIndex((prev) => (prev - 1 + triggerTotalItems) % triggerTotalItems);
+          return;
+        }
+        if (event.key === 'Enter' && !isCompositionActive.current) {
+          event.preventDefault();
+          if (triggerHighlightIndex < filteredTriggerGroups.length) {
+            handleTriggerSelect(filteredTriggerGroups[triggerHighlightIndex]);
+          } else if (showMultiAgentInTrigger && triggerHighlightIndex === filteredTriggerGroups.length) {
+            handleTriggerMultiAgentSelect();
+          } else if (
+            showTempInTrigger &&
+            triggerHighlightIndex === filteredTriggerGroups.length + (showMultiAgentInTrigger ? 1 : 0)
+          ) {
+            handleTriggerTempSelect();
+          }
+          return;
+        }
+        if (event.key === 'Tab') {
+          event.preventDefault();
+          if (triggerHighlightIndex < filteredTriggerGroups.length) {
+            handleTriggerSelect(filteredTriggerGroups[triggerHighlightIndex]);
+          } else if (showMultiAgentInTrigger && triggerHighlightIndex === filteredTriggerGroups.length) {
+            handleTriggerMultiAgentSelect();
+          } else if (
+            showTempInTrigger &&
+            triggerHighlightIndex === filteredTriggerGroups.length + (showMultiAgentInTrigger ? 1 : 0)
+          ) {
+            handleTriggerTempSelect();
+          }
+          return;
+        }
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          setTriggerPopup(null);
+          setTriggerFilter('');
+          return;
+        }
+      }
+
       if (event.key === 'Enter' && !isCompositionActive.current) {
         if (isMobile) {
           // On mobile, allow Enter to create new lines only
@@ -2869,39 +4937,50 @@ const FormComponent: React.FC<FormComponentProps> = ({
         } else {
           // Desktop behavior: Enter submits, Shift+Enter creates newline
           if (event.shiftKey) {
+            event.stopPropagation();
             return;
           }
           event.preventDefault();
-          if (isProcessing) {
-            toast.error('Please wait for the response to complete!');
-          } else if (isRecording) {
-            toast.error('Please stop recording before submitting!');
-          } else {
-            const shouldBypassLimitsForThisModel = shouldBypassRateLimits(selectedModel, user);
-            if (isLimitBlocked && !shouldBypassLimitsForThisModel) {
-              toast.error('Daily search limit reached. Please upgrade to Pro for unlimited searches.');
-            } else {
-              submitForm();
-              setTimeout(() => {
-                inputRef.current?.focus();
-              }, 100);
-            }
-          }
+          event.stopPropagation();
+          // Route Enter through submitForm so keyboard + button follow
+          // the same debounced submit path.
+          submitForm();
         }
       }
     },
-    [isProcessing, isRecording, selectedModel, user, isLimitBlocked, submitForm, inputRef, isMobile],
+    [
+      submitForm,
+      isMobile,
+      triggerPopup,
+      filteredTriggerGroups,
+      triggerHighlightIndex,
+      triggerTotalItems,
+      showTempInTrigger,
+      showMultiAgentInTrigger,
+      handleTriggerSelect,
+      handleTriggerTempSelect,
+      handleTriggerMultiAgentSelect,
+      showSuggestions,
+      suggestions,
+      suggestionIndex,
+      setInput,
+    ],
   );
 
   const resizeTextarea = useCallback(() => {
     if (!inputRef.current) return;
 
     const target = inputRef.current;
+    const maxHeight = 300;
+
+    // Save scroll positions so the "height = auto" collapse doesn't cause a
+    // visible page jump while the browser recalculates layout.
+    const prevWindowScroll = window.scrollY;
+    const prevTextareaScroll = target.scrollTop;
 
     target.style.height = 'auto';
 
     const scrollHeight = target.scrollHeight;
-    const maxHeight = 300;
 
     if (scrollHeight > maxHeight) {
       target.style.height = `${maxHeight}px`;
@@ -2910,26 +4989,61 @@ const FormComponent: React.FC<FormComponentProps> = ({
       target.style.height = `${scrollHeight}px`;
       target.style.overflowY = 'hidden';
     }
+
+    // Restore positions that may have shifted during the collapse.
+    window.scrollTo({ top: prevWindowScroll });
+    target.scrollTop = prevTextareaScroll;
+
+    // Keep the cursor visible when typing at the end of a long prompt.
+    if (target.selectionStart === target.value.length) {
+      target.scrollTop = target.scrollHeight;
+    }
   }, [inputRef]);
 
-  // Debounced resize function
-  const debouncedResize = useMemo(() => debounce(resizeTextarea, 100), [resizeTextarea]);
-
-  // Resize textarea when input value changes
+  // Resize textarea when input value changes using rAF for immediate visual response
+  const resizeRafRef = useRef<number>(0);
   useEffect(() => {
-    debouncedResize();
-  }, [input, debouncedResize]);
+    cancelAnimationFrame(resizeRafRef.current);
+    resizeRafRef.current = requestAnimationFrame(resizeTextarea);
+    return () => cancelAnimationFrame(resizeRafRef.current);
+  }, [input, resizeTextarea]);
+
+  // Handle cursor positioning: move to end if cursor is at start when textarea has value
+  // This handles both initial mount (from localStorage) and external value changes (example selection)
+  const handleTextareaFocus = useCallback(
+    (e: React.FocusEvent<HTMLTextAreaElement>) => {
+      const textarea = e.target;
+      if (textarea.value.length > 0 && textarea.selectionStart === 0 && textarea.selectionEnd === 0) {
+        // Cursor is at start, move it to end
+        const length = textarea.value.length;
+        textarea.setSelectionRange(length, length);
+      }
+      // Re-show suggestions on focus if we have them
+      if (suggestions.length > 0 && !hasInteracted) {
+        setShowSuggestions(true);
+      }
+    },
+    [suggestions.length, hasInteracted],
+  );
+
+  const handleTextareaBlur = useCallback(() => {
+    // Delay hiding to allow click-through on suggestion items (onMouseDown fires before blur)
+    setTimeout(() => {
+      setShowSuggestions(false);
+    }, 150);
+  }, []);
 
   return (
     <div className={cn('flex flex-col w-full max-w-2xl mx-auto')}>
       <TooltipProvider>
         <div
+          data-no-haptics
           className={cn(
-            'relative w-full flex flex-col gap-1 rounded-lg transition-all duration-300 font-sans!',
+            'relative w-full flex flex-col gap-1 rounded-xl transition-all duration-300 font-sans!',
             hasInteracted ? 'z-50' : 'z-10',
             isDragging && 'ring-1 ring-border',
             attachments.length > 0 || uploadQueue.length > 0
-              ? 'bg-muted/40 !backdrop-blur-md p-1 shadow-sm shadow-black/5 dark:shadow-black/10'
+              ? 'bg-primary/5 border border-ring/20 backdrop-blur-md! p-1 shadow-none!'
               : 'bg-transparent',
           )}
           onDragOver={handleDragOver}
@@ -2945,7 +5059,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                 className="absolute inset-0 backdrop-blur-md bg-background/90 rounded-lg border border-dashed border-border/60 flex items-center justify-center z-50 m-2 shadow-xl shadow-black/10 dark:shadow-black/25"
               >
                 <div className="flex items-center gap-4 px-6 py-8">
-                  <div className="p-3 rounded-full bg-muted !shadow-none">
+                  <div className="p-3 rounded-full bg-muted shadow-none!">
                     <Upload className="h-6 w-6 text-muted-foreground" />
                   </div>
                   <div className="space-y-1 text-center">
@@ -3013,7 +5127,161 @@ const FormComponent: React.FC<FormComponentProps> = ({
           )}
 
           {/* Form container */}
-          <div className="relative">
+          <div className="relative" data-form-container>
+            {triggerPopup && triggerTotalItems > 0 && (
+              <div
+                className="absolute left-0 w-[280px] rounded-xl border border-border/60 bg-popover/95 backdrop-blur-xl shadow-none overflow-hidden z-100"
+                style={{
+                  ...(typeof window !== 'undefined' &&
+                    (() => {
+                      const el = document.querySelector('[data-form-container]');
+                      if (!el) return { bottom: '100%', marginBottom: 8 };
+                      const rect = el.getBoundingClientRect();
+                      return rect.top > window.innerHeight / 2
+                        ? { bottom: '100%', marginBottom: 8 }
+                        : { top: '100%', marginTop: 8 };
+                    })()),
+                }}
+              >
+                <div className="px-3 pt-2.5 pb-1">
+                  <p className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">
+                    {triggerPopup === '/' ? 'Modes' : 'Sources'}
+                  </p>
+                </div>
+                <div ref={triggerPopupScrollRef} className="px-1 pb-1 max-h-[260px] overflow-y-auto scrollbar-thin">
+                  {filteredTriggerGroups.map((group, index) => {
+                    const isHighlighted = index === triggerHighlightIndex;
+                    const isCurrentGroup =
+                      group.id === 'multi-agent'
+                        ? isMultiAgentModeEnabled || selectedGroup === 'multi-agent'
+                        : selectedGroup === group.id;
+                    const isProOnly = 'requirePro' in group && group.requirePro && !isProUser;
+
+                    return (
+                      <button
+                        key={group.id}
+                        data-at-index={index}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          handleTriggerSelect(group);
+                        }}
+                        onMouseEnter={() => setTriggerHighlightIndex(index)}
+                        className={cn(
+                          'flex items-center gap-2.5 w-full px-2 py-1.5 rounded-lg text-left transition-colors duration-100',
+                          isHighlighted ? 'bg-accent/80' : 'bg-transparent',
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            'flex items-center justify-center size-7 rounded-md shrink-0',
+                            isCurrentGroup ? 'bg-primary/10 text-primary' : 'bg-muted/80 text-muted-foreground',
+                          )}
+                        >
+                          <FlexibleIcon icon={group.icon} size={16} color="currentColor" strokeWidth={1.8} />
+                        </div>
+                        <span className="flex-1 text-[13px] font-medium text-foreground truncate">{group.name}</span>
+                        {isCurrentGroup && (
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-[10px] font-medium text-primary/70">Active</span>
+                            <CheckIcon className="size-3 text-primary" />
+                          </div>
+                        )}
+                        {isProOnly && !isCurrentGroup && (
+                          <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-primary/70 bg-primary/8 px-1.5 py-0.5 rounded">
+                            Pro
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                  {(showTempInTrigger || showMultiAgentInTrigger) && (
+                    <>
+                      {showMultiAgentInTrigger && (
+                        <button
+                          data-at-index={filteredTriggerGroups.length}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleTriggerMultiAgentSelect();
+                          }}
+                          onMouseEnter={() => setTriggerHighlightIndex(filteredTriggerGroups.length)}
+                          className={cn(
+                            'flex items-center gap-2.5 w-full px-2 py-1.5 rounded-lg text-left transition-colors duration-100',
+                            triggerHighlightIndex === filteredTriggerGroups.length ? 'bg-accent/80' : 'bg-transparent',
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              'flex items-center justify-center size-7 rounded-md shrink-0',
+                              isMultiAgentModeEnabled
+                                ? 'bg-primary/10 text-primary'
+                                : 'bg-muted/80 text-muted-foreground',
+                            )}
+                          >
+                            <AgentNetworkIcon width={16} height={16} />
+                          </div>
+                          <span className="flex-1 text-[13px] font-medium text-foreground truncate">
+                            Multi-agent mode
+                          </span>
+                          {isMultiAgentModeEnabled ? (
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-[10px] font-medium text-primary/70">Active</span>
+                              <CheckIcon className="size-3 text-primary" />
+                            </div>
+                          ) : !isProUser ? (
+                            <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-primary/70 bg-primary/8 px-1.5 py-0.5 rounded">
+                              Pro
+                            </span>
+                          ) : null}
+                        </button>
+                      )}
+                      {showTempInTrigger && (
+                        <>
+                          {(showMultiAgentInTrigger || filteredTriggerGroups.length > 0) && (
+                            <div className="my-1 mx-2 border-t border-border/30" />
+                          )}
+                          <button
+                            data-at-index={filteredTriggerGroups.length + (showMultiAgentInTrigger ? 1 : 0)}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              handleTriggerTempSelect();
+                            }}
+                            onMouseEnter={() =>
+                              setTriggerHighlightIndex(filteredTriggerGroups.length + (showMultiAgentInTrigger ? 1 : 0))
+                            }
+                            className={cn(
+                              'flex items-center gap-2.5 w-full px-2 py-1.5 rounded-lg text-left transition-colors duration-100',
+                              triggerHighlightIndex === filteredTriggerGroups.length + (showMultiAgentInTrigger ? 1 : 0)
+                                ? 'bg-accent/80'
+                                : 'bg-transparent',
+                            )}
+                            disabled={isTemporaryChatLocked}
+                          >
+                            <div
+                              className={cn(
+                                'flex items-center justify-center size-7 rounded-md shrink-0',
+                                isTemporaryChat ? 'bg-primary/10 text-primary' : 'bg-muted/80 text-muted-foreground',
+                              )}
+                            >
+                              <Ghost size={16} strokeWidth={1.8} />
+                            </div>
+                            <span className="flex-1 text-[13px] font-medium text-foreground truncate">
+                              {isTemporaryChat ? 'Temporary' : 'Private'}
+                            </span>
+                            {isTemporaryChat && (
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-[10px] font-medium text-primary/70">Active</span>
+                                <CheckIcon className="size-3 text-primary" />
+                              </div>
+                            )}
+                          </button>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Shadow-like background blur effect */}
             <div className="absolute -inset-1 rounded-[26px] bg-white/5 blur-3xl pointer-events-none z-[5]" />
             <div
@@ -3038,10 +5306,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
                     'focus:ring-0! focus-visible:ring-0!',
                     'px-6! py-5!',
                     'touch-manipulation',
-                    'whatsize',
+                    'whatsize!',
                     'text-center',
                     'cursor-not-allowed',
-                    '!shadow-none',
+                    'shadow-none!',
                   )}
                   style={{
                     WebkitUserSelect: 'text',
@@ -3067,33 +5335,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
                   }
                   value={input}
                   onChange={handleInput}
+                  onFocus={handleTextareaFocus}
+                  onBlur={handleTextareaBlur}
                   disabled={isEnhancing || isTypewriting}
-                  onInput={(e) => {
-                    // Auto-resize textarea based on content
-                    const target = e.target as HTMLTextAreaElement;
-
-                    // Reset height to auto first to get the actual scroll height
-                    target.style.height = 'auto';
-
-                    const scrollHeight = target.scrollHeight;
-                    const maxHeight = 300; // Increased max height for desktop
-
-                    if (scrollHeight > maxHeight) {
-                      target.style.height = `${maxHeight}px`;
-                      target.style.overflowY = 'auto';
-                    } else {
-                      target.style.height = `${scrollHeight}px`;
-                      target.style.overflowY = 'hidden';
-                    }
-
-                    // Ensure the cursor position is visible by scrolling to bottom if needed
-                    requestAnimationFrame(() => {
-                      const cursorPosition = target.selectionStart;
-                      if (cursorPosition === target.value.length) {
-                        target.scrollTop = target.scrollHeight;
-                      }
-                    });
-                  }}
+                  onInput={resizeTextarea}
                   className={cn(
                     'w-full rounded-[26px] rounded-b-none md:text-base!',
                     'text-base leading-relaxed text-white/90 placeholder:text-white/50',
@@ -3122,7 +5367,21 @@ const FormComponent: React.FC<FormComponentProps> = ({
                 />
               )}
 
-              {/* Toolbar as a separate block - no absolute positioning */}
+              {/* Rotating placeholder overlay — after textarea in DOM so it stacks on top */}
+              {!isRecording && !input && !isEnhancing && !isTypewriting && !hasInteracted && (
+                <div className="absolute top-0 left-0 right-0 pointer-events-none z-10 px-4 py-[14px]">
+                  <TextRotate
+                    texts={['Ask anything...', 'Type @ for sources or / for modes']}
+                    rotationInterval={3000}
+                    splitBy="words"
+                    staggerDuration={0.04}
+                    staggerFrom="first"
+                    transition={{ type: 'spring', damping: 30, stiffness: 400 }}
+                    mainClassName="text-[16px] leading-normal text-muted-foreground/90 font-sans"
+                  />
+                </div>
+              )}
+
               <div
                 className={cn(
                   'flex justify-between items-center rounded-t-none rounded-b-[26px]',
@@ -3133,15 +5392,543 @@ const FormComponent: React.FC<FormComponentProps> = ({
                   isRecording && 'text-white/40',
                 )}
               >
-                <div className={cn('flex items-center gap-2')}>
-                  <GroupModeToggle
-                    selectedGroup={selectedGroup}
-                    onGroupSelect={handleGroupSelect}
-                    status={status}
-                    onOpenSettings={onOpenSettings}
-                    isProUser={isProUser}
-                  />
+                {/* Left: Plus menu button + connector selector */}
+                <div className="flex items-center gap-1.5">
+                  {isMobile ? (
+                    <Drawer open={plusMenuOpen} onOpenChange={handlePlusMenuOpenChange}>
+                      <DrawerTrigger asChild>
+                        <button
+                          className={cn(
+                            'flex items-center justify-center size-8 rounded-full',
+                            'border border-foreground/25 text-foreground/70 bg-foreground/12',
+                            'hover:bg-foreground/18 hover:text-foreground hover:border-foreground/35 transition-colors',
+                            plusMenuOpen && 'bg-foreground/18 text-foreground border-foreground/35',
+                          )}
+                          aria-label="More options"
+                        >
+                          <Plus className="size-[18px]" strokeWidth={2} />
+                        </button>
+                      </DrawerTrigger>
+                      <DrawerContent className="max-h-[70vh]">
+                        <DrawerHeader className="text-left pb-1">
+                          <DrawerTitle className="text-sm">Options</DrawerTitle>
+                        </DrawerHeader>
+                        <div className="px-1 pb-4 max-h-[calc(70vh-80px)] overflow-y-auto">
+                          <button
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors"
+                            onClick={() => {
+                              haptics.trigger('selection');
+                              setPlusMenuOpen(false);
+                              triggerFileInput();
+                            }}
+                          >
+                            <HugeiconsIcon
+                              icon={DocumentAttachmentIcon}
+                              size={16}
+                              color="currentColor"
+                              strokeWidth={1.5}
+                            />
+                            <span className="flex-1 text-[13px]">Upload files or images</span>
+                          </button>
 
+                          {user && setIsMultiAgentModeEnabled && (
+                            <button
+                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors"
+                              onClick={() => {
+                                haptics.trigger('selection');
+                                if (!isProUser) {
+                                  setShowUpgradeDialog(true);
+                                  return;
+                                }
+                                const isTurningOff = selectedGroup === 'multi-agent' || isMultiAgentModeEnabled;
+                                setSelectedGroup(isTurningOff ? 'web' : 'multi-agent');
+                                setIsMultiAgentModeEnabled(!isTurningOff);
+                              }}
+                            >
+                              <AgentNetworkIcon width={16} height={16} />
+                              <span className="flex-1 text-[13px]">Multi-agent mode</span>
+                              {isMultiAgentModeEnabled ? (
+                                <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                  Active
+                                </span>
+                              ) : !isProUser ? (
+                                <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                  Pro
+                                </span>
+                              ) : null}
+                            </button>
+                          )}
+                          {user && mcpEnabled && (
+                            <button
+                              className={cn(
+                                'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors',
+                                selectedGroup === 'mcp' && 'bg-accent',
+                              )}
+                              onClick={async () => {
+                                const g = dynamicSearchGroups.find((g) => g.id === 'mcp');
+                                if (g) await handlePlusMenuGroupSelect(g);
+                              }}
+                            >
+                              <AppsIcon width={16} height={16} />
+                              <span className="flex-1 text-[13px]">Apps</span>
+                              {selectedGroup === 'mcp' && (
+                                <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                  Active
+                                </span>
+                              )}
+                              {!isProUser && (
+                                <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                  Pro
+                                </span>
+                              )}
+                            </button>
+                          )}
+                          <button
+                            className={cn(
+                              'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors',
+                              isExtreme && 'bg-accent',
+                            )}
+                            onClick={handlePlusMenuExtreme}
+                          >
+                            <HugeiconsIcon icon={AtomicPowerIcon} size={16} color="currentColor" strokeWidth={1.5} />
+                            <span className="flex-1 text-[13px]">Extreme agent</span>
+                            {isExtreme && (
+                              <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                Active
+                              </span>
+                            )}
+                          </button>
+                          {/* {(input.length > 0 || isEnhancing || isTypewriting) && (
+                            <button className={cn('w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors', isEnhancementActive && 'bg-accent')} onClick={() => { if (!isEnhancing && !isTypewriting) handleEnhance(); setPlusMenuOpen(false); }} disabled={isEnhancing || isTypewriting || uploadQueue.length > 0 || status !== 'ready' || isLimitBlocked}>
+                              {isEnhancementActive ? <GripIcon ref={gripIconRef} size={16} className="text-primary" /> : <Wand2 className="size-4 text-muted-foreground" />}
+                              <span className="flex-1 text-[13px]">{isEnhancing ? 'Enhancing…' : isTypewriting ? 'Writing…' : 'Enhance prompt'}</span>
+                            </button>
+                          )} */}
+                          {user && !hasInteracted && (
+                            <button
+                              className={cn(
+                                'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors',
+                                isTemporaryChat && 'bg-accent',
+                              )}
+                              onClick={() => {
+                                if (!isTemporaryChatLocked) {
+                                  setIsTemporaryChatEnabled((prev: boolean) => !prev);
+                                }
+                                setPlusMenuOpen(false);
+                              }}
+                              disabled={isTemporaryChatLocked}
+                            >
+                              <Ghost
+                                size={16}
+                                className={cn('shrink-0', isTemporaryChat ? 'text-primary' : 'text-muted-foreground')}
+                                strokeWidth={1.5}
+                              />
+                              <span className="flex-1 text-[13px]">{isTemporaryChat ? 'Temporary' : 'Private'}</span>
+                              {isTemporaryChat && (
+                                <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                  Active
+                                </span>
+                              )}
+                              <span className="text-[9px] text-muted-foreground ml-auto hidden sm:block">⌘⇧J</span>
+                            </button>
+                          )}
+                          <div className="my-1 mx-2 border-t border-border/40" />
+                          <div className="px-3 pt-1.5 pb-0.5">
+                            <span className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">
+                              Search Modes
+                            </span>
+                          </div>
+                          {plusMenuGroups.map((group, i) => {
+                            const sel = selectedGroup === group.id && !isExtreme;
+                            return (
+                              <button
+                                key={group.id}
+                                className={cn(
+                                  'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors',
+                                  sel && 'bg-accent',
+                                )}
+                                onClick={() => handlePlusMenuGroupSelect(group)}
+                              >
+                                <FlexibleIcon icon={group.icon} size={16} color="currentColor" strokeWidth={1.5} />
+                                <span className="flex-1 text-[13px]">{group.name}</span>
+                                {'requirePro' in group && group.requirePro && !isProUser && (
+                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                    Pro
+                                  </span>
+                                )}
+                                {sel && <Check className="size-3.5 text-primary" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </DrawerContent>
+                    </Drawer>
+                  ) : (
+                    <Popover open={plusMenuOpen} onOpenChange={handlePlusMenuOpenChange}>
+                      <Tooltip delayDuration={300}>
+                        <TooltipTrigger asChild>
+                          <PopoverTrigger asChild>
+                            <button
+                              className={cn(
+                                'flex items-center justify-center size-8 rounded-full',
+                                'border border-foreground/25 text-foreground/70 bg-foreground/12',
+                                'hover:bg-foreground/18 hover:text-foreground hover:border-foreground/35 transition-colors',
+                                plusMenuOpen && 'bg-foreground/18 text-foreground border-foreground/35',
+                              )}
+                              aria-label="More options"
+                            >
+                              <Plus className="size-[18px]" strokeWidth={2} />
+                            </button>
+                          </PopoverTrigger>
+                        </TooltipTrigger>
+                        {!plusMenuOpen && (
+                          <TooltipContent
+                            side="bottom"
+                            sideOffset={6}
+                            className="border-0 backdrop-blur-xs py-2 px-3 shadow-none!"
+                          >
+                            <span className="font-medium text-[11px]">Modes, uploads & more</span>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                      <PopoverContent
+                        className="w-64 p-1 font-sans rounded-lg bg-popover border shadow-lg"
+                        align="start"
+                        side="bottom"
+                        sideOffset={4}
+                      >
+                        <Tooltip delayDuration={200}>
+                          <TooltipTrigger asChild>
+                            <button
+                              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors"
+                              onClick={() => {
+                                haptics.trigger('selection');
+                                setPlusMenuOpen(false);
+                                triggerFileInput();
+                              }}
+                            >
+                              <HugeiconsIcon
+                                icon={DocumentAttachmentIcon}
+                                size={16}
+                                color="currentColor"
+                                strokeWidth={1.5}
+                              />
+                              <span className="flex-1 text-[13px]">Upload files or images</span>
+                              <Kbd className="text-[9px] h-4 min-w-4 px-1">⌘U</Kbd>
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
+                            <span className="text-[10px] leading-snug">
+                              {hasVisionSupport(selectedModel)
+                                ? hasPdfSupport(selectedModel)
+                                  ? 'Images, PDFs, CSV, Excel, Word'
+                                  : 'Images, CSV, Excel, Word'
+                                : 'CSV, Excel, Word documents'}
+                            </span>
+                          </TooltipContent>
+                        </Tooltip>
+
+                        {user && setIsMultiAgentModeEnabled && (
+                          <Tooltip delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <button
+                                className={cn(
+                                  'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors',
+                                  isMultiAgentModeEnabled && 'bg-accent',
+                                )}
+                                onClick={() => {
+                                  haptics.trigger('selection');
+                                  if (!isProUser) {
+                                    setShowUpgradeDialog(true);
+                                    return;
+                                  }
+                                  const isTurningOff = selectedGroup === 'multi-agent' || isMultiAgentModeEnabled;
+                                  setSelectedGroup(isTurningOff ? 'web' : 'multi-agent');
+                                  setIsMultiAgentModeEnabled(!isTurningOff);
+                                }}
+                              >
+                                <AgentNetworkIcon width={16} height={16} />
+                                <span className="flex-1 text-[13px]">Multi-agent mode</span>
+                                {isMultiAgentModeEnabled ? (
+                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                    Active
+                                  </span>
+                                ) : !isProUser ? (
+                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                    Pro
+                                  </span>
+                                ) : null}
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
+                              <span className="text-[10px] leading-snug">
+                                Use xAI multi-agent mode with web and X tool calls plus sources
+                              </span>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                        {user && mcpEnabled && (
+                          <Tooltip delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <button
+                                className={cn(
+                                  'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors',
+                                  selectedGroup === 'mcp' && 'bg-accent',
+                                )}
+                                onClick={async () => {
+                                  const g = dynamicSearchGroups.find((g) => g.id === 'mcp');
+                                  if (g) await handlePlusMenuGroupSelect(g);
+                                }}
+                              >
+                                <AppsIcon width={16} height={16} />
+                                <span className="flex-1 text-[13px]">Apps</span>
+                                {selectedGroup === 'mcp' && (
+                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                    Active
+                                  </span>
+                                )}
+                                {!isProUser && selectedGroup !== 'mcp' && (
+                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                    Pro
+                                  </span>
+                                )}
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
+                              <span className="text-[10px] leading-snug">Use tools from your connected apps</span>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                        <Tooltip delayDuration={200}>
+                          <TooltipTrigger asChild>
+                            <button
+                              className={cn(
+                                'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors',
+                                isExtreme && 'bg-accent',
+                              )}
+                              onClick={handlePlusMenuExtreme}
+                            >
+                              <HugeiconsIcon icon={AtomicPowerIcon} size={16} color="currentColor" strokeWidth={1.5} />
+                              <span className="flex-1 text-[13px]">Extreme agent</span>
+                              {isExtreme && (
+                                <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                  Active
+                                </span>
+                              )}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
+                            <span className="text-[10px] leading-snug">
+                              Searches multiple sources for in-depth analysis
+                            </span>
+                          </TooltipContent>
+                        </Tooltip>
+                        {/* {(input.length > 0 || isEnhancing || isTypewriting) && (
+                          <button className={cn('w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors', isEnhancementActive && 'bg-accent')} onClick={() => { if (!isEnhancing && !isTypewriting) handleEnhance(); setPlusMenuOpen(false); }} disabled={isEnhancing || isTypewriting || uploadQueue.length > 0 || status !== 'ready' || isLimitBlocked}>
+                            {isEnhancementActive ? <GripIcon ref={gripIconRef} size={16} className="text-primary" /> : <Wand2 className="size-4 text-muted-foreground" />}
+                            <span className="flex-1 text-[13px]">{isEnhancing ? 'Enhancing…' : isTypewriting ? 'Writing…' : 'Enhance prompt'}</span>
+                          </button>
+                        )} */}
+                        {user && !hasInteracted && (
+                          <Tooltip delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <button
+                                className={cn(
+                                  'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors',
+                                  isTemporaryChat && 'bg-accent',
+                                )}
+                                onClick={() => {
+                                  if (!isTemporaryChatLocked) {
+                                    setIsTemporaryChatEnabled((prev: boolean) => !prev);
+                                  }
+                                  setPlusMenuOpen(false);
+                                }}
+                                disabled={isTemporaryChatLocked}
+                              >
+                                <Ghost
+                                  size={16}
+                                  className={cn('shrink-0', isTemporaryChat ? 'text-primary' : 'text-muted-foreground')}
+                                  strokeWidth={1.5}
+                                />
+                                <span className="flex-1 text-[13px]">{isTemporaryChat ? 'Temporary' : 'Private'}</span>
+                                {isTemporaryChat && (
+                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                    Active
+                                  </span>
+                                )}
+                                <Kbd className="text-[9px] h-4 min-w-4 px-1">⌘⇧J</Kbd>
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
+                              <span className="text-[10px] leading-snug">
+                                {isTemporaryChat
+                                  ? "This session won't be saved to history"
+                                  : 'Toggle to prevent this session from being saved'}
+                              </span>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                        <div className="my-0.5 mx-2 border-t border-border/40" />
+                        <div className="px-2.5 pt-1.5 pb-0.5">
+                          <span className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">
+                            Search Modes
+                          </span>
+                        </div>
+                        <div className="relative">
+                          <div
+                            ref={plusMenuScrollRef}
+                            onScroll={handlePlusMenuScroll}
+                            className="max-h-32 overflow-y-auto"
+                          >
+                            {plusMenuGroups.map((group) => {
+                              const sel = selectedGroup === group.id && !isExtreme;
+                              return (
+                                <Tooltip key={group.id} delayDuration={200}>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      className={cn(
+                                        'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors',
+                                        sel && 'bg-accent',
+                                      )}
+                                      onClick={() => handlePlusMenuGroupSelect(group)}
+                                    >
+                                      <FlexibleIcon
+                                        icon={group.icon}
+                                        size={16}
+                                        color="currentColor"
+                                        strokeWidth={1.5}
+                                      />
+                                      <span className="flex-1 text-[13px]">{group.name}</span>
+                                      {'requirePro' in group && group.requirePro && !isProUser && (
+                                        <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                                          Pro
+                                        </span>
+                                      )}
+                                      {sel && <Check className="size-3.5 text-primary" />}
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
+                                    <span className="text-[10px] leading-snug">{group.description}</span>
+                                  </TooltipContent>
+                                </Tooltip>
+                              );
+                            })}
+                          </div>
+                          {plusMenuCanScroll && (
+                            <div className="pointer-events-none absolute bottom-0 inset-x-0 flex justify-center pb-0.5 pt-4 bg-linear-to-t from-popover via-popover/80 to-transparent rounded-b-lg">
+                              <ChevronDown className="size-3.5 text-muted-foreground animate-bounce" />
+                            </div>
+                          )}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )}
+
+                  {/* Active mode badge */}
+                  {(() => {
+                    const activeGroup = dynamicSearchGroups.find((g) => g.id === selectedGroup);
+                    if (
+                      !activeGroup ||
+                      selectedGroup === 'web' ||
+                      selectedGroup === 'connectors' ||
+                      selectedGroup === 'mcp' ||
+                      selectedGroup === 'multi-agent'
+                    ) {
+                      if (!isMultiAgentModeEnabled) return null;
+                      return (
+                        <Tooltip delayDuration={300}>
+                          <TooltipTrigger asChild>
+                            <div
+                              className="group relative flex items-center gap-1.5 px-2.5 h-8 rounded-full bg-primary/8! text-primary/80 border border-primary/15 text-[12px] font-medium hover:bg-primary/12 hover:text-primary transition-colors cursor-pointer"
+                              onClick={() => {
+                                haptics.trigger('light');
+                                setPlusMenuOpen(true);
+                              }}
+                            >
+                              <div className="relative size-3.5">
+                                <AgentNetworkIcon
+                                  width={14}
+                                  height={14}
+                                  className="absolute inset-0 group-hover:opacity-0 transition-opacity"
+                                />
+                                <button
+                                  className="absolute -inset-0.5 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 group-hover:bg-foreground/10 transition-all"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    haptics.trigger('selection');
+                                    setSelectedGroup('web');
+                                    setIsMultiAgentModeEnabled?.(false);
+                                  }}
+                                  aria-label="Clear multi-agent mode"
+                                >
+                                  <X className="size-3.5" strokeWidth={2} />
+                                </button>
+                              </div>
+                              <span>Multi-agent Mode</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="bottom"
+                            sideOffset={6}
+                            className="border-0 backdrop-blur-xs py-2 px-3 shadow-none!"
+                          >
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-medium text-[11px]">Click to switch mode</span>
+                              <span className="text-[10px] text-background/50">Hover ✕ to clear</span>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      );
+                    }
+                    return (
+                      <Tooltip delayDuration={300}>
+                        <TooltipTrigger asChild>
+                          <div
+                            className="group relative flex items-center gap-1.5 px-2.5 h-8 rounded-full bg-primary/8! text-primary/80 border border-primary/15 text-[12px] font-medium hover:bg-primary/12 hover:text-primary transition-colors cursor-pointer"
+                            onClick={() => {
+                              haptics.trigger('light');
+                              setPlusMenuOpen(true);
+                            }}
+                          >
+                            <div className="relative size-3.5">
+                              <FlexibleIcon
+                                icon={activeGroup.icon}
+                                size={14}
+                                color="currentColor"
+                                strokeWidth={1.5}
+                                className="absolute inset-0 group-hover:opacity-0 transition-opacity"
+                              />
+                              <button
+                                className="absolute -inset-0.5 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 group-hover:bg-foreground/10 transition-all"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  haptics.trigger('selection');
+                                  const webGroup = dynamicSearchGroups.find((g) => g.id === 'web');
+                                  if (webGroup) handleGroupSelect(webGroup);
+                                }}
+                                aria-label="Clear mode"
+                              >
+                                <X className="size-3.5" strokeWidth={2} />
+                              </button>
+                            </div>
+                            <span>{activeGroup.name === 'Extreme' ? 'Extreme Agent' : activeGroup.name}</span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="bottom"
+                          sideOffset={6}
+                          className="border-0 backdrop-blur-xs py-2 px-3 shadow-none!"
+                        >
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-medium text-[11px]">Click to switch mode</span>
+                            <span className="text-[10px] text-background/50">Hover ✕ to clear</span>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })()}
+
+                  {/* Inline connector selector when connectors mode is active */}
                   {selectedGroup === 'connectors' && setSelectedConnectors && (
                     <ConnectorSelector
                       selectedConnectors={selectedConnectors}
@@ -3150,6 +5937,50 @@ const FormComponent: React.FC<FormComponentProps> = ({
                       isProUser={isProUser}
                     />
                   )}
+
+                  {/* Inline MCP server selector when MCP mode is active */}
+                  {selectedGroup === 'mcp' && <McpServerSelector user={user} isProUser={isProUser} />}
+                </div>
+
+                {/* Right: Enhance, Model selector, voice/send */}
+                <div className="flex items-center shrink-0 gap-1.5">
+                  {/* Enhance prompt button */}
+                  <Tooltip delayDuration={300}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className={cn(
+                          'rounded-full size-8! text-muted-foreground hover:text-foreground transition-colors',
+                          isEnhancementActive && 'text-primary hover:text-primary',
+                        )}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          if (!isEnhancing && !isTypewriting) handleEnhance();
+                        }}
+                        disabled={
+                          input.length === 0 ||
+                          isEnhancing ||
+                          isTypewriting ||
+                          uploadQueue.length > 0 ||
+                          status !== 'ready' ||
+                          isLimitBlocked
+                        }
+                      >
+                        {isEnhancementActive ? (
+                          <GripIcon ref={gripIconRef} size={16} className="text-primary" />
+                        ) : (
+                          <MagicEditIcon size={16} className="text-current" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" sideOffset={6}>
+                      <span className="font-medium text-[11px]">
+                        {isEnhancing ? 'Enhancing…' : isTypewriting ? 'Writing…' : 'Enhance prompt'}
+                      </span>
+                    </TooltipContent>
+                  </Tooltip>
 
                   <ModelSwitcher
                     selectedModel={selectedModel}
@@ -3168,6 +5999,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
                     subscriptionData={subscriptionData}
                     user={user}
                     selectedGroup={selectedGroup}
+                    autoRoutedModel={autoRoutedModel}
+                    inputRef={inputRef}
                   />
                 </div>
 
@@ -3266,37 +6099,33 @@ const FormComponent: React.FC<FormComponentProps> = ({
                     </Tooltip>
                   )}
 
+                  {/* Action button: Stop / Voice / Send */}
                   {isProcessing ? (
                     <Tooltip delayDuration={300}>
                       <TooltipTrigger asChild>
                         <Button
                           variant="destructive"
                           size="icon"
-                          className="group rounded-full transition-colors duration-200 !size-8"
+                          className="rounded-full size-8! transition-colors"
                           onClick={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
-                            if (!isEnhancing && !isTypewriting) {
-                              stop();
-                            }
+                            if (!isEnhancing && !isTypewriting) stop();
                           }}
                           disabled={isEnhancing || isTypewriting}
                         >
-                          <span className="block">
-                            <StopIcon size={14} />
-                          </span>
+                          <StopIcon size={14} />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent
                         side="bottom"
                         sideOffset={6}
-                        className="border-0 backdrop-blur-xs py-2 px-3 !shadow-none"
+                        className="border-0 backdrop-blur-xs py-2 px-3 shadow-none!"
                       >
                         <span className="font-medium text-[11px]">Stop Generation</span>
                       </TooltipContent>
                     </Tooltip>
                   ) : input.length === 0 && attachments.length === 0 && !isEnhancing && !isTypewriting ? (
-                    /* Show Voice Recording Button when no input */
                     <Tooltip delayDuration={300}>
                       <TooltipTrigger asChild>
                         <Button
@@ -3309,21 +6138,17 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           onClick={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
-                            if (!isEnhancing && !isTypewriting) {
-                              handleRecord();
-                            }
+                            if (!isEnhancing && !isTypewriting) handleRecord();
                           }}
                           disabled={isEnhancing || isTypewriting}
                         >
-                          <span className="block">
-                            <AudioLinesIcon ref={audioLinesRef} size={16} />
-                          </span>
+                          <AudioLinesIcon ref={audioLinesRef} size={16} />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent
                         side="bottom"
                         sideOffset={6}
-                        className="border-0 backdrop-blur-xs py-2 px-3 !shadow-none"
+                        className="border-0 backdrop-blur-xs py-2 px-3 shadow-none!"
                       >
                         <div className="flex flex-col gap-0.5">
                           <span className="font-medium text-[11px]">
@@ -3336,7 +6161,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                       </TooltipContent>
                     </Tooltip>
                   ) : (
-                    /* Show Send Button when there is input */
                     <Tooltip delayDuration={300}>
                       <TooltipTrigger asChild>
                         <Button
@@ -3345,9 +6169,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           onClick={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
-                            if (!isEnhancing && !isTypewriting) {
-                              submitForm();
-                            }
+                            if (!isEnhancing && !isTypewriting) submitForm();
                           }}
                           disabled={
                             (input.length === 0 && attachments.length === 0 && !isEnhancing && !isTypewriting) ||
@@ -3358,15 +6180,13 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             isTypewriting
                           }
                         >
-                          <span className="block">
-                            <ArrowUpIcon size={16} />
-                          </span>
+                          <ArrowUpIcon size={16} />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent
                         side="bottom"
                         sideOffset={6}
-                        className="border-0 backdrop-blur-xs py-2 px-3 !shadow-none"
+                        className="border-0 backdrop-blur-xs py-2 px-3 shadow-none!"
                       >
                         <div className="text-center">
                           <div className="font-medium text-[11px] mb-1">Send Message</div>
@@ -3392,17 +6212,72 @@ const FormComponent: React.FC<FormComponentProps> = ({
                   )}
                 </div>
               </div>
+
+              {/* Autocomplete suggestions — absolute, overlays downward, no layout shift */}
+              {showSuggestions &&
+                suggestions.length > 0 &&
+                !hasInteracted &&
+                !triggerPopup &&
+                attachments.length === 0 &&
+                uploadQueue.length === 0 && (
+                  <div
+                    ref={suggestionsRef}
+                    className="absolute -left-px -right-px top-full z-50 bg-muted border border-ring/5 border-t-0 rounded-b-xl overflow-hidden"
+                  >
+                    {/* <div className="border-t border-border/40" /> */}
+                    {suggestions.map((suggestion, index) => {
+                      const isHighlighted = index === suggestionIndex;
+                      const query = input.trim().toLowerCase();
+                      const lower = suggestion.toLowerCase();
+                      const matchEnd = lower.startsWith(query) ? query.length : 0;
+
+                      return (
+                        <button
+                          key={suggestion}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setInput(suggestion);
+                            setSuggestions([]);
+                            setShowSuggestions(false);
+                            setSuggestionIndex(-1);
+                          }}
+                          onMouseEnter={() => setSuggestionIndex(index)}
+                          className={cn(
+                            'flex items-center gap-2.5 w-full px-4 py-1.5 text-left transition-colors duration-75',
+                            isHighlighted ? 'bg-accent/60' : 'bg-transparent hover:bg-accent/30',
+                          )}
+                        >
+                          <MagnifyingGlassIcon className="size-3.5 shrink-0 text-muted-foreground/60" weight="bold" />
+                          <span className="text-[13px] text-foreground/80 truncate">
+                            {matchEnd > 0 ? (
+                              <>
+                                {suggestion.slice(0, matchEnd)}
+                                <span className="font-semibold text-foreground">{suggestion.slice(matchEnd)}</span>
+                              </>
+                            ) : (
+                              suggestion
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })}
+                    <div className="h-0" />
+                  </div>
+                )}
             </div>
           </div>
         </div>
 
         {/* Sign In Dialog */}
         <Dialog open={showSignInDialog} onOpenChange={setShowSignInDialog}>
-          <DialogContent className="sm:max-w-[420px] p-0 gap-0 bg-background" showCloseButton={false}>
-            <DialogHeader className="p-2">
-              <div className="relative w-full p-6 rounded-md text-white overflow-hidden">
-                <div className="absolute inset-0 bg-[url('/placeholder.png')] bg-cover bg-center rounded-sm">
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-black/10"></div>
+          <DialogContent className="sm:max-w-[400px] p-0 gap-0 overflow-hidden" showCloseButton={false}>
+            <div className="relative px-6 pt-8 pb-6 text-center">
+              <div className="absolute inset-0 bg-[url('/placeholder.png')] bg-cover bg-center">
+                <div className="absolute inset-0 bg-linear-to-t from-background via-background/80 to-background/40" />
+              </div>
+              <div className="relative z-10 space-y-1.5">
+                <div className="w-10 h-10 rounded-xl bg-muted/50 flex items-center justify-center mx-auto mb-3">
+                  <LockIcon className="w-5 h-5 text-muted-foreground" />
                 </div>
                 <div className="relative z-10 flex flex-col gap-4">
                   <DialogTitle className="flex items-center gap-3 text-white">
@@ -3437,57 +6312,32 @@ const FormComponent: React.FC<FormComponentProps> = ({
                     }}
                     className="backdrop-blur-md bg-white/90 border border-white/20 text-black hover:bg-white w-full font-medium"
                   >
-                    Sign in
-                  </Button>
-                </div>
-              </div>
-            </DialogHeader>
-
-            <div className="px-6 py-6 flex flex-col gap-4">
-              <div className="flex items-center gap-4">
-                <CheckIcon className="size-4 text-primary flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Voice Input</p>
-                  <p className="text-xs text-muted-foreground">Record and transcribe voice messages</p>
-                </div>
+                    <CheckIcon className="size-3 text-primary shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-medium leading-tight">{f.title}</p>
+                      <p className="font-pixel text-[8px] text-muted-foreground/50 uppercase tracking-wider mt-0.5">
+                        {f.desc}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
 
-              <div className="flex items-center gap-4">
-                <CheckIcon className="size-4 text-primary flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Access better models</p>
-                  <p className="text-xs text-muted-foreground">GPT-5 Nano and more premium models</p>
-                </div>
-              </div>
+              <Button
+                onClick={() => {
+                  window.location.href = '/sign-in';
+                }}
+                className="w-full rounded-lg h-9"
+              >
+                Sign in
+              </Button>
 
-              <div className="flex items-center gap-4">
-                <CheckIcon className="size-4 text-primary flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Save search history</p>
-                  <p className="text-xs text-muted-foreground">Keep track of your conversations</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <CheckIcon className="size-4 text-primary flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Free to start</p>
-                  <p className="text-xs text-muted-foreground">No payment required for basic features</p>
-                </div>
-              </div>
-
-              <div className="flex gap-2 w-full items-center mt-4">
-                <div className="flex-1 border-b border-foreground/10" />
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowSignInDialog(false)}
-                  size="sm"
-                  className="text-muted-foreground hover:text-foreground text-xs px-3"
-                >
-                  Maybe later
-                </Button>
-                <div className="flex-1 border-b border-foreground/10" />
-              </div>
+              <button
+                onClick={() => setShowSignInDialog(false)}
+                className="w-full text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors py-1"
+              >
+                Maybe later
+              </button>
             </div>
           </DialogContent>
         </Dialog>
