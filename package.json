@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev -p 8931",
+    "dev": "next dev -p 8931 --webpack",
+    "dev:turbo": "next dev -p 8931 --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
