@@ -45,8 +45,15 @@
 - Functional gate: `npm run build` passed
 - Browser validation:
   - `/` loaded on `http://localhost:8931` with 0 console errors and 1 non-blocking warning
-  - `/sign-in` loaded with 0 console errors and only non-blocking Clerk/preload warnings
-  - `/xql` redirected unauthenticated traffic to Clerk sign-in as expected; console showed an external CSP note on the Clerk-hosted page
+  - `/sign-in` rendered, but Clerk emitted an infinite redirect loop warning in the dev server logs indicating mismatched local Clerk keys
+  - `/xql` redirected unauthenticated traffic to Clerk sign-in; the external Clerk-hosted page logged a CSP note
+
+## Blocking Observation
+
+- The branch is functionally buildable and the public home page loads.
+- Authenticated flows are not validated as healthy because the current local Clerk environment appears misconfigured:
+  - `Clerk: Refreshing the session token resulted in an infinite redirect loop`
+  - likely cause: publishable/secret keys from different Clerk instances in `.env.local`
 
 ## Result Expected
 
