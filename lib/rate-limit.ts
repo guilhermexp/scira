@@ -27,7 +27,6 @@ export const unauthenticatedRateLimit = hasValidUpstash
 export function getClientIdentifier(req: Request): string {
   const forwarded = req.headers.get('x-forwarded-for');
   const realIp = req.headers.get('x-real-ip');
-  const cfConnectingIp = req.headers.get('cf-connecting-ip');
-  const ip = forwarded?.split(',')[0]?.trim() || realIp?.trim() || cfConnectingIp?.trim();
-  return ip ? `ip:${ip}` : 'ip:unknown';
+  const ip = forwarded?.split(',')[0] ?? realIp ?? 'unknown';
+  return `ip:${ip}`;
 }

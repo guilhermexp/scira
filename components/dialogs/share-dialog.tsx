@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { GlobeHemisphereWestIcon, LockIcon, CopyIcon, CheckIcon, ShareIcon, XIcon } from '@phosphor-icons/react';
-import { sileo } from 'sileo';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
@@ -37,11 +37,11 @@ export function ShareIconDialog({
 
     try {
       await onVisibilityChange('public');
-      sileo.success({ title: 'Chat is now public and ready to share' });
+      toast.success('Chat is now public and ready to share');
       console.log('✅ ShareIconDialog: Successfully made chat public');
     } catch (error) {
       console.error('❌ ShareIconDialog: Error making chat public:', error);
-      sileo.error({ title: 'Failed to make chat public' });
+      toast.error('Failed to make chat public');
       onClose();
     } finally {
       setIsChangingVisibility(false);
@@ -54,12 +54,12 @@ export function ShareIconDialog({
 
     try {
       await onVisibilityChange('private');
-      sileo.success({ title: 'Chat is now private' });
+      toast.success('Chat is now private');
       console.log('✅ ShareIconDialog: Successfully made chat private');
       onClose();
     } catch (error) {
       console.error('❌ ShareIconDialog: Error making chat private:', error);
-      sileo.error({ title: 'Failed to make chat private' });
+      toast.error('Failed to make chat private');
     } finally {
       setIsChangingVisibility(false);
     }
@@ -69,12 +69,12 @@ export function ShareIconDialog({
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
-      sileo.success({ title: 'Link copied to clipboard' });
+      toast.success('Link copied to clipboard');
       setTimeout(() => setCopied(false), 2000);
       console.log('✅ ShareIconDialog: Link copied to clipboard');
     } catch (error) {
       console.error('❌ ShareIconDialog: Error copying link:', error);
-      sileo.error({ title: 'Failed to copy link' });
+      toast.error('Failed to copy link');
     }
   };
 

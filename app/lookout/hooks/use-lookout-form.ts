@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { sileo } from 'sileo';
+import { toast } from 'sonner';
 import { DEFAULT_FORM_VALUES } from '../constants';
 import { isTimeInPast } from '../utils/time-utils';
 
@@ -13,7 +13,6 @@ export interface LookoutFormData {
   timezone: string;
   date?: string;
   dayOfWeek?: string;
-  searchMode?: string;
 }
 
 export interface LookoutFormHookReturn {
@@ -23,7 +22,6 @@ export interface LookoutFormHookReturn {
   selectedTimezone: string;
   selectedDate: Date | undefined;
   selectedDayOfWeek: string;
-  selectedSearchMode: string;
   selectedExample: any | null;
   isCreateDialogOpen: boolean;
   editingLookout: any | null;
@@ -34,7 +32,6 @@ export interface LookoutFormHookReturn {
   setSelectedTimezone: (timezone: string) => void;
   setSelectedDate: (date: Date | undefined) => void;
   setSelectedDayOfWeek: (day: string) => void;
-  setSelectedSearchMode: (mode: string) => void;
   setSelectedExample: (example: any | null) => void;
   setIsCreateDialogOpen: (open: boolean) => void;
   setEditingLookout: (lookout: any | null) => void;
@@ -63,7 +60,6 @@ export function useLookoutForm(detectedTimezone: string = DEFAULT_FORM_VALUES.TI
   console.log('🔧 Initial selectedTimezone state:', detectedTimezone);
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [selectedDayOfWeek, setSelectedDayOfWeek] = React.useState<string>(DEFAULT_FORM_VALUES.DAY_OF_WEEK);
-  const [selectedSearchMode, setSelectedSearchMode] = React.useState<string>(DEFAULT_FORM_VALUES.SEARCH_MODE);
   const [selectedExample, setSelectedExample] = React.useState<any | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
   const [editingLookout, setEditingLookout] = React.useState<any | null>(null);
@@ -84,7 +80,6 @@ export function useLookoutForm(detectedTimezone: string = DEFAULT_FORM_VALUES.TI
     setSelectedTimezone(detectedTimezone);
     setSelectedDate(undefined);
     setSelectedDayOfWeek(DEFAULT_FORM_VALUES.DAY_OF_WEEK as string);
-    setSelectedSearchMode(DEFAULT_FORM_VALUES.SEARCH_MODE as string);
     setSelectedExample(null);
     setEditingLookout(null);
   }, [detectedTimezone]);
@@ -110,7 +105,6 @@ export function useLookoutForm(detectedTimezone: string = DEFAULT_FORM_VALUES.TI
     setSelectedTime(example.time);
     setSelectedTimezone(example.timezone || (DEFAULT_FORM_VALUES.TIMEZONE as string));
     setSelectedDayOfWeek(example.dayOfWeek || (DEFAULT_FORM_VALUES.DAY_OF_WEEK as string));
-    setSelectedSearchMode(example.searchMode || (DEFAULT_FORM_VALUES.SEARCH_MODE as string));
     setIsCreateDialogOpen(true);
   }, []);
 
@@ -119,7 +113,6 @@ export function useLookoutForm(detectedTimezone: string = DEFAULT_FORM_VALUES.TI
     setEditingLookout(lookout);
     setSelectedFrequency(lookout.frequency);
     setSelectedTimezone(lookout.timezone);
-    setSelectedSearchMode(lookout.searchMode || DEFAULT_FORM_VALUES.SEARCH_MODE);
 
     // Parse time from existing data or use default
     if (lookout.cronSchedule) {
@@ -152,26 +145,26 @@ export function useLookoutForm(detectedTimezone: string = DEFAULT_FORM_VALUES.TI
     const date = formData.get('date') as string;
 
     if (!title?.trim() || !prompt?.trim()) {
-      sileo.error({ title: 'Please fill in all required fields' });
+      toast.error('Please fill in all required fields');
       return false;
     }
 
     // For once frequency, validate date and time
     if (frequency === 'once') {
       if (!date) {
-        sileo.error({ title: 'Please select a date for one-time lookouts' });
+        toast.error('Please select a date for one-time lookouts');
         return false;
       }
 
       if (!time) {
-        sileo.error({ title: 'Please select a time' });
+        toast.error('Please select a time');
         return false;
       }
 
       // Check if the selected date and time is in the past
       const selectedDateTime = new Date(date);
       if (isTimeInPast(time, selectedDateTime)) {
-        sileo.error({ title: 'Cannot schedule lookout in the past' });
+        toast.error('Cannot schedule lookout in the past');
         return false;
       }
     }
@@ -191,7 +184,6 @@ export function useLookoutForm(detectedTimezone: string = DEFAULT_FORM_VALUES.TI
       const timezone = (formData.get('timezone') as string) || DEFAULT_FORM_VALUES.TIMEZONE;
       const date = formData.get('date') as string;
       const dayOfWeek = formData.get('dayOfWeek') as string;
-      const searchMode = (formData.get('searchMode') as string) || DEFAULT_FORM_VALUES.SEARCH_MODE;
 
       // Handle weekly day selection
       let adjustedTime = time;
@@ -206,7 +198,6 @@ export function useLookoutForm(detectedTimezone: string = DEFAULT_FORM_VALUES.TI
         time: adjustedTime,
         timezone,
         date: frequency === 'once' ? date : undefined,
-        searchMode,
         onSuccess: () => handleDialogOpenChange(false),
       });
     },
@@ -224,7 +215,6 @@ export function useLookoutForm(detectedTimezone: string = DEFAULT_FORM_VALUES.TI
       const time = formData.get('time') as string;
       const timezone = formData.get('timezone') as string;
       const dayOfWeek = formData.get('dayOfWeek') as string;
-      const searchMode = (formData.get('searchMode') as string) || DEFAULT_FORM_VALUES.SEARCH_MODE;
 
       updateLookout({
         id: editingLookout.id,
@@ -233,7 +223,6 @@ export function useLookoutForm(detectedTimezone: string = DEFAULT_FORM_VALUES.TI
         frequency: frequency as 'once' | 'daily' | 'weekly' | 'monthly',
         time: frequency === 'weekly' && dayOfWeek ? `${time}:${dayOfWeek}` : time,
         timezone,
-        searchMode,
         onSuccess: () => handleDialogOpenChange(false),
       });
     },
@@ -247,7 +236,6 @@ export function useLookoutForm(detectedTimezone: string = DEFAULT_FORM_VALUES.TI
     selectedTimezone,
     selectedDate,
     selectedDayOfWeek,
-    selectedSearchMode,
     selectedExample,
     isCreateDialogOpen,
     editingLookout,
@@ -258,7 +246,6 @@ export function useLookoutForm(detectedTimezone: string = DEFAULT_FORM_VALUES.TI
     setSelectedTimezone,
     setSelectedDate,
     setSelectedDayOfWeek,
-    setSelectedSearchMode,
     setSelectedExample,
     setIsCreateDialogOpen,
     setEditingLookout,

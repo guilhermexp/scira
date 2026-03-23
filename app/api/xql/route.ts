@@ -16,7 +16,8 @@ import { markdownJoinerTransform } from '@/lib/parser';
 import { scira } from '@/ai/providers';
 
 import { z } from 'zod';
-import { xai } from '@ai-sdk/xai';
+import { GroqProviderOptions } from '@ai-sdk/groq';
+import { XaiProviderOptions } from '@ai-sdk/xai';
 
 const xqlTool = tool({
   description:

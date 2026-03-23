@@ -3,21 +3,12 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ButtonGroup } from '@/components/ui/button-group';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { ProgressRing } from '@/components/ui/progress-ring';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs as KumoTabs } from '@cloudflare/kumo';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -28,9 +19,6 @@ import {
   getUserMessageCount,
   getSubDetails,
   getExtremeSearchUsageCount,
-  getAgentModeUsageCountAction,
-  getAnthropicUsageCountAction,
-  getGoogleUsageCountAction,
   getHistoricalUsage,
   getCustomInstructions,
   saveCustomInstructions,
@@ -52,44 +40,31 @@ import {
   RobotIcon,
 } from '@phosphor-icons/react';
 
-import {
-  ChevronDown,
-  ExternalLink,
-  GripVertical,
-  Sparkles,
-  Check,
-  X,
-  AlertCircle,
-  Settings,
-  Trash2,
-  Save,
-} from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import Link from 'next/link';
-import { useState, useEffect, useMemo, useCallback, useRef, type ComponentType } from 'react';
-import { allSettled as betterAllSettled } from 'better-all';
-import { sileo } from 'sileo';
+import { useState, useEffect, useMemo, memo, useCallback } from 'react';
+import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { getAllMemories, deleteMemory, MemoryItem } from '@/lib/memory-actions';
-import { Loader2, Search, Zap, Pencil, Plus, MoreHorizontal, Link2Off } from 'lucide-react';
+import { Loader2, GripVertical } from 'lucide-react';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  rectSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { getSearchGroups, type SearchGroupId } from '@/lib/utils';
-import { models, PROVIDERS, getModelProvider, type ModelProvider } from '@/ai/models';
+import { models } from '@/ai/providers';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { useIsProUser } from '@/contexts/user-context';
 import { SciraLogo } from './logos/scira-logo';
-import { ThemeSwitcher } from './theme-switcher';
 import Image from 'next/image';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
-import { HugeiconsIcon } from '@/components/ui/hugeicons';
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
+import { HugeiconsIcon } from '@hugeicons/react';
 import {
   Crown02Icon,
   UserAccountIcon,
@@ -99,18 +74,18 @@ import {
   GlobalSearchIcon,
   ConnectIcon,
   InformationCircleIcon,
-  Rocket01Icon,
-  Attachment01Icon,
 } from '@hugeicons/core-free-icons';
+import {
+  ContributionGraph,
+  ContributionGraphCalendar,
+  ContributionGraphBlock,
+  ContributionGraphFooter,
+  ContributionGraphLegend,
+  ContributionGraphTotalCount,
+  type Activity,
+} from '@/components/ui/kibo-ui/contribution-graph';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CONNECTOR_CONFIGS, CONNECTOR_ICONS, type ConnectorProvider } from '@/lib/connectors';
-// Custom visx-based chart components
-import { AreaChart as CustomAreaChart } from '@/components/charts/area-chart';
-import { Area as CustomArea } from '@/components/charts/area';
-import { Grid } from '@/components/charts/grid';
-import { ChartTooltip as CustomChartTooltip } from '@/components/charts/tooltip';
-import type { TooltipRow } from '@/components/charts/tooltip/tooltip-content';
-import { Input } from '@/components/ui/input';
-import { ModelSelectorDialog } from '@/components/ui/model-selector';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -120,7 +95,7 @@ interface SettingsDialogProps {
   isProUser?: boolean;
   isProStatusLoading?: boolean;
   isCustomInstructionsEnabled?: boolean;
-  setIsCustomInstructionsEnabledAction?: (value: boolean | ((val: boolean) => boolean)) => void;
+  setIsCustomInstructionsEnabled?: (value: boolean | ((val: boolean) => boolean)) => void;
   initialTab?: string;
 }
 
@@ -134,15 +109,9 @@ export function ProfileSection({ user, subscriptionData, isProUser, isProStatusL
   const showProLoading: boolean = Boolean(fastProLoading || isProStatusLoading);
 
   return (
-    <div className="space-y-5">
-      {/* Profile Header */}
-      <div className={cn('flex items-center gap-4', isMobile ? 'pb-2' : 'pb-3')}>
-        <Avatar
-          className={cn(
-            'ring-2 ring-border/50 ring-offset-2 ring-offset-background',
-            isMobile ? 'h-16 w-16' : 'h-20 w-20',
-          )}
-        >
+    <div>
+      <div className={cn('flex flex-col items-center text-center space-y-3', isMobile ? 'pb-2' : 'pb-4')}>
+        <Avatar className={isMobile ? 'h-16 w-16' : 'h-20 w-20'}>
           <AvatarImage src={user?.image || ''} />
           <AvatarFallback className={isMobile ? 'text-base' : 'text-lg'}>
             {user?.name
@@ -154,54 +123,40 @@ export function ProfileSection({ user, subscriptionData, isProUser, isProStatusL
               : 'U'}
           </AvatarFallback>
         </Avatar>
-        <div className="space-y-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h3 className={cn('font-semibold truncate', isMobile ? 'text-base' : 'text-lg')}>{user?.name}</h3>
-            {showProLoading ? (
-              <Skeleton className="h-5 w-12" />
-            ) : (
-              isProUserActive && (
-                <span
-                  className={cn(
-                    'font-baumans! px-2 pt-0.5 pb-1.5 inline-flex leading-4 items-center rounded-lg shadow-sm border-transparent ring-1 ring-ring/35 ring-offset-1 ring-offset-background text-xs shrink-0',
-                    'bg-linear-to-br from-secondary/25 via-primary/20 to-accent/25 text-foreground',
-                    'dark:bg-linear-to-br dark:from-primary dark:via-secondary dark:to-primary dark:text-foreground',
-                  )}
-                >
-                  {user?.isMaxUser ? 'max' : 'pro'}
-                </span>
-              )
-            )}
-          </div>
-          <p className={cn('text-muted-foreground break-all', isMobile ? 'text-xs' : 'text-sm')}>{user?.email}</p>
+        <div className="space-y-1">
+          <h3 className={cn('font-semibold', isMobile ? 'text-base' : 'text-lg')}>{user?.name}</h3>
+          <p className={cn('text-muted-foreground', isMobile ? 'text-xs' : 'text-sm')}>{user?.email}</p>
+          {showProLoading ? (
+            <Skeleton className="h-5 w-16 mx-auto" />
+          ) : (
+            isProUserActive && (
+              <span
+                className={cn(
+                  'font-baumans! px-2 pt-1 pb-2 inline-flex leading-5 mt-2 items-center rounded-lg shadow-sm border-transparent ring-1 ring-ring/35 ring-offset-1 ring-offset-background',
+                  'bg-gradient-to-br from-secondary/25 via-primary/20 to-accent/25 text-foreground',
+                  'dark:bg-gradient-to-br dark:from-primary dark:via-secondary dark:to-primary dark:text-foreground',
+                )}
+              >
+                pro user
+              </span>
+            )
+          )}
         </div>
       </div>
 
-      {/* Account Details */}
-      <div className={isMobile ? 'space-y-2.5' : 'space-y-3'}>
-        <div className="flex items-center gap-2 mb-2">
-          <span className="font-pixel-grid text-xs text-muted-foreground/50">01</span>
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Account Details</h4>
-        </div>
-        <div
-          className={cn(
-            'rounded-lg border border-border/60',
-            isMobile ? 'divide-y divide-border/40' : 'divide-y divide-border/40',
-          )}
-        >
-          <div className={cn(isMobile ? 'p-3' : 'p-4')}>
-            <Label className="font-pixel text-xs text-muted-foreground/50 uppercase tracking-[0.12em]">Full Name</Label>
+      <div className={isMobile ? 'space-y-2' : 'space-y-3'}>
+        <div className={cn('bg-muted/50 rounded-lg space-y-3', isMobile ? 'p-3' : 'p-4')}>
+          <div>
+            <Label className="text-xs text-muted-foreground">Full Name</Label>
             <p className="text-sm font-medium mt-1">{user?.name || 'Not provided'}</p>
           </div>
-          <div className={cn(isMobile ? 'p-3' : 'p-4')}>
-            <Label className="font-pixel text-xs text-muted-foreground/50 uppercase tracking-[0.12em]">
-              Email Address
-            </Label>
+          <div>
+            <Label className="text-xs text-muted-foreground">Email Address</Label>
             <p className="text-sm font-medium mt-1 break-all">{user?.email || 'Not provided'}</p>
           </div>
         </div>
 
-        <div className={cn('rounded-lg bg-muted/30 border border-border/40', isMobile ? 'p-2.5' : 'p-3')}>
+        <div className={cn('bg-muted/30 rounded-lg border border-border', isMobile ? 'p-2.5' : 'p-3')}>
           <p className={cn('text-muted-foreground', isMobile ? 'text-[11px]' : 'text-xs')}>
             Profile information is managed through your authentication provider. Contact support to update your details.
           </p>
@@ -226,17 +181,21 @@ const ExaIcon = ({ className }: { className?: string }) => (
   <Image src="/exa-color.svg" alt="Exa" width={16} height={16} className={className} />
 );
 
+const TavilyIcon = ({ className }: { className?: string }) => (
+  <Image src="/tavily-color.svg" alt="Tavily" width={16} height={16} className={className} />
+);
+
 const FirecrawlIcon = ({ className }: { className?: string }) => (
-  <span className={cn('text-base sm:text-lg mb-3! pr-1!', className)}>🔥</span>
+  <span className={cn('text-base sm:text-lg !mb-3 !pr-1', className)}>🔥</span>
 );
 
 // Search Provider Options
 const searchProviders = [
   {
-    value: 'exa',
-    label: 'Exa',
-    description: 'Enhanced and faster web search with images and advanced filtering',
-    icon: ExaIcon,
+    value: 'parallel',
+    label: 'Parallel AI',
+    description: 'Base and premium web search along with Firecrawl image search support',
+    icon: ParallelIcon,
     default: true,
   },
   {
@@ -247,153 +206,119 @@ const searchProviders = [
     default: false,
   },
   {
-    value: 'parallel',
-    label: 'Parallel AI',
-    description: 'Base and premium web search along with Firecrawl image search support',
-    icon: ParallelIcon,
+    value: 'exa',
+    label: 'Exa',
+    description: 'Enhanced and faster web search with images and advanced filtering',
+    icon: ExaIcon,
+    default: false,
+  },
+  {
+    value: 'tavily',
+    label: 'Tavily',
+    description: 'Wide web search with comprehensive results and analysis',
+    icon: TavilyIcon,
     default: false,
   },
 ] as const;
 
-type AutoRouterRoute = {
-  name: string;
-  description: string;
-  model: string;
-};
+// Search Provider Selector Component
+function SearchProviderSelector({
+  value,
+  onValueChange,
+  disabled,
+  className,
+}: {
+  value: string;
+  onValueChange: (value: 'exa' | 'parallel' | 'tavily' | 'firecrawl') => void;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
-type AutoRouterConfig = {
-  routes: AutoRouterRoute[];
-};
-
-function getDefaultAutoRouterRoutes(): AutoRouterRoute[] {
-  return [
-    {
-      name: 'general',
-      description: 'General questions and conversations',
-      model: 'scira-default',
-    },
-    {
-      name: 'research',
-      description: 'Academic research, papers, and scientific topics',
-      model: 'scira-gemini-3-flash',
-    },
-    {
-      name: 'code_generation',
-      description: 'Generating code, scripts, or programming tasks',
-      model: 'scira-qwen-coder-next',
-    },
-    {
-      name: 'writing',
-      description: 'Creative writing, documentation, and content creation',
-      model: 'scira-kimi-k2.5',
-    },
-    {
-      name: 'analysis',
-      description: 'Data analysis, reasoning, and problem solving',
-      model: 'scira-gpt-5.2',
-    },
-  ];
+  return (
+    <div className={cn('w-full', className)}>
+      <div className="grid grid-cols-2 sm:grid-cols-2 gap-3">
+        {searchProviders.map((provider) => (
+          <button
+            key={provider.value}
+            onClick={() => onValueChange(provider.value as any)}
+            disabled={disabled}
+            className={cn(
+              'flex flex-col items-start p-4 rounded-lg border transition-all duration-200',
+              'hover:bg-accent/50 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+              'disabled:opacity-50 disabled:cursor-not-allowed',
+              value === provider.value
+                ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                : 'border-border bg-background hover:border-border/80',
+            )}
+          >
+            <div className="flex items-center gap-2.5 w-full mb-2">
+              <provider.icon className="text-muted-foreground size-4 flex-shrink-0" />
+              <div className="font-medium text-sm flex items-center gap-2">
+                {provider.label}
+                {provider.default && (
+                  <Badge variant="secondary" className="text-[9px] px-1 py-0.5 bg-primary/10 text-primary border-0">
+                    Default
+                  </Badge>
+                )}
+              </div>
+            </div>
+            <div className="text-xs text-muted-foreground leading-relaxed text-left">{provider.description}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 // Component for Combined Preferences (Search + Custom Instructions)
 export function PreferencesSection({
   user,
   isCustomInstructionsEnabled,
-  setIsCustomInstructionsEnabledAction,
+  setIsCustomInstructionsEnabled,
 }: {
   user: any;
   isCustomInstructionsEnabled?: boolean;
-  setIsCustomInstructionsEnabledAction?: (value: boolean | ((val: boolean) => boolean)) => void;
+  setIsCustomInstructionsEnabled?: (value: boolean | ((val: boolean) => boolean)) => void;
 }) {
   const isMobile = useMediaQuery('(max-width: 768px)');
   const { language, setLanguage, t } = useLanguage();
   const [searchProvider, setSearchProvider] = useLocalStorage<'exa' | 'parallel' | 'tavily' | 'firecrawl'>(
     'scira-search-provider',
-    'exa',
+    'parallel',
   );
-
-  const [extremeSearchModel, setExtremeSearchModel] = useSyncedPreferences<
-    | 'scira-ext-1'
-    | 'scira-ext-2'
-    | 'scira-ext-3'
-    | 'scira-ext-4'
-    | 'scira-ext-5'
-    | 'scira-ext-6'
-    | 'scira-ext-7'
-    | 'scira-ext-8'
-  >('scira-extreme-search-model', 'scira-ext-1');
-
-  const [locationMetadataEnabled, setLocationMetadataEnabled] = useSyncedPreferences<boolean>(
-    'scira-location-metadata-enabled',
-    false,
-  );
-  const [scrollToLatestOnOpen, setScrollToLatestOnOpen] = useSyncedPreferences<boolean>(
-    'scira-scroll-to-latest-on-open',
-    false,
-  );
-  const [autoRouterEnabled, setAutoRouterEnabled] = useSyncedPreferences<boolean>('scira-auto-router-enabled', false);
-  const [autoRouterConfig, setAutoRouterConfig] = useSyncedPreferences<AutoRouterConfig>('scira-auto-router-config', {
-    routes: getDefaultAutoRouterRoutes(),
-  });
 
   const [content, setContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  // Customize state: visible modes, mode order, and preferred models
+  // Reorder state: groups and models
   const dynamicGroups = useMemo(() => getSearchGroups(searchProvider), [searchProvider]);
-  const [visibleModes, setVisibleModes] = useSyncedPreferences<string[]>('scira-visible-modes', []);
-  const [modeOrder, setModeOrder] = useSyncedPreferences<string[]>('scira-group-order', []);
-  const [preferredModels, setPreferredModels] = useSyncedPreferences<string[]>('scira-preferred-models', []);
+  const [groupOrder, setGroupOrder] = useLocalStorage<SearchGroupId[]>(
+    'scira-group-order',
+    dynamicGroups.map((g) => g.id),
+  );
+  const mergedGroupOrder = useMemo(() => {
+    const currentIds = dynamicGroups.map((g) => g.id);
+    const filteredExisting = groupOrder.filter((id) => currentIds.includes(id));
+    const missing = currentIds.filter((id) => !filteredExisting.includes(id));
+    return [...filteredExisting, ...missing] as SearchGroupId[];
+  }, [dynamicGroups, groupOrder]);
 
-  // Sort groups by user-defined order (empty = default order), hide canvas unless flag is on
-  const sortedGroups = useMemo(() => {
-    const canvasEnabled = process.env.NEXT_PUBLIC_CANVAS_ENABLED === 'true';
-    const filtered = dynamicGroups.filter((g) => g.show && (g.id !== 'canvas' || canvasEnabled));
-    if (!modeOrder || modeOrder.length === 0) return filtered;
-    const orderMap = new Map(modeOrder.map((id, i) => [id, i]));
-    return [...filtered].sort((a, b) => {
-      const ai = orderMap.get(a.id) ?? Infinity;
-      const bi = orderMap.get(b.id) ?? Infinity;
-      return ai - bi;
-    });
-  }, [dynamicGroups, modeOrder]);
-
-  // Drag-and-drop state for mode reordering
-  const dragIndexRef = useRef<number | null>(null);
-  const dragOverIndexRef = useRef<number | null>(null);
-  const [modelSearch, setModelSearch] = useState('');
-
-  // Group models by provider for the customize UI
-  const modelsByProvider = useMemo(() => {
-    const groups = new Map<ModelProvider, typeof models>();
-    for (const m of models) {
-      const provider = m.provider || getModelProvider(m.value, m.label);
-      if (!groups.has(provider)) groups.set(provider, []);
-      groups.get(provider)!.push(m);
-    }
-    return groups;
-  }, []);
-
-  const filteredModelsByProvider = useMemo(() => {
-    if (!modelSearch.trim()) return modelsByProvider;
-    const q = modelSearch.toLowerCase();
-    const filtered = new Map<ModelProvider, typeof models>();
-    for (const [provider, providerModels] of modelsByProvider) {
-      const matching = providerModels.filter(
-        (m) =>
-          m.label.toLowerCase().includes(q) ||
-          m.description.toLowerCase().includes(q) ||
-          m.value.toLowerCase().includes(q),
-      );
-      if (matching.length > 0) filtered.set(provider, matching);
-    }
-    return filtered;
-  }, [modelsByProvider, modelSearch]);
+  const allModelIds = useMemo(() => models.map((m) => m.value), []);
+  const [globalModelOrder, setGlobalModelOrder] = useLocalStorage<string[]>('scira-model-order-global', allModelIds);
+  const mergedModelOrder = useMemo(() => {
+    const validSet = new Set(allModelIds);
+    const base = (globalModelOrder && globalModelOrder.length > 0 ? globalModelOrder : []).filter((id) =>
+      validSet.has(id),
+    );
+    const missing = allModelIds.filter((id) => !base.includes(id));
+    return [...base, ...missing];
+  }, [globalModelOrder, allModelIds]);
 
   const enabled = isCustomInstructionsEnabled ?? true;
   const setEnabled = setIsCustomInstructionsEnabled ?? (() => {});
 
-  const handleSearchProviderChange = (newProvider: 'exa' | 'parallel' | 'firecrawl') => {
+  const handleSearchProviderChange = (newProvider: 'exa' | 'parallel' | 'tavily' | 'firecrawl') => {
     setSearchProvider(newProvider);
     toast.success(
       `Search provider changed to ${
@@ -405,39 +330,7 @@ export function PreferencesSection({
               ? 'Tavily'
               : 'Firecrawl'
       }`,
-      description: 'This will be used for all future searches',
-      icon: <Search className="h-4 w-4" />,
-    });
-  };
-
-  const extremeSearchModels = [
-    { value: 'scira-ext-1' as const, label: 'Grok 4.1 Fast Reasoning' },
-    { value: 'scira-ext-2' as const, label: 'GPT-5.4' },
-    { value: 'scira-ext-4' as const, label: 'GLM 4.7 Flash' },
-    { value: 'scira-ext-5' as const, label: 'Kimi K2.5' },
-    { value: 'scira-ext-6' as const, label: 'Gemini 3.1 Pro' },
-    { value: 'scira-ext-7' as const, label: 'Qwen 3.5 Flash' },
-    { value: 'scira-ext-8' as const, label: 'Grok 4.20 Experimental Beta' },
-  ];
-
-  const handleExtremeSearchModelChange = (
-    newModel:
-      | 'scira-ext-1'
-      | 'scira-ext-2'
-      | 'scira-ext-4'
-      | 'scira-ext-5'
-      | 'scira-ext-6'
-      | 'scira-ext-7'
-      | 'scira-ext-8',
-  ) => {
-    if (!hasPaidAccess) return;
-    setExtremeSearchModel(newModel);
-    const label = extremeSearchModels.find((m) => m.value === newModel)?.label ?? newModel;
-    sileo.success({
-      title: `Extreme Agent model changed to ${label}`,
-      description: 'This will be used for extreme search mode',
-      icon: <Sparkles className="h-4 w-4" />,
-    });
+    );
   };
 
   // Custom Instructions queries and handlers
@@ -459,11 +352,7 @@ export function PreferencesSection({
 
   const handleSave = async () => {
     if (!content.trim()) {
-      sileo.error({
-        title: 'Please enter some instructions',
-        description: 'Custom instructions cannot be empty',
-        icon: <AlertCircle className="h-4 w-4" />,
-      });
+      toast.error('Please enter some instructions');
       return;
     }
 
@@ -471,25 +360,13 @@ export function PreferencesSection({
     try {
       const result = await saveCustomInstructions(content);
       if (result.success) {
-        sileo.success({
-          title: 'Custom instructions saved successfully',
-          description: 'Your preferences have been updated',
-          icon: <Save className="h-4 w-4" />,
-        });
+        toast.success('Custom instructions saved successfully');
         refetch();
       } else {
-        sileo.error({
-          title: result.error || 'Failed to save instructions',
-          description: 'Please try again',
-          icon: <X className="h-4 w-4" />,
-        });
+        toast.error(result.error || 'Failed to save instructions');
       }
     } catch (error) {
-      sileo.error({
-        title: 'Failed to save instructions',
-        description: 'Please try again',
-        icon: <X className="h-4 w-4" />,
-      });
+      toast.error('Failed to save instructions');
     } finally {
       setIsSaving(false);
     }
@@ -500,78 +377,28 @@ export function PreferencesSection({
     try {
       const result = await deleteCustomInstructionsAction();
       if (result.success) {
-        sileo.success({
-          title: 'Custom instructions deleted successfully',
-          description: 'Your custom instructions have been removed',
-          icon: <Trash2 className="h-4 w-4" />,
-        });
+        toast.success('Custom instructions deleted successfully');
         setContent('');
         refetch();
       } else {
-        sileo.error({
-          title: result.error || 'Failed to delete instructions',
-          description: 'Please try again',
-          icon: <X className="h-4 w-4" />,
-        });
+        toast.error(result.error || 'Failed to delete instructions');
       }
     } catch (error) {
-      sileo.error({
-        title: 'Failed to delete instructions',
-        description: 'Please try again',
-        icon: <X className="h-4 w-4" />,
-      });
+      toast.error('Failed to delete instructions');
     } finally {
       setIsSaving(false);
     }
   };
 
-  const [preferencesTab, setPreferencesTab] = useState<'general' | 'customize'>('general');
-  const isMaxUser = Boolean(user?.isMaxUser);
-  const hasPaidAccess = Boolean(user?.isProUser || user?.isMaxUser);
-
-  const updateAutoRouterRoute = useCallback(
-    (index: number, update: Partial<AutoRouterRoute>) => {
-      setAutoRouterConfig((current: AutoRouterConfig) => {
-        const nextRoutes = [...(current?.routes || [])];
-        nextRoutes[index] = {
-          ...(nextRoutes[index] || { name: '', description: '', model: 'scira-default' }),
-          ...update,
-        };
-        return { routes: nextRoutes };
-      });
-    },
-    [setAutoRouterConfig],
-  );
-
-  const addAutoRouterRoute = useCallback(() => {
-    setAutoRouterConfig((current: AutoRouterConfig) => ({
-      routes: [...(current?.routes || []), { name: '', description: '', model: 'scira-default' }],
-    }));
-  }, [setAutoRouterConfig]);
-
-  const removeAutoRouterRoute = useCallback(
-    (index: number) => {
-      setAutoRouterConfig((current: AutoRouterConfig) => ({
-        routes: (current?.routes || []).filter((_: AutoRouterRoute, routeIndex: number) => routeIndex !== index),
-      }));
-    },
-    [setAutoRouterConfig],
-  );
+  const [preferencesTab, setPreferencesTab] = useState<'general' | 'ordering'>('general');
 
   return (
-    <div>
-      <div>
-        <KumoTabs
-          variant="segmented"
-          value={preferencesTab}
-          onValueChange={(v) => setPreferencesTab(v as 'general' | 'customize')}
-          className="w-full [--color-kumo-tint:var(--accent)] [--color-kumo-base:var(--background)] [--color-kumo-recessed:var(--muted)] [--color-kumo-surface:var(--card)] [--text-color-kumo-default:var(--foreground)] [--text-color-kumo-strong:var(--muted-foreground)] [--text-color-kumo-subtle:var(--muted-foreground)] [--color-kumo-ring:var(--border)]"
-          listClassName="w-full [&>button]:flex-1 [&>button]:justify-center"
-          tabs={[
-            { value: 'general', label: 'General' },
-            { value: 'customize', label: 'Customize' },
-          ]}
-        />
+    <div className={cn('space-y-4', isMobile ? 'space-y-3' : 'space-y-4')}>
+      <Tabs value={preferencesTab} onValueChange={(v) => setPreferencesTab(v as 'general' | 'ordering')}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="ordering">Ordering</TabsTrigger>
+        </TabsList>
 
         <TabsContent value="general" className="space-y-6 mt-4">
           {/* Custom Instructions Section */}
@@ -585,7 +412,6 @@ export function PreferencesSection({
                   <h4 className="font-semibold text-sm">{t('preferences.customInstructions')}</h4>
                   <p className="text-xs text-muted-foreground">{t('preferences.customInstructions.description')}</p>
                 </div>
-                <ThemeSwitcher />
               </div>
 
               <div className="space-y-3">
@@ -600,8 +426,6 @@ export function PreferencesSection({
                   </div>
                   <Switch id="enable-instructions" checked={enabled} onCheckedChange={setEnabled} />
                 </div>
-                <Switch id="enable-instructions" checked={enabled} onCheckedChange={setEnabled} />
-              </div>
 
                 <div className={cn('space-y-3', !enabled && 'opacity-50')}>
                   <div>
@@ -634,404 +458,44 @@ export function PreferencesSection({
 
                   <div className="flex gap-2">
                     <Button
-                      type="button"
                       onClick={handleSave}
-                      disabled={isSaving || !content.trim() || customInstructionsLoading}
+                      disabled={isSaving || !content.trim() || customInstructionsLoading || !enabled}
                       size="sm"
-                      className="h-7 text-xs rounded-lg px-3"
+                      className="flex-1 h-8"
                     >
                       {isSaving ? (
                         <>
                           <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
-                          Saving
+                          Saving...
                         </>
                       ) : (
                         <>
                           <FloppyDiskIcon className="w-3 h-3 mr-1.5" />
-                          Save
+                          Save Instructions
                         </>
                       )}
                     </Button>
                     {customInstructions && (
                       <Button
-                        type="button"
                         variant="outline"
                         onClick={handleDelete}
-                        disabled={isSaving || customInstructionsLoading}
+                        disabled={isSaving || customInstructionsLoading || !enabled}
                         size="sm"
-                        className="h-7 px-2 rounded-lg"
+                        className="h-8 px-2.5"
                       >
                         <TrashIcon className="w-3 h-3" />
                       </Button>
                     )}
-                    {customInstructions && !customInstructionsLoading && (
-                      <span className="text-[11px] text-muted-foreground/50 ml-auto">
-                        Updated {new Date(customInstructions.updatedAt).toLocaleDateString()}
-                      </span>
-                    )}
                   </div>
-                </div>
-              )}
 
-              {/* Location Metadata toggle */}
-              <div className="flex items-center justify-between py-3.5 gap-6">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Location Metadata</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Include approximate location for location-aware answers
-                  </p>
-                </div>
-                <Switch
-                  id="location-metadata"
-                  checked={locationMetadataEnabled}
-                  onCheckedChange={setLocationMetadataEnabled}
-                />
-              </div>
-
-              <div className="flex items-center justify-between py-3.5 gap-6">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Scroll to Latest Turn</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Jump to the newest messages when opening existing chats
-                  </p>
-                </div>
-                <Switch
-                  id="scroll-to-latest-on-open"
-                  checked={scrollToLatestOnOpen}
-                  onCheckedChange={setScrollToLatestOnOpen}
-                />
-              </div>
-
-              {/* Search Provider */}
-              <div className="flex items-center justify-between py-3.5 gap-6">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">Search Provider</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Engine used for web searches</p>
-                </div>
-                <Select value={searchProvider} onValueChange={(v) => handleSearchProviderChange(v as any)}>
-                  <SelectTrigger className="w-[140px] h-8 text-xs rounded-lg shrink-0">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {searchProviders.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>
-                        <div className="flex items-center gap-2">
-                          <p.icon className="size-3.5 shrink-0" />
-                          <span>{p.label}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Extreme Search Model (Pro only) */}
-              <div className="flex items-center justify-between py-3.5 gap-6">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium">Extreme Agent Model</p>
-                    {!hasPaidAccess && (
-                      <span className="font-pixel text-xs text-muted-foreground/50 uppercase tracking-wider">Pro</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">Choose which AI model powers extreme agent</p>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild disabled={!hasPaidAccess}>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-[240px] h-8 text-xs rounded-lg shrink-0 justify-between font-normal"
-                      disabled={!hasPaidAccess}
-                    >
-                      {extremeSearchModels.find((m) => m.value === (hasPaidAccess ? extremeSearchModel : 'scira-ext-1'))
-                        ?.label ?? 'Grok 4.1 Fast Reasoning'}
-                      <ChevronDown className="size-3.5 opacity-50" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-[280px]">
-                    <DropdownMenuRadioGroup
-                      value={extremeSearchModel}
-                      onValueChange={(v) => handleExtremeSearchModelChange(v as any)}
-                    >
-                      {extremeSearchModels.map((m) => (
-                        <DropdownMenuRadioItem key={m.value} value={m.value} className="text-xs">
-                          {m.label}
-                        </DropdownMenuRadioItem>
-                      ))}
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              {/* Auto Router toggle (Pro only) */}
-              <div className="flex items-center justify-between py-3.5 gap-6">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium">Auto Model Router</p>
-                    {!hasPaidAccess && (
-                      <span className="font-pixel text-xs text-muted-foreground/50 uppercase tracking-wider">Pro</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Route queries to the best model based on intent
-                  </p>
-                </div>
-                <Switch
-                  id="auto-router-enabled"
-                  checked={hasPaidAccess ? autoRouterEnabled : false}
-                  onCheckedChange={(value) => {
-                    if (!hasPaidAccess) return;
-                    setAutoRouterEnabled(value);
-                  }}
-                  disabled={!hasPaidAccess}
-                />
-              </div>
-
-              {/* Auto Router routes - inline expand (paid + enabled only) */}
-              {hasPaidAccess && autoRouterEnabled && (
-                <div className="py-3.5 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-muted-foreground font-medium">Routes</p>
-                    <div className="flex items-center gap-1.5">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 text-[11px] px-2 rounded-md"
-                        onClick={() => setAutoRouterConfig({ routes: getDefaultAutoRouterRoutes() })}
-                      >
-                        Reset
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-6 text-[11px] px-2 rounded-md"
-                        onClick={addAutoRouterRoute}
-                      >
-                        + Add
-                      </Button>
+                  {customInstructionsLoading ? (
+                    <div className="p-2.5 bg-muted/30 rounded-lg">
+                      <Skeleton className="h-3 w-28" />
                     </div>
-                  </div>
-                  {(autoRouterConfig?.routes || []).length === 0 ? (
-                    <p className="text-xs text-muted-foreground/60 py-2">No routes configured.</p>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {(autoRouterConfig?.routes || []).map((route: AutoRouterRoute, index: number) => (
-                        <div key={index} className="rounded-lg border border-border/50 p-3">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-[11px] text-muted-foreground/50">Route {index + 1}</span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-5 w-5 text-muted-foreground hover:text-destructive"
-                              onClick={() => removeAutoRouterRoute(index)}
-                            >
-                              <TrashIcon className="h-3 w-3" />
-                            </Button>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 mb-2">
-                            <Input
-                              value={route.name}
-                              onChange={(e) => updateAutoRouterRoute(index, { name: e.target.value })}
-                              placeholder="Name"
-                              className="h-7 text-xs rounded-md"
-                            />
-                            <ModelSelectorDialog
-                              selectedModel={route.model}
-                              onModelSelect={(v) => updateAutoRouterRoute(index, { model: v })}
-                              user={user}
-                              isProUser={hasPaidAccess}
-                              isMaxUser={isMaxUser}
-                              excludeModels={['scira-auto']}
-                              className="w-full h-7"
-                              compact
-                            />
-                          </div>
-                          <Textarea
-                            value={route.description}
-                            onChange={(e) => updateAutoRouterRoute(index, { description: e.target.value })}
-                            placeholder="Intent description"
-                            className="min-h-[40px] text-xs resize-none rounded-md"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ── Customize tab ── */}
-        {preferencesTab === 'customize' && (
-          <div className="mt-4 space-y-5">
-            {/* Search Modes - toggle visibility & reorder */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium">Search Modes</p>
-                  <p className="text-[11px] text-muted-foreground/50">
-                    Drag to reorder, toggle visibility. All shown when none selected.
-                  </p>
-                </div>
-                <div className="flex items-center gap-1">
-                  {modeOrder.length > 0 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-[11px] px-2 rounded-md"
-                      onClick={() => setModeOrder([])}
-                    >
-                      Reset order
-                    </Button>
-                  )}
-                  {visibleModes.length > 0 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-[11px] px-2 rounded-md"
-                      onClick={() => setVisibleModes([])}
-                    >
-                      Clear
-                    </Button>
-                  )}
-                </div>
-              </div>
-              <div className="rounded-xl border border-border/60 divide-y divide-border/40 max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted-foreground/20">
-                {sortedGroups.map((group, index) => {
-                  const isVisible = visibleModes.length === 0 || visibleModes.includes(group.id);
-                  const GroupIcon = group.icon as unknown as ComponentType<{
-                    width?: number;
-                    height?: number;
-                    className?: string;
-                  }>;
-                  const isComponentIcon = typeof group.icon === 'function';
-                  return (
-                    <div
-                      key={group.id}
-                      draggable
-                      onDragStart={() => {
-                        dragIndexRef.current = index;
-                      }}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        dragOverIndexRef.current = index;
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        const fromIndex = dragIndexRef.current;
-                        const toIndex = dragOverIndexRef.current;
-                        if (fromIndex === null || toIndex === null || fromIndex === toIndex) return;
-                        const reordered = [...sortedGroups.map((g) => g.id)];
-                        const [moved] = reordered.splice(fromIndex, 1);
-                        reordered.splice(toIndex, 0, moved);
-                        setModeOrder(reordered);
-                        dragIndexRef.current = null;
-                        dragOverIndexRef.current = null;
-                      }}
-                      onDragEnd={() => {
-                        dragIndexRef.current = null;
-                        dragOverIndexRef.current = null;
-                      }}
-                      className="flex items-center justify-between py-2.5 px-3 gap-3 cursor-grab active:cursor-grabbing"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <GripVertical size={14} className="shrink-0 text-muted-foreground/40" />
-                        {isComponentIcon ? (
-                          <GroupIcon width={14} height={14} className="shrink-0 text-muted-foreground" />
-                        ) : (
-                          <HugeiconsIcon
-                            icon={group.icon as any}
-                            size={14}
-                            color="currentColor"
-                            className="shrink-0 text-muted-foreground"
-                          />
-                        )}
-                        <span className="text-xs font-medium truncate">{group.name}</span>
-                        {'requirePro' in group && group.requirePro && (
-                          <span className="font-pixel text-[11px] text-muted-foreground/50 uppercase tracking-wider shrink-0">
-                            Pro
-                          </span>
-                        )}
-                      </div>
-                      <Switch
-                        checked={isVisible}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            if (visibleModes.length === 0) {
-                              setVisibleModes(dynamicGroups.map((g) => g.id));
-                            } else {
-                              setVisibleModes([...visibleModes, group.id]);
-                            }
-                          } else {
-                            if (visibleModes.length === 0) {
-                              setVisibleModes(dynamicGroups.filter((g) => g.id !== group.id).map((g) => g.id));
-                            } else {
-                              const next = visibleModes.filter((id) => id !== group.id);
-                              setVisibleModes(next.length === 0 ? [] : next);
-                            }
-                          }
-                        }}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Models - select preferred */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium">Preferred Models</p>
-                  <p className="text-[11px] text-muted-foreground/50">
-                    Select models to show in the picker. All shown when none selected.
-                  </p>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {preferredModels.length > 0 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-[11px] px-2 rounded-md"
-                      onClick={() => setPreferredModels([])}
-                    >
-                      Clear ({preferredModels.length})
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50" />
-                <Input
-                  placeholder="Search models..."
-                  value={modelSearch}
-                  onChange={(e) => setModelSearch(e.target.value)}
-                  className="h-8 text-xs rounded-lg pl-8"
-                />
-              </div>
-
-              {/* Scrollable model list grouped by provider */}
-              <div className="rounded-xl border border-border/60 max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted-foreground/20">
-                {Array.from(filteredModelsByProvider.entries()).map(([provider, providerModels]) => (
-                  <div key={provider}>
-                    {/* Provider header */}
-                    <div className="sticky top-0 bg-background/95 backdrop-blur px-4 py-2 border-b border-border/30">
-                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                        {PROVIDERS[provider]?.name || provider}
-                        <span className="text-muted-foreground/40 ml-1.5 font-normal normal-case tracking-normal">
-                          {providerModels.filter((m) => preferredModels.includes(m.value)).length > 0 &&
-                            `${providerModels.filter((m) => preferredModels.includes(m.value)).length} selected`}
-                        </span>
+                  ) : customInstructions ? (
+                    <div className="p-2.5 bg-muted/30 rounded-lg">
+                      <p className="text-xs text-muted-foreground">
+                        Last updated: {new Date(customInstructions.updatedAt).toLocaleDateString()}
                       </p>
                     </div>
                   ) : null}
@@ -1169,29 +633,80 @@ export function PreferencesSection({
   );
 }
 
-// Component for Usage Information
-type TimePeriod = '7d' | '30d' | '12m';
+// Generic sortable item component
+const SortableItem = memo(function SortableItem({ id, children }: { id: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  } as React.CSSProperties;
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-center gap-2 select-none">
+      <button
+        {...attributes}
+        {...listeners}
+        className="h-6 w-6 flex items-center justify-center rounded hover:bg-accent text-muted-foreground cursor-grab active:cursor-grabbing touch-none"
+        aria-label="Drag"
+      >
+        <GripVertical className="h-3.5 w-3.5" />
+      </button>
+      <div className="flex-1 min-w-0">{children}</div>
+    </div>
+  );
+});
 
+const ReorderList = memo(function ReorderList<T extends string>({
+  items,
+  renderItem,
+  onReorder,
+}: {
+  items: T[];
+  renderItem: (id: T) => React.ReactNode;
+  onReorder: (ids: T[]) => void;
+}) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        delay: 120,
+        tolerance: 5,
+      },
+    }),
+  );
+
+  const handleDragEnd = useCallback(
+    (event: any) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const oldIndex = items.indexOf(active.id);
+      const newIndex = items.indexOf(over.id);
+      if (oldIndex === -1 || newIndex === -1) return;
+      onReorder(arrayMove(items, oldIndex, newIndex));
+    },
+    [items, onReorder],
+  );
+
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={items} strategy={rectSortingStrategy}>
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {items.map((id) => (
+            <SortableItem key={id} id={id}>
+              {renderItem(id)}
+            </SortableItem>
+          ))}
+        </div>
+      </SortableContext>
+    </DndContext>
+  );
+});
+
+// Component for Usage Information
 export function UsageSection({ user }: any) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { t } = useLanguage();
   const isMobile = useMediaQuery('(max-width: 768px)');
-  const isTablet = useMediaQuery('(min-width: 769px) and (max-width: 1024px)');
   const isProUser = user?.isProUser;
-
-  // Convert time period to days
-  const daysWindow = useMemo(() => {
-    switch (timePeriod) {
-      case '7d':
-        return 7;
-      case '30d':
-        return 30;
-      case '12m':
-        return 365; // 12 months
-      default:
-        return 7;
-    }
-  }, [timePeriod]);
+  const monthsWindow = isMobile ? 6 : 12;
 
   const {
     data: usageData,
@@ -1201,43 +716,15 @@ export function UsageSection({ user }: any) {
   } = useQuery({
     queryKey: ['usageData'],
     queryFn: async () => {
-      const {
-        searchCount,
-        extremeSearchCount,
-        agentModeUsageCount,
-        anthropicUsageCount,
-        googleUsageCount,
-        subscriptionDetails,
-      } = await all(
-        {
-          async searchCount() {
-            return getUserMessageCount();
-          },
-          async extremeSearchCount() {
-            return getExtremeSearchUsageCount();
-          },
-          async agentModeUsageCount() {
-            return getAgentModeUsageCountAction();
-          },
-          async anthropicUsageCount() {
-            return getAnthropicUsageCountAction();
-          },
-          async googleUsageCount() {
-            return getGoogleUsageCountAction();
-          },
-          async subscriptionDetails() {
-            return getSubDetails();
-          },
-        },
-        getBetterAllOptions(),
-      );
+      const [searchCount, extremeSearchCount, subscriptionDetails] = await Promise.all([
+        getUserMessageCount(),
+        getExtremeSearchUsageCount(),
+        getSubDetails(),
+      ]);
 
       return {
         searchCount,
         extremeSearchCount,
-        agentModeUsageCount,
-        anthropicUsageCount,
-        googleUsageCount,
         subscriptionDetails,
       };
     },
@@ -1250,82 +737,66 @@ export function UsageSection({ user }: any) {
     isLoading: historicalLoading,
     refetch: refetchHistoricalData,
   } = useQuery({
-    queryKey: ['historicalUsage', user?.id, daysWindow],
-    queryFn: () => getHistoricalUsage(user, daysWindow),
+    queryKey: ['historicalUsage', user?.id, monthsWindow],
+    queryFn: () => getHistoricalUsage(user, monthsWindow),
     enabled: !!user,
     staleTime: 1000 * 60 * 10,
   });
 
   const searchCount = usageData?.searchCount;
   const extremeSearchCount = usageData?.extremeSearchCount;
-  const agentModeUsageCount = usageData?.agentModeUsageCount;
-  const anthropicUsageCount = usageData?.anthropicUsageCount;
-  const googleUsageCount = usageData?.googleUsageCount;
 
-  // Transform historical data for chart (Date objects for visx)
-  const chartData = useMemo(() => {
-    if (!historicalUsageData || historicalUsageData.length === 0) return [];
+  // Generate loading stars data that matches real data structure
+  const loadingStars = useMemo(() => {
+    if (!historicalLoading) return [];
 
-    // For 12m, group by week; for others, use daily data
-    if (timePeriod === '12m') {
-      // Group by week for 12 months view
-      const weeklyData = new Map<string, { total: number; count: number }>();
+    const months = monthsWindow;
+    const totalDays = months * 30;
+    const futureDays = Math.min(15, Math.floor(totalDays * 0.08));
+    const pastDays = totalDays - futureDays - 1;
 
-      historicalUsageData.forEach((item) => {
-        const date = new Date(item.date);
-        const weekStart = new Date(date);
-        weekStart.setDate(date.getDate() - date.getDay()); // Start of week (Sunday)
-        const weekKey = weekStart.toISOString().split('T')[0];
+    const today = new Date();
+    const endDate = new Date(today);
+    endDate.setDate(endDate.getDate() + futureDays);
 
-        const existing = weeklyData.get(weekKey) || { total: 0, count: 0 };
-        weeklyData.set(weekKey, {
-          total: existing.total + item.count,
-          count: existing.count + 1,
-        });
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - pastDays);
+
+    // Generate complete dataset like real getHistoricalUsage
+    const completeData: Activity[] = [];
+    for (let i = 0; i < totalDays; i++) {
+      const currentDate = new Date(startDate);
+      currentDate.setDate(startDate.getDate() + i);
+      const dateKey = currentDate.toISOString().split('T')[0];
+
+      // Randomly light up some dots for star effect
+      const shouldLight = Math.random() > 0.85; // 15% chance
+      const count = shouldLight ? Math.floor(Math.random() * 10) + 1 : 0;
+
+      let level: 0 | 1 | 2 | 3 | 4;
+      if (count === 0) level = 0;
+      else if (count <= 3) level = 1;
+      else if (count <= 7) level = 2;
+      else if (count <= 12) level = 3;
+      else level = 4;
+
+      completeData.push({
+        date: dateKey,
+        count,
+        level,
       });
-
-      return Array.from(weeklyData.entries())
-        .map(([dateStr, data]) => ({
-          date: new Date(dateStr),
-          messages: data.total,
-        }))
-        .sort((a, b) => a.date.getTime() - b.date.getTime());
-    } else {
-      // Use daily data for 7d and 30d
-      return historicalUsageData
-        .map((item) => ({
-          date: new Date(item.date),
-          messages: item.count,
-        }))
-        .sort((a, b) => a.date.getTime() - b.date.getTime());
     }
-  }, [historicalUsageData, timePeriod]);
+
+    return completeData;
+  }, [historicalLoading, monthsWindow]);
 
   const handleRefreshUsage = async () => {
     try {
       setIsRefreshing(true);
-      await all(
-        {
-          async usage() {
-            return refetchUsageData();
-          },
-          async historical() {
-            return refetchHistoricalData();
-          },
-        },
-        getBetterAllOptions(),
-      );
-      sileo.success({
-        title: 'Usage data refreshed',
-        description: 'Your usage statistics are up to date',
-        icon: <Check className="h-4 w-4" />,
-      });
+      await Promise.all([refetchUsageData(), refetchHistoricalData()]);
+      toast.success('Usage data refreshed');
     } catch (error) {
-      sileo.error({
-        title: 'Failed to refresh usage data',
-        description: 'Please try again',
-        icon: <X className="h-4 w-4" />,
-      });
+      toast.error('Failed to refresh usage data');
     } finally {
       setIsRefreshing(false);
     }
@@ -1335,9 +806,24 @@ export function UsageSection({ user }: any) {
     ? 0
     : Math.min(((searchCount?.count || 0) / SEARCH_LIMITS.DAILY_SEARCH_LIMIT) * 100, 100);
 
-  const extremePercentage = isProUser
-    ? 0
-    : Math.min(((extremeSearchCount?.count || 0) / SEARCH_LIMITS.EXTREME_SEARCH_LIMIT) * 100, 100);
+  return (
+    <div className={cn(isMobile ? 'space-y-4' : 'space-y-5', isMobile && !isProUser ? 'pb-4' : '')}>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-semibold">Daily Search Usage</h3>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleRefreshUsage}
+          disabled={isRefreshing}
+          className={isMobile ? 'h-7 px-1.5' : 'h-8 px-2'}
+        >
+          {isRefreshing ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <ArrowClockwiseIcon className="h-3.5 w-3.5" />
+          )}
+        </Button>
+      </div>
 
       <div className={cn('grid', isMobile ? 'grid-cols-1 gap-3' : 'grid-cols-2 gap-3')}>
         <div className={cn('bg-muted/50 rounded-lg space-y-1', isMobile ? 'p-3' : 'p-3')}>
@@ -1360,56 +846,16 @@ export function UsageSection({ user }: any) {
             </span>
             <LightningIcon className={isMobile ? 'h-3 w-3' : 'h-3.5 w-3.5'} />
           </div>
-          <div className={cn('px-4 py-3', user?.isMaxUser && 'border-r border-border/40')}>
-            <div className="flex items-center gap-1.5 mb-1">
-              <LightningIcon className="h-3 w-3 text-muted-foreground/40" />
-              <span className="text-[11px] text-muted-foreground">Extreme</span>
-            </div>
-            {usageLoading ? (
-              <Skeleton className="h-6 w-10" />
-            ) : (
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-xl font-semibold tabular-nums">{extremeSearchCount?.count || 0}</span>
-                {!isProUser && (
-                  <span className="text-[10px] text-muted-foreground">/ {SEARCH_LIMITS.EXTREME_SEARCH_LIMIT} mo</span>
-                )}
-              </div>
-            )}
-          </div>
-          {user?.isMaxUser && (
-            <div className="px-4 py-3 border-r border-border/40">
-              <div className="flex items-center gap-1.5 mb-1">
-                <RobotIcon className="h-3 w-3 text-muted-foreground/40" />
-                <span className="text-[11px] text-muted-foreground">Anthropic</span>
-              </div>
-              {usageLoading ? (
-                <Skeleton className="h-6 w-12" />
-              ) : (
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-semibold tabular-nums">{anthropicUsageCount?.count || 0}</span>
-                  <span className="text-[10px] text-muted-foreground">/ 60 wk</span>
-                </div>
-              )}
-            </div>
-          )}
-          {user?.isMaxUser && (
-            <div className="px-4 py-3">
-              <div className="flex items-center gap-1.5 mb-1">
-                <RobotIcon className="h-3 w-3 text-muted-foreground/40" />
-                <span className="text-[11px] text-muted-foreground">Gemini</span>
-              </div>
-              {usageLoading ? (
-                <Skeleton className="h-6 w-12" />
-              ) : (
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-semibold tabular-nums">{googleUsageCount?.count || 0}</span>
-                  <span className="text-[10px] text-muted-foreground">/ 80 mo</span>
-                </div>
-              )}
+          {usageLoading ? (
+            <Skeleton className={cn('font-semibold', isMobile ? 'text-base h-4' : 'text-lg h-5')} />
+          ) : (
+            <div className={cn('font-semibold', isMobile ? 'text-base' : 'text-lg')}>
+              {extremeSearchCount?.count || 0}
             </div>
           )}
           <p className="text-[10px] text-muted-foreground">{t('usage.thisMonth')}</p>
         </div>
+      </div>
 
       {/* Self-hosted: no Pro gating or upgrade prompts */}
 
@@ -1420,49 +866,186 @@ export function UsageSection({ user }: any) {
           </h4>
           <div className={cn('bg-muted/50 dark:bg-card rounded-lg p-3')}>
             {historicalLoading ? (
-              <div className="h-[200px] flex items-center justify-center opacity-60">
-                <div className="text-center space-y-2">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                  <p className={cn('text-muted-foreground', isMobile ? 'text-[11px]' : 'text-xs')}>
-                    Loading activity data...
-                  </p>
-                </div>
-              </div>
-            ) : chartData && chartData.length > 0 ? (
-              <div className="w-full min-w-0 h-[220px]">
-                <CustomAreaChart
-                  data={chartData}
-                  xDataKey="date"
-                  margin={{ top: 10, right: 10, bottom: 5, left: 10 }}
-                  animationDuration={600}
-                  aspectRatio="auto"
-                  className="h-full w-full"
+              <TooltipProvider>
+                <ContributionGraph
+                  data={loadingStars}
+                  blockSize={isMobile ? 10 : 12}
+                  blockMargin={isMobile ? 3 : 4}
+                  fontSize={isMobile ? 9 : 12}
+                  labels={{
+                    totalCount: 'Loading activity data...',
+                    legend: {
+                      less: 'Less',
+                      more: 'More',
+                    },
+                  }}
+                  className="w-full opacity-60"
                 >
-                  <Grid horizontal numTicksRows={4} />
-                  <CustomArea
-                    dataKey="messages"
-                    fill="var(--chart-1)"
-                    fillOpacity={0.3}
-                    stroke="var(--chart-1)"
-                    strokeWidth={2}
-                  />
-                  <CustomChartTooltip
-                    showDatePill
-                    rows={(point) => {
-                      const rows: TooltipRow[] = [
-                        {
-                          color: 'var(--chart-1)',
-                          label: 'Messages',
-                          value: `${point.messages}`,
-                        },
-                      ];
-                      return rows;
-                    }}
-                  />
-                </CustomAreaChart>
-              </div>
+                  <ContributionGraphCalendar
+                    hideMonthLabels={false}
+                    className={cn('text-muted-foreground', isMobile ? 'text-[9px]' : 'text-xs')}
+                  >
+                    {({ activity, dayIndex, weekIndex }) => (
+                      <ContributionGraphBlock
+                        key={`${weekIndex}-${dayIndex}-loading`}
+                        activity={activity}
+                        dayIndex={dayIndex}
+                        weekIndex={weekIndex}
+                        className={cn(
+                          'data-[level="0"]:fill-muted/40',
+                          'data-[level="1"]:fill-primary/30',
+                          'data-[level="2"]:fill-primary/50',
+                          'data-[level="3"]:fill-primary/70',
+                          'data-[level="4"]:fill-primary/90',
+                          activity.level > 0 && 'animate-pulse',
+                        )}
+                      />
+                    )}
+                  </ContributionGraphCalendar>
+                  <ContributionGraphFooter
+                    className={cn('pt-2 flex-col sm:flex-row', isMobile ? 'gap-1.5 items-start' : 'gap-2 items-center')}
+                  >
+                    <ContributionGraphTotalCount
+                      className={cn('text-muted-foreground', isMobile ? 'text-[9px] mb-1' : 'text-xs')}
+                    />
+                    <ContributionGraphLegend className={cn('text-muted-foreground', isMobile ? 'flex-shrink-0' : '')}>
+                      {({ level }) => (
+                        <svg height={isMobile ? 10 : 12} width={isMobile ? 10 : 12}>
+                          <rect
+                            className={cn(
+                              'stroke-[1px] stroke-border/50',
+                              'data-[level="0"]:fill-muted/40',
+                              'data-[level="1"]:fill-primary/30',
+                              'data-[level="2"]:fill-primary/50',
+                              'data-[level="3"]:fill-primary/70',
+                              'data-[level="4"]:fill-primary/90',
+                            )}
+                            data-level={level}
+                            height={isMobile ? 10 : 12}
+                            rx={2}
+                            ry={2}
+                            width={isMobile ? 10 : 12}
+                          />
+                        </svg>
+                      )}
+                    </ContributionGraphLegend>
+                  </ContributionGraphFooter>
+                </ContributionGraph>
+              </TooltipProvider>
+            ) : historicalUsageData && historicalUsageData.length > 0 ? (
+              <TooltipProvider>
+                <ContributionGraph
+                  data={historicalUsageData}
+                  blockSize={isMobile ? 10 : 12}
+                  blockMargin={isMobile ? 3 : 4}
+                  fontSize={isMobile ? 9 : 12}
+                  labels={{
+                    totalCount: '{{count}} total messages in {{year}}',
+                    legend: {
+                      less: 'Less',
+                      more: 'More',
+                    },
+                  }}
+                  className="w-full"
+                >
+                  <ContributionGraphCalendar
+                    hideMonthLabels={false}
+                    className={cn('text-muted-foreground', isMobile ? 'text-[9px]' : 'text-xs')}
+                  >
+                    {({ activity, dayIndex, weekIndex }) => (
+                      <Tooltip key={`${weekIndex}-${dayIndex}`}>
+                        <TooltipTrigger asChild>
+                          <g className="cursor-help">
+                            <ContributionGraphBlock
+                              activity={activity}
+                              dayIndex={dayIndex}
+                              weekIndex={weekIndex}
+                              className={cn(
+                                'data-[level="0"]:fill-muted',
+                                'data-[level="1"]:fill-primary/20',
+                                'data-[level="2"]:fill-primary/40',
+                                'data-[level="3"]:fill-primary/60',
+                                'data-[level="4"]:fill-primary',
+                              )}
+                            />
+                          </g>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <div className="text-center">
+                            <p className="font-medium">
+                              {activity.count} {activity.count === 1 ? 'message' : 'messages'}
+                            </p>
+                            <p className="text-xs text-muted">
+                              {new Date(activity.date).toLocaleDateString('en-US', {
+                                weekday: 'long',
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                              })}
+                            </p>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </ContributionGraphCalendar>
+                  <ContributionGraphFooter
+                    className={cn('pt-2 flex-col sm:flex-row', isMobile ? 'gap-1.5 items-start' : 'gap-2 items-center')}
+                  >
+                    <ContributionGraphTotalCount
+                      className={cn('text-muted-foreground', isMobile ? 'text-[9px] mb-1' : 'text-xs')}
+                    />
+                    <ContributionGraphLegend className={cn('text-muted-foreground', isMobile ? 'flex-shrink-0' : '')}>
+                      {({ level }) => {
+                        const getTooltipText = (level: number) => {
+                          switch (level) {
+                            case 0:
+                              return 'No messages';
+                            case 1:
+                              return '1-3 messages';
+                            case 2:
+                              return '4-7 messages';
+                            case 3:
+                              return '8-12 messages';
+                            case 4:
+                              return '13+ messages';
+                            default:
+                              return `${level} messages`;
+                          }
+                        };
+
+                        return (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <svg height={isMobile ? 10 : 12} width={isMobile ? 10 : 12} className="cursor-help">
+                                <rect
+                                  className={cn(
+                                    'stroke-[1px] stroke-border/50',
+                                    'data-[level="0"]:fill-muted',
+                                    'data-[level="1"]:fill-primary/20',
+                                    'data-[level="2"]:fill-primary/40',
+                                    'data-[level="3"]:fill-primary/60',
+                                    'data-[level="4"]:fill-primary',
+                                  )}
+                                  data-level={level}
+                                  height={isMobile ? 10 : 12}
+                                  rx={2}
+                                  ry={2}
+                                  width={isMobile ? 10 : 12}
+                                />
+                              </svg>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">{getTooltipText(level)}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      }}
+                    </ContributionGraphLegend>
+                  </ContributionGraphFooter>
+                </ContributionGraph>
+              </TooltipProvider>
             ) : (
-              <div className="h-[200px] flex items-center justify-center">
+              <div className="h-24 flex items-center justify-center">
                 <p className={cn('text-muted-foreground', isMobile ? 'text-[11px]' : 'text-xs')}>No activity data</p>
               </div>
             )}
@@ -1475,10 +1058,13 @@ export function UsageSection({ user }: any) {
 
 // Component for Subscription Information
 export function SubscriptionSection({ subscriptionData, isProUser, user }: any) {
+  const [orders, setOrders] = useState<any>(null);
+  const [ordersLoading, setOrdersLoading] = useState(true);
   const [isManagingSubscription, setIsManagingSubscription] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)');
 
   // Use data from user object (already cached)
+  const paymentHistory = user?.paymentHistory || null;
   const dodoProStatus = user?.dodoProStatus || null;
 
   // SELF-HOSTED: Polar payments disabled - commenting out order fetching
@@ -1553,34 +1139,36 @@ export function SubscriptionSection({ subscriptionData, isProUser, user }: any) 
     <div className={isMobile ? 'space-y-3' : 'space-y-4'}>
       {isProUserActive ? (
         <div className={isMobile ? 'space-y-2' : 'space-y-3'}>
-          <div className={cn('bg-primary text-primary-foreground rounded-xl', isMobile ? 'p-4' : 'p-5')}>
-            <div className={cn('flex items-start justify-between', isMobile ? 'mb-3' : 'mb-4')}>
-              <div className="flex items-center gap-2.5">
-                <div className={cn('bg-primary-foreground/15 rounded-lg', isMobile ? 'p-1.5' : 'p-2')}>
-                  <HugeiconsIcon icon={Crown02Icon} size={isMobile ? 16 : 18} color="currentColor" strokeWidth={1.5} />
+          <div className={cn('bg-primary text-primary-foreground rounded-lg', isMobile ? 'p-3' : 'p-4')}>
+            <div className={cn('flex items-start justify-between', isMobile ? 'mb-2' : 'mb-3')}>
+              <div className="flex items-center gap-2">
+                <div className={cn('bg-primary-foreground/20 rounded', isMobile ? 'p-1' : 'p-1.5')}>
+                  <HugeiconsIcon icon={Crown02Icon} size={isMobile ? 14 : 16} color="currentColor" strokeWidth={1.5} />
                 </div>
                 <div>
-                  <h3 className={cn('font-semibold', isMobile ? 'text-sm' : 'text-base')}>
-                    Scira{' '}
-                    <span className="font-pixel text-xs uppercase tracking-wider">
-                      {user?.isMaxUser ? 'Max' : 'Pro'}
-                    </span>
+                  <h3 className={cn('font-semibold', isMobile ? 'text-xs' : 'text-sm')}>
+                    PRO {hasActiveSubscription ? 'Subscription' : 'Membership'}
                   </h3>
-                  <p className={cn('opacity-80', isMobile ? 'text-[10px]' : 'text-xs')}>
+                  <p className={cn('opacity-90', isMobile ? 'text-[10px]' : 'text-xs')}>
                     {hasActiveSubscription
                       ? subscription?.status === 'active'
-                        ? 'Active subscription'
+                        ? 'Active'
                         : subscription?.status || 'Unknown'
-                      : 'Active membership'}
+                      : 'Active (DodoPayments)'}
                   </p>
                 </div>
               </div>
-              <span className="font-pixel text-[11px] bg-primary-foreground/15 text-primary-foreground px-2 py-1 rounded-md uppercase tracking-wider">
-                Active
-              </span>
+              <Badge
+                className={cn(
+                  'bg-primary-foreground/20 text-primary-foreground border-0',
+                  isMobile ? 'text-[10px] px-1.5 py-0.5' : 'text-xs',
+                )}
+              >
+                ACTIVE
+              </Badge>
             </div>
-            <div className={cn('opacity-90 mb-4', isMobile ? 'text-[11px]' : 'text-xs')}>
-              <p className="mb-1.5">Unlimited access to all premium features</p>
+            <div className={cn('opacity-90 mb-3', isMobile ? 'text-[11px]' : 'text-xs')}>
+              <p className="mb-1">Unlimited access to all premium features</p>
               {hasActiveSubscription && subscription && (
                 <div className="flex gap-4 text-[10px] opacity-75">
                   <span>
@@ -1592,16 +1180,12 @@ export function SubscriptionSection({ subscriptionData, isProUser, user }: any) 
               {hasDodoProStatus && !hasActiveSubscription && (
                 <div className="space-y-1">
                   <div className="flex gap-4 text-[10px] opacity-75">
-                    <span>
-                      {activeDodoSub
-                        ? `${formatSubAmount(activeDodoSub.amount, activeDodoSub.currency)}/${activeDodoSub.interval?.toLowerCase() || 'month'}`
-                        : 'Pro subscription'}{' '}
-                      (auto-renews)
-                    </span>
+                    <span>₹1500 (One-time payment)</span>
+                    <span>🇮🇳 Indian pricing</span>
                   </div>
                   {dodoProStatus?.expiresAt && (
                     <div className="text-[10px] opacity-75">
-                      <span>Next billing: {new Date(dodoProStatus.expiresAt).toLocaleDateString()}</span>
+                      <span>Expires: {new Date(dodoProStatus.expiresAt).toLocaleDateString()}</span>
                     </div>
                   )}
                 </div>
@@ -1611,7 +1195,7 @@ export function SubscriptionSection({ subscriptionData, isProUser, user }: any) 
               <Button
                 variant="secondary"
                 onClick={handleManageSubscription}
-                className={cn('w-full rounded-lg', isMobile ? 'h-8 text-xs' : 'h-9')}
+                className={cn('w-full', isMobile ? 'h-7 text-xs' : 'h-8')}
                 disabled={isManagingSubscription}
               >
                 {isManagingSubscription ? (
@@ -1669,21 +1253,18 @@ export function SubscriptionSection({ subscriptionData, isProUser, user }: any) 
       ) : null}
 
       <div className={isMobile ? 'space-y-2' : 'space-y-3'}>
-        <div className="flex items-center gap-2">
-          <span className="font-pixel-grid text-xs text-muted-foreground/50">02</span>
-          <h4 className={cn('font-semibold', isMobile ? 'text-xs' : 'text-sm')}>Billing History</h4>
-        </div>
-        {polarOrdersLoading || dodoSubscriptionsLoading ? (
+        <h4 className={cn('font-semibold', isMobile ? 'text-xs' : 'text-sm')}>Billing History</h4>
+        {ordersLoading ? (
           <div className={cn('border rounded-lg flex items-center justify-center', isMobile ? 'p-3 h-16' : 'p-4 h-20')}>
             <Loader2 className={cn(isMobile ? 'w-3.5 h-3.5' : 'w-4 h-4', 'animate-spin')} />
           </div>
         ) : (
           <div className="space-y-2">
-            {/* Show Dodo subscriptions */}
-            {dodoList.length > 0 && (
+            {/* Show DodoPayments history */}
+            {paymentHistory && paymentHistory.length > 0 && (
               <>
-                {dodoList.slice(0, 3).map((subscription: any) => (
-                  <div key={subscription.id} className={cn('bg-muted/30 rounded-lg', isMobile ? 'p-2.5' : 'p-3')}>
+                {paymentHistory.slice(0, 3).map((payment: any) => (
+                  <div key={payment.id} className={cn('bg-muted/30 rounded-lg', isMobile ? 'p-2.5' : 'p-3')}>
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
                         <p className={cn('font-medium truncate', isMobile ? 'text-xs' : 'text-sm')}>
@@ -1691,21 +1272,19 @@ export function SubscriptionSection({ subscriptionData, isProUser, user }: any) 
                         </p>
                         <div className="flex items-center gap-2">
                           <p className={cn('text-muted-foreground', isMobile ? 'text-[10px]' : 'text-xs')}>
-                            {new Date(subscription.created_at).toLocaleDateString()}
+                            {new Date(payment.createdAt).toLocaleDateString()}
                           </p>
                           <Badge variant="secondary" className="text-[8px] px-1 py-0">
-                            {subscription.currency?.toUpperCase() || 'USD'}
+                            🇮🇳 INR
                           </Badge>
                         </div>
                       </div>
                       <div className="text-right">
                         <span className={cn('font-semibold block', isMobile ? 'text-xs' : 'text-sm')}>
-                          {subscription.recurring_pre_tax_amount
-                            ? formatSubAmount(subscription.recurring_pre_tax_amount, subscription.currency || 'USD')
-                            : '—'}
+                          ₹{(payment.totalAmount / 100).toFixed(0)}
                         </span>
                         <span className={cn('text-muted-foreground', isMobile ? 'text-[9px]' : 'text-xs')}>
-                          {subscription.status}
+                          {payment.status}
                         </span>
                       </div>
                     </div>
@@ -1715,612 +1294,56 @@ export function SubscriptionSection({ subscriptionData, isProUser, user }: any) 
             )}
 
             {/* Show Polar orders */}
-            {polarHistory.length > 0 && (
+            {orders?.result?.items && orders.result.items.length > 0 && (
               <>
-                {polarHistory.slice(0, 3).map((order: any) => {
-                  const orderDate = getPolarOrderDate(order);
-                  const orderAmount = getPolarOrderAmount(order);
-                  const orderCurrency = getPolarOrderCurrency(order);
-                  return (
-                    <div key={order.id} className={cn('bg-muted/30 rounded-lg', isMobile ? 'p-2.5' : 'p-3')}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1 min-w-0">
-                          <p className={cn('font-medium truncate', isMobile ? 'text-xs' : 'text-sm')}>
-                            {getPolarOrderTitle(order)}
+                {orders.result.items.slice(0, 3).map((order: any) => (
+                  <div key={order.id} className={cn('bg-muted/30 rounded-lg', isMobile ? 'p-2.5' : 'p-3')}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <p className={cn('font-medium truncate', isMobile ? 'text-xs' : 'text-sm')}>
+                          {order.product?.name || 'Subscription'}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className={cn('text-muted-foreground', isMobile ? 'text-[10px]' : 'text-xs')}>
+                            {new Date(order.createdAt).toLocaleDateString()}
                           </p>
-                          <div className="flex items-center gap-2">
-                            <p className={cn('text-muted-foreground', isMobile ? 'text-[10px]' : 'text-xs')}>
-                              {orderDate ? orderDate.toLocaleDateString() : '—'}
-                            </p>
-                            <Badge variant="secondary" className="text-[8px] px-1 py-0">
-                              {orderCurrency.toUpperCase()}
-                            </Badge>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <span className={cn('font-semibold block', isMobile ? 'text-xs' : 'text-sm')}>
-                            {orderAmount !== null ? formatSubAmount(orderAmount, orderCurrency) : '—'}
-                          </span>
-                          <span className={cn('text-muted-foreground', isMobile ? 'text-[9px]' : 'text-xs')}>
-                            {getPolarOrderStatus(order)}
-                          </span>
+                          <Badge variant="secondary" className="text-[8px] px-1 py-0">
+                            🌍 USD
+                          </Badge>
                         </div>
                       </div>
+                      <div className="text-right">
+                        <span className={cn('font-semibold block', isMobile ? 'text-xs' : 'text-sm')}>
+                          ${(order.totalAmount / 100).toFixed(2)}
+                        </span>
+                        <span className={cn('text-muted-foreground', isMobile ? 'text-[9px]' : 'text-xs')}>
+                          recurring
+                        </span>
+                      </div>
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </>
             )}
 
             {/* Show message if no billing history */}
-            {!hasAnyBillingHistory && (
-              <div
-                className={cn(
-                  'border rounded-lg text-center bg-muted/20 flex items-center justify-center',
-                  isMobile ? 'p-4 h-16' : 'p-6 h-20',
-                )}
-              >
-                <p className={cn('text-muted-foreground', isMobile ? 'text-[11px]' : 'text-xs')}>
-                  No billing history yet
-                </p>
-              </div>
-            )}
+            {(!paymentHistory || paymentHistory.length === 0) &&
+              (!orders?.result?.items || orders.result.items.length === 0) && (
+                <div
+                  className={cn(
+                    'border rounded-lg text-center bg-muted/20 flex items-center justify-center',
+                    isMobile ? 'p-4 h-16' : 'p-6 h-20',
+                  )}
+                >
+                  <p className={cn('text-muted-foreground', isMobile ? 'text-[11px]' : 'text-xs')}>
+                    No billing history yet
+                  </p>
+                </div>
+              )}
           </div>
         )}
       </div>
     </div>
-  );
-}
-
-// ─── Uploads ────────────────────────────────────────────────────────────────
-
-interface UploadedFile {
-  key: string;
-  url: string;
-  size: number;
-  lastModified: string | null;
-  filename: string;
-  mediaType: string | null;
-  chatId: string | null;
-  source: 'r2' | 'legacy' | 'vercel-blob';
-}
-
-interface UploadsResponse {
-  files: UploadedFile[];
-  nextCursor: string | null;
-  isTruncated: boolean;
-}
-
-type FileFilter = 'all' | 'images' | 'documents';
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '—';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-// Mirror the MIME types & extensions supported by /api/upload/route.ts
-const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/gif'];
-const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif'];
-
-const FILE_TYPES = {
-  image: { mimes: IMAGE_MIMES, exts: IMAGE_EXTENSIONS },
-  pdf: { mimes: ['application/pdf'], exts: ['.pdf'] },
-  csv: { mimes: ['text/csv'], exts: ['.csv'] },
-  docx: { mimes: ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'], exts: ['.docx'] },
-  xlsx: {
-    mimes: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'],
-    exts: ['.xlsx', '.xls'],
-  },
-} as const;
-
-type DetectedType = keyof typeof FILE_TYPES;
-
-function detectFileType(mediaType: string | null, filename: string): DetectedType | 'unknown' {
-  const mt = (mediaType ?? '').toLowerCase();
-  const name = filename.toLowerCase();
-  for (const [type, { mimes, exts }] of Object.entries(FILE_TYPES) as [
-    DetectedType,
-    { mimes: readonly string[]; exts: readonly string[] },
-  ][]) {
-    if (mimes.some((m) => mt === m) || exts.some((e) => name.endsWith(e))) return type;
-  }
-  return 'unknown';
-}
-
-function getFileCategory(mediaType: string | null, filename: string): 'image' | 'document' {
-  return detectFileType(mediaType, filename) === 'image' ? 'image' : 'document';
-}
-
-function FileTypeIcon({
-  mediaType,
-  filename,
-  className,
-}: {
-  mediaType: string | null;
-  filename: string;
-  className?: string;
-}) {
-  const type = detectFileType(mediaType, filename);
-  const base = cn(
-    'shrink-0 text-[10px] font-bold font-mono uppercase tracking-tight flex items-center justify-center rounded w-7 h-7',
-    className,
-  );
-
-  const styles: Record<DetectedType | 'unknown', [string, string]> = {
-    image: ['bg-violet-500/10 text-violet-500', 'IMG'],
-    pdf: ['bg-red-500/10 text-red-500', 'PDF'],
-    csv: ['bg-green-500/10 text-green-600', 'CSV'],
-    docx: ['bg-blue-500/10 text-blue-500', 'DOC'],
-    xlsx: ['bg-emerald-500/10 text-emerald-600', 'XLS'],
-    unknown: ['bg-muted text-muted-foreground', 'FILE'],
-  };
-
-  const [style, label] = styles[type];
-  return <div className={cn(base, style)}>{label}</div>;
-}
-
-export function UploadsSection() {
-  const queryClient = useQueryClient();
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [bulkDeleting, setBulkDeleting] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<FileFilter>('all');
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmInput, setConfirmInput] = useState('');
-
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading,
-    error: fetchError,
-  } = useInfiniteQuery<UploadsResponse>({
-    queryKey: ['uploads'],
-    queryFn: async ({ pageParam }) => {
-      const cursor = pageParam as string | undefined;
-      const url = cursor ? `/api/upload?cursor=${encodeURIComponent(cursor)}&limit=50` : '/api/upload?limit=50';
-      const res = await fetch(url);
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.error ?? `HTTP ${res.status}`);
-      }
-      return res.json();
-    },
-    initialPageParam: undefined,
-    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    staleTime: 1000 * 60,
-  });
-
-  const allFiles = data?.pages.flatMap((p) => p.files) ?? [];
-
-  // Derived counts per filter
-  const counts = useMemo(
-    () => ({
-      all: allFiles.length,
-      images: allFiles.filter((f) => getFileCategory(f.mediaType, f.filename) === 'image').length,
-      documents: allFiles.filter((f) => getFileCategory(f.mediaType, f.filename) === 'document').length,
-    }),
-    [allFiles],
-  );
-
-  // Filtered + searched list
-  const displayFiles = useMemo(() => {
-    let list = allFiles;
-    if (activeFilter === 'images') list = list.filter((f) => getFileCategory(f.mediaType, f.filename) === 'image');
-    if (activeFilter === 'documents')
-      list = list.filter((f) => getFileCategory(f.mediaType, f.filename) === 'document');
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter((f) => f.filename.toLowerCase().includes(q));
-    }
-    return list;
-  }, [allFiles, activeFilter, searchQuery]);
-
-  const deleteMutation = useMutation({
-    mutationFn: async (url: string) => {
-      const res = await fetch('/api/upload', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
-      });
-      if (!res.ok) throw new Error('Delete failed');
-    },
-  });
-
-  const handleDelete = async (file: UploadedFile) => {
-    await deleteMutation.mutateAsync(file.url).catch(() => null);
-    queryClient.invalidateQueries({ queryKey: ['uploads'] });
-    sileo.success({ title: 'File deleted', icon: <Trash2 className="h-4 w-4" /> });
-  };
-
-  const handleBulkDelete = () => {
-    if (selected.size === 0) return;
-    setConfirmInput('');
-    setConfirmOpen(true);
-  };
-
-  const executeBulkDelete = async () => {
-    setBulkDeleting(true);
-    setConfirmOpen(false);
-    const toDelete = allFiles.filter((f) => selected.has(f.key));
-    const results = await betterAllSettled(
-      Object.fromEntries(
-        toDelete.map((f, i) => [
-          `delete:${i}`,
-          async () =>
-            fetch('/api/upload', {
-              method: 'DELETE',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ url: f.url }),
-            }),
-        ]),
-      ),
-      getBetterAllOptions(),
-    );
-    const failed = Object.values(results).filter((r) => r.status === 'rejected').length;
-    setBulkDeleting(false);
-    setSelected(new Set());
-    setConfirmInput('');
-    queryClient.invalidateQueries({ queryKey: ['uploads'] });
-    if (failed === 0)
-      sileo.success({
-        title: `${toDelete.length} file${toDelete.length > 1 ? 's' : ''} deleted`,
-        icon: <Trash2 className="h-4 w-4" />,
-      });
-    else
-      sileo.error({
-        title: `${failed} file${failed > 1 ? 's' : ''} failed to delete`,
-        icon: <X className="h-4 w-4" />,
-      });
-  };
-
-  const toggleSelect = (key: string) => {
-    setSelected((prev) => {
-      const s = new Set(prev);
-      s.has(key) ? s.delete(key) : s.add(key);
-      return s;
-    });
-  };
-
-  const allDisplaySelected = displayFiles.length > 0 && displayFiles.every((f) => selected.has(f.key));
-  const someSelected = selected.size > 0;
-
-  const toggleSelectAll = () => {
-    if (allDisplaySelected) {
-      setSelected((prev) => {
-        const s = new Set(prev);
-        displayFiles.forEach((f) => s.delete(f.key));
-        return s;
-      });
-    } else {
-      setSelected((prev) => {
-        const s = new Set(prev);
-        displayFiles.forEach((f) => s.add(f.key));
-        return s;
-      });
-    }
-  };
-
-  const filters: { value: FileFilter; label: string }[] = [
-    { value: 'all', label: 'All' },
-    { value: 'images', label: 'Images' },
-    { value: 'documents', label: 'Docs' },
-  ];
-
-  const confirmWord = 'delete';
-  const confirmValid = confirmInput.trim().toLowerCase() === confirmWord;
-
-  return (
-    <>
-      {/* Bulk-delete confirmation dialog */}
-      <Dialog
-        open={confirmOpen}
-        onOpenChange={(o) => {
-          setConfirmOpen(o);
-          if (!o) setConfirmInput('');
-        }}
-      >
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>
-              Delete {selected.size} file{selected.size > 1 ? 's' : ''}?
-            </DialogTitle>
-            <DialogDescription>
-              This is permanent and cannot be undone. Type{' '}
-              <span className="font-semibold text-foreground">{confirmWord}</span> to confirm.
-            </DialogDescription>
-          </DialogHeader>
-
-          <Input
-            autoFocus
-            placeholder={confirmWord}
-            value={confirmInput}
-            onChange={(e) => setConfirmInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && confirmValid) executeBulkDelete();
-            }}
-            className={cn(
-              'mt-1 transition-colors',
-              confirmInput && !confirmValid && 'border-destructive focus-visible:ring-destructive/30',
-            )}
-          />
-
-          <DialogFooter className="mt-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setConfirmOpen(false);
-                setConfirmInput('');
-              }}
-            >
-              Cancel
-            </Button>
-            <Button variant="destructive" disabled={!confirmValid || bulkDeleting} onClick={executeBulkDelete}>
-              {bulkDeleting ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                  Deleting…
-                </>
-              ) : (
-                `Delete ${selected.size}`
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <div className="space-y-4">
-        {/* Error banner */}
-        {fetchError && (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-            Failed to load uploads. Please try again.
-          </div>
-        )}
-
-        {/* Toolbar: search + filter */}
-        <div className="rounded-xl border border-border/60 divide-y divide-border/40 px-4">
-          {/* Search row */}
-          <div className="flex items-center gap-3 py-2.5">
-            <Search className="size-3.5 text-muted-foreground/50 shrink-0" />
-            <input
-              type="text"
-              placeholder="Search files…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/40"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-              >
-                <X className="size-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Filter row */}
-          <div className="flex items-center justify-between py-2.5">
-            <div className="flex items-center gap-1">
-              {filters.map((f) => (
-                <button
-                  key={f.value}
-                  onClick={() => setActiveFilter(f.value)}
-                  className={cn(
-                    'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all duration-150',
-                    activeFilter === f.value
-                      ? 'bg-foreground text-background font-medium'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
-                  )}
-                >
-                  {f.label}
-                  <span
-                    className={cn(
-                      'text-[10px] tabular-nums leading-none',
-                      activeFilter === f.value ? 'opacity-70' : 'text-muted-foreground/50',
-                    )}
-                  >
-                    {counts[f.value]}
-                  </span>
-                </button>
-              ))}
-            </div>
-            <span className="text-[11px] tabular-nums text-muted-foreground/50">
-              {counts.all > 0 ? formatBytes(allFiles.reduce((s, f) => s + f.size, 0)) : ''}
-            </span>
-          </div>
-        </div>
-
-        {/* Bulk action bar */}
-        {someSelected && (
-          <div className="flex items-center justify-between px-4 py-2.5 rounded-xl border border-primary/25 bg-primary/5">
-            <div className="flex items-center gap-2.5">
-              <button
-                onClick={toggleSelectAll}
-                className={cn(
-                  'w-4 h-4 rounded-sm border-2 shrink-0 flex items-center justify-center transition-all',
-                  allDisplaySelected ? 'bg-primary border-primary' : 'border-primary/60 bg-background',
-                )}
-              >
-                {allDisplaySelected && <Check className="w-2.5 h-2.5 text-primary-foreground" strokeWidth={3.5} />}
-              </button>
-              <span className="text-sm font-medium text-primary">{selected.size} selected</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setSelected(new Set())}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Clear
-              </button>
-              <Button
-                size="sm"
-                variant="destructive"
-                className="h-7 px-3 text-xs gap-1.5"
-                onClick={handleBulkDelete}
-                disabled={bulkDeleting}
-              >
-                {bulkDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <TrashIcon className="h-3 w-3" />}
-                Delete {selected.size}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* File list */}
-        {isLoading && !allFiles.length ? (
-          <div className="flex justify-center items-center h-32">
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          </div>
-        ) : displayFiles.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-32 rounded-xl border border-dashed border-border/60">
-            <HugeiconsIcon icon={Attachment01Icon} className="h-5 w-5 text-muted-foreground/40 mb-2" />
-            <p className="text-sm text-muted-foreground">
-              {allFiles.length === 0 ? 'No uploads yet' : 'No files match'}
-            </p>
-            <p className="text-xs text-muted-foreground/50 mt-0.5">
-              {allFiles.length === 0
-                ? 'Files you attach to chats will appear here'
-                : 'Try a different search or filter'}
-            </p>
-          </div>
-        ) : (
-          <div className="rounded-xl border border-border/60 divide-y divide-border/40 overflow-hidden">
-            {/* Select-all header */}
-            <div
-              className="flex items-center gap-3 px-4 py-2.5 bg-muted/20 cursor-pointer hover:bg-muted/30 transition-colors"
-              onClick={toggleSelectAll}
-            >
-              <div
-                className={cn(
-                  'w-4 h-4 rounded-sm border-2 shrink-0 flex items-center justify-center transition-all',
-                  allDisplaySelected ? 'bg-primary border-primary' : 'border-border/60 bg-background',
-                )}
-              >
-                {allDisplaySelected && <Check className="w-2.5 h-2.5 text-primary-foreground" strokeWidth={3.5} />}
-              </div>
-              <span className="text-xs text-muted-foreground">
-                {displayFiles.length} {displayFiles.length === 1 ? 'file' : 'files'}
-              </span>
-            </div>
-
-            {/* Scrollable file rows */}
-            <div className="overflow-y-auto max-h-[55vh] divide-y divide-border/40 scrollbar-w-1 scrollbar-track-transparent scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/30">
-              {displayFiles.map((file) => {
-                const isSelected = selected.has(file.key);
-                return (
-                  <div
-                    key={file.key}
-                    onClick={() => toggleSelect(file.key)}
-                    className={cn(
-                      'group flex items-center gap-3 px-4 py-3.5 cursor-pointer select-none transition-colors',
-                      isSelected ? 'bg-primary/5' : 'hover:bg-accent/30',
-                    )}
-                  >
-                    {/* Checkbox */}
-                    <div
-                      className={cn(
-                        'w-4 h-4 rounded-sm border-2 shrink-0 flex items-center justify-center transition-all',
-                        isSelected
-                          ? 'bg-primary border-primary'
-                          : 'border-border/60 bg-background group-hover:border-primary/40',
-                      )}
-                    >
-                      {isSelected && <Check className="w-2.5 h-2.5 text-primary-foreground" strokeWidth={3.5} />}
-                    </div>
-
-                    {/* Type badge */}
-                    <FileTypeIcon mediaType={file.mediaType} filename={file.filename} />
-
-                    {/* Name + meta */}
-                    <div className="flex-1 min-w-0">
-                      <p className={cn('text-sm font-medium truncate', isSelected && 'text-primary')}>
-                        {file.filename}
-                      </p>
-                      <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
-                        <span className="tabular-nums">{formatBytes(file.size)}</span>
-                        {file.lastModified && (
-                          <>
-                            <span className="opacity-30">·</span>
-                            <span>
-                              {new Date(file.lastModified).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric',
-                              })}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {file.chatId && (
-                        <a
-                          href={`/search/${file.chatId}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="h-7 px-2 flex items-center gap-1 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                          title="Go to chat"
-                        >
-                          <MagnifyingGlassIcon className="h-3.5 w-3.5" />
-                          <span>Go to search</span>
-                        </a>
-                      )}
-                      <a
-                        href={file.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                        title="Open file"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
-                      <button
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          await handleDelete(file);
-                        }}
-                        disabled={deleteMutation.isPending}
-                        className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-40"
-                        title="Delete"
-                      >
-                        {deleteMutation.isPending ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <TrashIcon className="h-3.5 w-3.5" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {hasNextPage && (
-              <button
-                onClick={() => fetchNextPage()}
-                disabled={isFetchingNextPage}
-                className="w-full py-3 text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-1.5"
-              >
-                {isFetchingNextPage ? (
-                  <>
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Loading…
-                  </>
-                ) : (
-                  'Load more'
-                )}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-    </>
   );
 }
 
@@ -2360,11 +1383,7 @@ export function MemoriesSection() {
         return newSet;
       });
       queryClient.invalidateQueries({ queryKey: ['memories'] });
-      sileo.success({
-        title: 'Memory deleted successfully',
-        description: 'The memory has been removed',
-        icon: <Trash2 className="h-4 w-4" />,
-      });
+      toast.success('Memory deleted successfully');
     },
     onError: (_, memoryId) => {
       setDeletingMemoryIds((prev) => {
@@ -2372,11 +1391,7 @@ export function MemoriesSection() {
         newSet.delete(memoryId);
         return newSet;
       });
-      sileo.error({
-        title: 'Failed to delete memory',
-        description: 'Please try again',
-        icon: <X className="h-4 w-4" />,
-      });
+      toast.error('Failed to delete memory');
     },
   });
 
@@ -2410,13 +1425,9 @@ export function MemoriesSection() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="font-pixel-grid text-xs text-muted-foreground/50">01</span>
-          <p className="text-xs text-muted-foreground">
-            <span className="font-semibold tabular-nums">{totalMemories}</span>{' '}
-            {totalMemories === 1 ? 'memory' : 'memories'} stored
-          </p>
-        </div>
+        <p className="text-xs text-muted-foreground">
+          {totalMemories} {totalMemories === 1 ? 'memory' : 'memories'} stored
+        </p>
       </div>
 
       <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1 scrollbar-w-1 scrollbar-track-transparent scrollbar-thumb-muted-foreground/20 hover:scrollbar-thumb-muted-foreground/30">
@@ -2434,22 +1445,20 @@ export function MemoriesSection() {
             {displayedMemories.map((memory: MemoryItem) => (
               <div
                 key={memory.id}
-                className="group relative p-3.5 rounded-xl border border-border/60 bg-card/30 hover:bg-card/60 transition-all"
+                className="group relative p-3 rounded-lg border bg-card/50 hover:bg-card transition-all"
               >
                 <div className="pr-8">
                   {memory.title && <h4 className="text-sm font-medium mb-1 text-foreground">{memory.title}</h4>}
-                  <p className="text-[13px] leading-relaxed text-muted-foreground">
+                  <p className="text-sm leading-relaxed text-muted-foreground">
                     {memory.content || getMemoryContent(memory)}
                   </p>
-                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground mt-2.5">
+                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground mt-2">
                     <div className="flex items-center gap-1">
                       <CalendarIcon className="h-3 w-3" />
                       <span>{formatDate(memory.createdAt || memory.created_at || '')}</span>
                     </div>
                     {memory.type && (
-                      <span className="font-pixel text-[11px] text-muted-foreground/50 uppercase tracking-wider">
-                        {memory.type}
-                      </span>
+                      <div className="px-1.5 py-0.5 bg-muted/50 rounded text-[9px] font-medium">{memory.type}</div>
                     )}
                     {memory.status && memory.status !== 'done' && (
                       <div className="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 rounded text-[9px] font-medium">
@@ -2539,27 +1548,20 @@ export function ConnectorsSection({ user }: { user: any }) {
     queryFn: async () => {
       if (!user?.id) return {};
 
-      const providers = Object.keys(CONNECTOR_CONFIGS) as ConnectorProvider[];
-      const statusMap = await all(
-        Object.fromEntries(
-          providers.map((provider) => [
-            `provider:${provider}`,
-            async () => {
-              try {
-                return await getConnectorSyncStatusAction(provider);
-              } catch (error) {
-                console.error(`Failed to get status for ${provider}:`, error);
-                return null;
-              }
-            },
-          ]),
-        ),
-        getBetterAllOptions(),
-      );
+      const statusPromises = Object.keys(CONNECTOR_CONFIGS).map(async (provider) => {
+        try {
+          const result = await getConnectorSyncStatusAction(provider as ConnectorProvider);
+          return { provider, status: result };
+        } catch (error) {
+          console.error(`Failed to get status for ${provider}:`, error);
+          return { provider, status: null };
+        }
+      });
 
-      return providers.reduce(
-        (acc, provider) => {
-          acc[provider] = statusMap[`provider:${provider}`];
+      const statuses = await Promise.all(statusPromises);
+      return statuses.reduce(
+        (acc, { provider, status }) => {
+          acc[provider] = status;
           return acc;
         },
         {} as Record<string, any>,
@@ -2576,18 +1578,10 @@ export function ConnectorsSection({ user }: { user: any }) {
       if (result.success && result.authLink) {
         window.location.href = result.authLink;
       } else {
-        sileo.error({
-          title: result.error || 'Failed to connect',
-          description: 'Please try again',
-          icon: <X className="h-4 w-4" />,
-        });
+        toast.error(result.error || 'Failed to connect');
       }
     } catch (error) {
-      sileo.error({
-        title: 'Failed to connect',
-        description: 'Please try again',
-        icon: <X className="h-4 w-4" />,
-      });
+      toast.error('Failed to connect');
     } finally {
       setConnectingProvider(null);
     }
@@ -2639,11 +1633,8 @@ export function ConnectorsSection({ user }: { user: any }) {
   return (
     <div className={cn('space-y-4', isMobile ? 'space-y-3' : 'space-y-4')}>
       <div>
-        <div className="flex items-center gap-2 mb-1">
-          <span className="font-pixel-grid text-xs text-muted-foreground/50">01</span>
-          <h3 className={cn('font-semibold', isMobile ? 'text-sm' : 'text-base')}>Connected Services</h3>
-        </div>
-        <p className={cn('text-muted-foreground ml-5', isMobile ? 'text-[11px] leading-relaxed' : 'text-xs')}>
+        <h3 className={cn('font-semibold mb-1', isMobile ? 'text-sm' : 'text-base')}>Connected Services</h3>
+        <p className={cn('text-muted-foreground', isMobile ? 'text-[11px] leading-relaxed' : 'text-xs')}>
           Connect your cloud services to search across all your documents in one place
         </p>
       </div>
@@ -2673,11 +1664,11 @@ export function ConnectorsSection({ user }: { user: any }) {
             const isComingSoon = provider === 'onedrive';
 
             return (
-              <div key={provider} className={cn('border border-border/60 rounded-xl', isMobile ? 'p-3' : 'p-4')}>
+              <div key={provider} className={cn('border rounded-lg', isMobile ? 'p-3' : 'p-4')}>
                 <div className={cn('flex items-center', isMobile ? 'gap-2' : 'justify-between')}>
                   <div className="flex items-start gap-3">
-                    <div className="flex items-center justify-center w-7 h-7 mt-0.5 rounded-lg bg-muted/50">
-                      <div className="text-lg">
+                    <div className="flex items-center justify-center w-6 h-6 mt-0.5">
+                      <div className="text-xl">
                         {(() => {
                           const IconComponent = CONNECTOR_ICONS[config.icon];
                           return IconComponent ? <IconComponent /> : null;
@@ -2877,646 +1868,6 @@ export function ConnectorsSection({ user }: { user: any }) {
   );
 }
 
-interface McpServerRecord {
-  id: string;
-  name: string;
-  transportType: 'http' | 'sse';
-  url: string;
-  authType: 'none' | 'bearer' | 'header' | 'oauth';
-  isEnabled: boolean;
-  hasCredentials: boolean;
-  oauthConfigured?: boolean;
-  isOAuthConnected?: boolean;
-  oauthIssuerUrl?: string | null;
-  oauthAuthorizationUrl?: string | null;
-  oauthTokenUrl?: string | null;
-  oauthScopes?: string | null;
-  oauthClientId?: string | null;
-  oauthConnectedAt?: string | null;
-  oauthError?: string | null;
-  lastTestedAt: string | null;
-  lastError: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export function McpSection({ user, isProUser }: { user: any; isProUser?: boolean }) {
-  const queryClient = useQueryClient();
-  const isMobile = useMediaQuery('(max-width: 768px)');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    name: '',
-    transportType: 'http' as 'http' | 'sse',
-    url: '',
-    authType: 'none' as 'none' | 'bearer' | 'header' | 'oauth',
-    bearerToken: '',
-    headerName: '',
-    headerValue: '',
-    oauthIssuerUrl: '',
-    oauthAuthorizationUrl: '',
-    oauthTokenUrl: '',
-    oauthScopes: '',
-    oauthClientId: '',
-    oauthClientSecret: '',
-    isEnabled: true,
-  });
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['mcpServers', user?.id],
-    queryFn: async () => {
-      const response = await fetch('/api/mcp/servers', { cache: 'no-store' });
-      if (!response.ok) throw new Error('Failed to load MCP servers');
-      return response.json() as Promise<{ servers: McpServerRecord[] }>;
-    },
-    enabled: Boolean(user?.id && isProUser),
-    staleTime: 10_000,
-  });
-
-  const upsertMutation = useMutation({
-    mutationFn: async (payload: typeof form) => {
-      const isEditing = Boolean(editingId);
-      const endpoint = isEditing ? `/api/mcp/servers/${editingId}` : '/api/mcp/servers';
-      const method = isEditing ? 'PATCH' : 'POST';
-
-      const response = await fetch(endpoint, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body?.cause || body?.message || 'Failed to save MCP server');
-      }
-
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['mcpServers', user?.id] });
-      setEditingId(null);
-      setForm({
-        name: '',
-        transportType: 'http',
-        url: '',
-        authType: 'none',
-        bearerToken: '',
-        headerName: '',
-        headerValue: '',
-        oauthIssuerUrl: '',
-        oauthAuthorizationUrl: '',
-        oauthTokenUrl: '',
-        oauthScopes: '',
-        oauthClientId: '',
-        oauthClientSecret: '',
-        isEnabled: true,
-      });
-      sileo.success({
-        title: 'Saved',
-        description: 'MCP server settings updated',
-      });
-    },
-    onError: (error: Error) => {
-      sileo.error({ title: 'Save failed', description: error.message });
-    },
-  });
-
-  const [testingServerId, setTestingServerId] = useState<string | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const testMutation = useMutation({
-    mutationFn: async (serverId: string) => {
-      setTestingServerId(serverId);
-      const response = await fetch('/api/mcp/servers/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ serverId }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.cause || body?.message || 'Connection test failed');
-      return body as { toolCount: number };
-    },
-    onSuccess: (result) => {
-      setTestingServerId(null);
-      queryClient.invalidateQueries({ queryKey: ['mcpServers', user?.id] });
-      sileo.success({
-        title: 'Connection successful',
-        description: `Loaded ${result.toolCount} tool${result.toolCount === 1 ? '' : 's'}`,
-      });
-    },
-    onError: (error: Error) => {
-      setTestingServerId(null);
-      sileo.error({ title: 'Connection failed', description: error.message });
-    },
-  });
-
-  const toggleMutation = useMutation({
-    mutationFn: async ({ id, isEnabled }: { id: string; isEnabled: boolean }) => {
-      const response = await fetch(`/api/mcp/servers/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isEnabled }),
-      });
-      if (!response.ok) throw new Error('Failed to update status');
-      return response.json();
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['mcpServers', user?.id] }),
-    onError: (error: Error) => sileo.error({ title: 'Update failed', description: error.message }),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const response = await fetch(`/api/mcp/servers/${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error('Failed to delete MCP server');
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['mcpServers', user?.id] });
-      sileo.success({ title: 'Deleted', description: 'MCP server removed' });
-    },
-    onError: (error: Error) => sileo.error({ title: 'Delete failed', description: error.message }),
-  });
-
-  const oauthStartMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const response = await fetch(`/api/mcp/servers/${id}/oauth/start`, {
-        method: 'POST',
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.cause || body?.message || 'Failed to start OAuth');
-      return body as { authorizationUrl: string };
-    },
-    onSuccess: ({ authorizationUrl }) => {
-      if (authorizationUrl) window.location.assign(authorizationUrl);
-    },
-    onError: (error: Error) => sileo.error({ title: 'OAuth failed', description: error.message }),
-  });
-
-  const oauthDisconnectMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const response = await fetch(`/api/mcp/servers/${id}/oauth/disconnect`, {
-        method: 'POST',
-      });
-      if (!response.ok) throw new Error('Failed to disconnect OAuth');
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['mcpServers', user?.id] });
-      sileo.success({ title: 'Disconnected', description: 'OAuth tokens cleared' });
-    },
-    onError: (error: Error) => sileo.error({ title: 'Disconnect failed', description: error.message }),
-  });
-
-  const servers = data?.servers ?? [];
-
-  if (!isProUser) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <span className="font-pixel-grid text-xs text-muted-foreground/50">08</span>
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">MCP</h4>
-        </div>
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Pro required</AlertTitle>
-          <AlertDescription>Bring-your-own MCP servers are available on Pro plans only.</AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
-  const [showForm, setShowForm] = useState(false);
-  const [showOAuthAdvanced, setShowOAuthAdvanced] = useState(false);
-
-  const resetForm = () => {
-    setEditingId(null);
-    setForm({
-      name: '',
-      transportType: 'http',
-      url: '',
-      authType: 'none',
-      bearerToken: '',
-      headerName: '',
-      headerValue: '',
-      oauthIssuerUrl: '',
-      oauthAuthorizationUrl: '',
-      oauthTokenUrl: '',
-      oauthScopes: '',
-      oauthClientId: '',
-      oauthClientSecret: '',
-      isEnabled: true,
-    });
-    setShowOAuthAdvanced(false);
-    setShowForm(false);
-  };
-
-  const startEdit = (server: McpServerRecord) => {
-    setEditingId(server.id);
-    setForm({
-      name: server.name,
-      transportType: server.transportType,
-      url: server.url,
-      authType: server.authType,
-      bearerToken: '',
-      headerName: '',
-      headerValue: '',
-      oauthIssuerUrl: server.oauthIssuerUrl ?? '',
-      oauthAuthorizationUrl: server.oauthAuthorizationUrl ?? '',
-      oauthTokenUrl: server.oauthTokenUrl ?? '',
-      oauthScopes: server.oauthScopes ?? '',
-      oauthClientId: server.oauthClientId ?? '',
-      oauthClientSecret: '',
-      isEnabled: server.isEnabled,
-    });
-    setShowOAuthAdvanced(
-      Boolean(
-        (server.oauthAuthorizationUrl && server.oauthAuthorizationUrl.trim()) ||
-        (server.oauthTokenUrl && server.oauthTokenUrl.trim()) ||
-        (server.oauthScopes && server.oauthScopes.trim()),
-      ),
-    );
-    setShowForm(true);
-  };
-
-  return (
-    <div className={cn('space-y-4', isMobile ? 'pb-2' : 'pb-0')}>
-      {/* Server list */}
-      <div className="rounded-xl border border-border/60 divide-y divide-border/40">
-        {isLoading && (
-          <div className="px-4 py-3.5 space-y-2">
-            <Skeleton className="h-4 w-36" />
-            <Skeleton className="h-3 w-52" />
-          </div>
-        )}
-
-        {!isLoading && servers.length === 0 && !showForm && (
-          <div className="px-4 py-6 text-center">
-            <p className="text-sm text-muted-foreground">No MCP servers configured</p>
-            <p className="text-xs text-muted-foreground/60 mt-1">Add a remote MCP server to get started</p>
-          </div>
-        )}
-
-        {!isLoading &&
-          servers.map((server) => (
-            <div key={server.id} className="px-4 py-3.5">
-              <div className="flex items-center justify-between gap-3">
-                {/* Left: info */}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span
-                      className={cn(
-                        'inline-block h-1.5 w-1.5 rounded-full shrink-0',
-                        server.isEnabled ? 'bg-emerald-500' : 'bg-muted-foreground/30',
-                      )}
-                    />
-                    <p className="text-sm font-medium truncate">{server.name}</p>
-                    {server.authType === 'oauth' && (
-                      <span
-                        className={cn(
-                          'shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full border',
-                          server.isOAuthConnected
-                            ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500/20 bg-emerald-500/10'
-                            : 'text-muted-foreground/60 border-border/60 bg-muted/30',
-                        )}
-                      >
-                        {server.isOAuthConnected ? 'Connected' : 'Not connected'}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-muted-foreground/60 truncate pl-3.5">{server.url}</p>
-                  {(server.oauthError || server.lastError) && (
-                    <p className="text-[11px] text-red-500/80 mt-1 pl-3.5 truncate">
-                      {server.oauthError || server.lastError}
-                    </p>
-                  )}
-                </div>
-
-                {/* Right: toggle + overflow menu */}
-                <div className="flex items-center gap-2 shrink-0">
-                  {server.authType === 'oauth' && !server.isOAuthConnected && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-[11px] px-2.5 rounded-lg"
-                      onClick={() => oauthStartMutation.mutate(server.id)}
-                      disabled={oauthStartMutation.isPending}
-                    >
-                      {oauthStartMutation.isPending ? (
-                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                      ) : (
-                        <ExternalLink className="h-3 w-3 mr-1" />
-                      )}
-                      Connect
-                    </Button>
-                  )}
-
-                  <Switch
-                    checked={server.isEnabled}
-                    onCheckedChange={(checked) => toggleMutation.mutate({ id: server.id, isEnabled: checked })}
-                    disabled={toggleMutation.isPending}
-                  />
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-44">
-                      <DropdownMenuItem
-                        onClick={() => testMutation.mutate(server.id)}
-                        disabled={testMutation.isPending && testingServerId === server.id}
-                      >
-                        {testMutation.isPending && testingServerId === server.id ? (
-                          <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
-                        ) : (
-                          <Zap className="h-3.5 w-3.5 mr-2" />
-                        )}
-                        Test connection
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => startEdit(server)}>
-                        <Pencil className="h-3.5 w-3.5 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      {server.authType === 'oauth' && server.isOAuthConnected && (
-                        <>
-                          <DropdownMenuItem
-                            onClick={() => oauthStartMutation.mutate(server.id)}
-                            disabled={oauthStartMutation.isPending}
-                          >
-                            <ExternalLink className="h-3.5 w-3.5 mr-2" />
-                            Reconnect OAuth
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => oauthDisconnectMutation.mutate(server.id)}
-                            disabled={oauthDisconnectMutation.isPending}
-                            className="text-muted-foreground"
-                          >
-                            <Link2Off className="h-3.5 w-3.5 mr-2" />
-                            Disconnect OAuth
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => setConfirmDeleteId(server.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            </div>
-          ))}
-
-        {/* Delete confirmation dialog */}
-        <Dialog
-          open={Boolean(confirmDeleteId)}
-          onOpenChange={(open) => {
-            if (!open) setConfirmDeleteId(null);
-          }}
-        >
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Delete MCP Server</DialogTitle>
-              <DialogDescription>
-                {confirmDeleteId && servers.find((s) => s.id === confirmDeleteId) ? (
-                  <>
-                    Remove{' '}
-                    <span className="font-medium text-foreground">
-                      {servers.find((s) => s.id === confirmDeleteId)!.name}
-                    </span>
-                    ? This will disconnect any OAuth sessions and cannot be undone.
-                  </>
-                ) : (
-                  'This will permanently remove the server and disconnect any OAuth sessions.'
-                )}
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="gap-2">
-              <Button variant="outline" size="sm" onClick={() => setConfirmDeleteId(null)}>
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                disabled={deleteMutation.isPending}
-                onClick={() => {
-                  if (confirmDeleteId) {
-                    deleteMutation.mutate(confirmDeleteId);
-                    setConfirmDeleteId(null);
-                    if (editingId === confirmDeleteId) resetForm();
-                  }
-                }}
-              >
-                {deleteMutation.isPending ? (
-                  <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
-                ) : (
-                  <Trash2 className="h-3 w-3 mr-1.5" />
-                )}
-                Delete
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Add / Edit form — inline expand */}
-        {showForm && (
-          <div className="px-4 py-3.5 space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-muted-foreground">{editingId ? 'Edit Server' : 'New Server'}</p>
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={resetForm}>
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <Input
-                placeholder="Server name"
-                value={form.name}
-                onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-                className="h-8 text-sm rounded-lg"
-              />
-              <Input
-                placeholder="https://your-mcp-endpoint.com/mcp"
-                value={form.url}
-                onChange={(event) => setForm((prev) => ({ ...prev, url: event.target.value }))}
-                className="h-8 text-sm rounded-lg"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <Select
-                value={form.transportType}
-                onValueChange={(value: 'http' | 'sse') => setForm((prev) => ({ ...prev, transportType: value }))}
-              >
-                <SelectTrigger className="h-8 text-xs rounded-lg">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="http">HTTP</SelectItem>
-                  <SelectItem value="sse">SSE</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select
-                value={form.authType}
-                onValueChange={(value: 'none' | 'bearer' | 'header' | 'oauth') => {
-                  setForm((prev) => ({ ...prev, authType: value }));
-                  if (value !== 'oauth') setShowOAuthAdvanced(false);
-                }}
-              >
-                <SelectTrigger className="h-8 text-xs rounded-lg">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No auth</SelectItem>
-                  <SelectItem value="bearer">Bearer token</SelectItem>
-                  <SelectItem value="header">Custom header</SelectItem>
-                  <SelectItem value="oauth">OAuth 2.1</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {form.authType === 'bearer' && (
-              <Input
-                type="password"
-                placeholder="Bearer token"
-                value={form.bearerToken}
-                onChange={(event) => setForm((prev) => ({ ...prev, bearerToken: event.target.value }))}
-                className="h-8 text-sm rounded-lg"
-              />
-            )}
-
-            {form.authType === 'header' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <Input
-                  placeholder="Header name (e.g. x-api-key)"
-                  value={form.headerName}
-                  onChange={(event) => setForm((prev) => ({ ...prev, headerName: event.target.value }))}
-                  className="h-8 text-sm rounded-lg"
-                />
-                <Input
-                  type="password"
-                  placeholder="Header value"
-                  value={form.headerValue}
-                  onChange={(event) => setForm((prev) => ({ ...prev, headerValue: event.target.value }))}
-                  className="h-8 text-sm rounded-lg"
-                />
-              </div>
-            )}
-
-            {form.authType === 'oauth' && (
-              <div className="space-y-2">
-                <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-[11px] text-muted-foreground">
-                  <p className="font-medium text-foreground">Quick setup</p>
-                  <p>No OAuth fields needed for most servers. Save, then press Connect.</p>
-                </div>
-                <button
-                  type="button"
-                  className="flex h-7 items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={() => setShowOAuthAdvanced((prev) => !prev)}
-                >
-                  <ChevronDown
-                    className={cn('h-3.5 w-3.5 transition-transform', showOAuthAdvanced ? 'rotate-180' : '')}
-                  />
-                  {showOAuthAdvanced ? 'Hide advanced OAuth fields' : 'Show advanced OAuth fields'}
-                </button>
-                {showOAuthAdvanced && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <Input
-                      placeholder="Provider URL / Issuer (optional)"
-                      value={form.oauthIssuerUrl}
-                      onChange={(event) => setForm((prev) => ({ ...prev, oauthIssuerUrl: event.target.value }))}
-                      className="h-8 text-sm rounded-lg"
-                    />
-                    <Input
-                      placeholder="OAuth app/client ID (optional)"
-                      value={form.oauthClientId}
-                      onChange={(event) => setForm((prev) => ({ ...prev, oauthClientId: event.target.value }))}
-                      className="h-8 text-sm rounded-lg"
-                    />
-                    <Input
-                      placeholder="Scopes (optional)"
-                      value={form.oauthScopes}
-                      onChange={(event) => setForm((prev) => ({ ...prev, oauthScopes: event.target.value }))}
-                      className="h-8 text-sm rounded-lg"
-                    />
-                    <Input
-                      type="password"
-                      placeholder="App secret (optional)"
-                      value={form.oauthClientSecret}
-                      onChange={(event) => setForm((prev) => ({ ...prev, oauthClientSecret: event.target.value }))}
-                      className="h-8 text-sm rounded-lg"
-                    />
-                    <Input
-                      placeholder="Authorization URL (advanced fallback)"
-                      value={form.oauthAuthorizationUrl}
-                      onChange={(event) => setForm((prev) => ({ ...prev, oauthAuthorizationUrl: event.target.value }))}
-                      className="h-8 text-sm rounded-lg"
-                    />
-                    <Input
-                      placeholder="Token URL (advanced fallback)"
-                      value={form.oauthTokenUrl}
-                      onChange={(event) => setForm((prev) => ({ ...prev, oauthTokenUrl: event.target.value }))}
-                      className="h-8 text-sm rounded-lg"
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                className="h-7 text-xs rounded-lg px-3"
-                onClick={() => upsertMutation.mutate(form)}
-                disabled={upsertMutation.isPending || !form.name.trim() || !form.url.trim()}
-              >
-                {upsertMutation.isPending ? (
-                  <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
-                ) : (
-                  <Save className="h-3 w-3 mr-1.5" />
-                )}
-                {editingId ? 'Update' : 'Add'}
-              </Button>
-              <Button size="sm" variant="ghost" className="h-7 text-xs rounded-lg px-3" onClick={resetForm}>
-                Cancel
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Add button row */}
-        {!showForm && (
-          <div className="px-4 py-2.5">
-            <Button
-              variant="secondary"
-              size="sm"
-              className="h-7 text-xs rounded-lg px-3 text-muted-foreground hover:text-foreground"
-              onClick={() => {
-                resetForm();
-                setShowForm(true);
-              }}
-            >
-              <Plus className="h-3 w-3 mr-1.5" />
-              Add MCP Server
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Failed to load servers</AlertTitle>
-          <AlertDescription>{(error as Error).message}</AlertDescription>
-        </Alert>
-      )}
-    </div>
-  );
-}
-
 export function SettingsDialog({
   open,
   onOpenChange,
@@ -3525,7 +1876,7 @@ export function SettingsDialog({
   isProUser,
   isProStatusLoading,
   isCustomInstructionsEnabled,
-  setIsCustomInstructionsEnabledAction,
+  setIsCustomInstructionsEnabled,
   initialTab = 'profile',
 }: SettingsDialogProps) {
   const { t: tSettings } = useLanguage();
@@ -3569,8 +1920,6 @@ export function SettingsDialog({
     };
   }, [isMobile, open]);
 
-  const mcpEnabled = process.env.NEXT_PUBLIC_MCP_ENABLED === 'true';
-
   const tabItems = [
     {
       value: 'profile',
@@ -3593,57 +1942,48 @@ export function SettingsDialog({
       label: tSettings('settings.connectors'),
       icon: ({ className }: { className?: string }) => <HugeiconsIcon icon={ConnectIcon} className={className} />,
     },
-    ...(mcpEnabled
-      ? [
-          {
-            value: 'mcp',
-            label: 'MCP',
-            icon: ({ className }: { className?: string }) => <HugeiconsIcon icon={ConnectIcon} className={className} />,
-          },
-        ]
-      : []),
     {
       value: 'memories',
       label: tSettings('settings.memories'),
       icon: ({ className }: { className?: string }) => <HugeiconsIcon icon={Brain02Icon} className={className} />,
     },
-    {
-      value: 'uploads',
-      label: 'Uploads',
-      icon: ({ className }: { className?: string }) => <HugeiconsIcon icon={Attachment01Icon} className={className} />,
-    },
-  ].map((item, index) => ({ ...item, number: String(index + 1).padStart(2, '0') }));
+  ];
 
   const contentSections = (
     <>
-      {currentTab === 'profile' && (
+      <TabsContent value="profile" className="mt-0">
         <ProfileSection
           user={user}
           subscriptionData={subscriptionData}
           isProUser={isProUser}
           isProStatusLoading={isProStatusLoading}
         />
-      )}
+      </TabsContent>
 
-      {currentTab === 'usage' && <UsageSection user={user} />}
+      <TabsContent value="usage" className="mt-0">
+        <UsageSection user={user} />
+      </TabsContent>
 
       {/* Self-hosted: no subscription tab */}
 
-      {currentTab === 'preferences' && (
+      <TabsContent
+        value="preferences"
+        className="mt-0 !scrollbar-thin !scrollbar-track-transparent !scrollbar-thumb-muted-foreground/20 hover:!scrollbar-thumb-muted-foreground/30"
+      >
         <PreferencesSection
           user={user}
           isCustomInstructionsEnabled={isCustomInstructionsEnabled}
-          setIsCustomInstructionsEnabledAction={setIsCustomInstructionsEnabledAction}
+          setIsCustomInstructionsEnabled={setIsCustomInstructionsEnabled}
         />
-      )}
+      </TabsContent>
 
-      {currentTab === 'connectors' && <ConnectorsSection user={user} />}
+      <TabsContent value="connectors" className="mt-0">
+        <ConnectorsSection user={user} />
+      </TabsContent>
 
-      {currentTab === 'mcp' && <McpSection user={user} isProUser={isProUser} />}
-
-      {currentTab === 'memories' && <MemoriesSection />}
-
-      {currentTab === 'uploads' && <UploadsSection />}
+      <TabsContent value="memories" className="mt-0">
+        <MemoriesSection />
+      </TabsContent>
     </>
   );
 
@@ -3651,53 +1991,51 @@ export function SettingsDialog({
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerContent
-          className="h-[85vh] max-h-[600px] p-0 data-vaul-drawer:transition-none overflow-hidden"
+          className="h-[85vh] max-h-[600px] p-0 [&[data-vaul-drawer]]:transition-none overflow-hidden"
           style={{
             height: mobileDrawerPxHeight ?? undefined,
             maxHeight: mobileDrawerPxHeight ?? undefined,
           }}
         >
           <div className="flex flex-col h-full max-h-full">
-            {/* Header */}
-            <DrawerHeader className="pb-2 px-4 pt-3 shrink-0 border-b border-border/40">
-              <DrawerTitle className="text-base font-medium flex items-center gap-2.5">
-                <SciraLogo className="size-5" />
-                <span>Settings</span>
-                <span className="font-pixel text-[11px] text-muted-foreground/50 uppercase tracking-[0.15em]">
-                  {tabItems.find((t) => t.value === currentTab)?.number}
-                </span>
+            {/* Header - more compact */}
+            <DrawerHeader className="pb-2 px-4 pt-3 shrink-0">
+              <DrawerTitle className="text-base font-medium flex items-center gap-2">
+                <SciraLogo className="size-6" />
+                Settings
               </DrawerTitle>
             </DrawerHeader>
 
             {/* Content area with tabs */}
-            <div className="flex-1 flex flex-col overflow-hidden gap-0">
-              {/* Tab content */}
-              <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-4! overscroll-contain scrollbar-w-1! scrollbar-track-transparent! scrollbar-thumb-muted-foreground/20! hover:scrollbar-thumb-muted-foreground/30!">
+            <Tabs
+              value={currentTab}
+              onValueChange={setCurrentTab}
+              className="flex-1 flex flex-col overflow-hidden gap-0"
+            >
+              {/* Tab content - takes up most space */}
+              <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 !pb-4 overscroll-contain !scrollbar-w-1 !scrollbar-track-transparent !scrollbar-thumb-muted-foreground/20 hover:!scrollbar-thumb-muted-foreground/30">
                 {contentSections}
               </div>
 
-              {/* Bottom tab navigation */}
+              {/* Bottom tab navigation - compact and accessible */}
               <div
                 className={cn(
-                  'border-t border-border/40 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 shrink-0',
-                  currentTab === 'preferences' || currentTab === 'connectors' || currentTab === 'mcp'
+                  'border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shrink-0',
+                  currentTab === 'preferences' || currentTab === 'connectors'
                     ? 'pb-[calc(env(safe-area-inset-bottom)+2.5rem)]'
                     : 'pb-[calc(env(safe-area-inset-bottom)+1rem)]',
                 )}
               >
-                <div className="w-full py-1.5 mb-2 px-3 sm:px-4 flex gap-1.5 overflow-x-auto scrollbar-none">
+                <TabsList className="w-full py-1.5 h-24 bg-transparent rounded-none grid grid-cols-3 sm:grid-cols-6 gap-2 !mb-2 px-3 sm:px-4">
                   {tabItems.map((item) => (
-                    <button
+                    <TabsTrigger
                       key={item.value}
-                      onClick={() => setCurrentTab(item.value)}
-                      className={cn(
-                        'flex flex-col items-center justify-center gap-0.5 h-16 rounded-lg relative px-3 min-w-16 shrink-0 transition-colors',
-                        currentTab === item.value ? 'bg-accent/80' : 'hover:bg-accent/40',
-                      )}
+                      value={item.value}
+                      className="flex-col gap-0.5 h-full rounded-md data-[state=active]:bg-muted data-[state=active]:shadow-none relative px-2 min-w-0 transition-colors"
                     >
                       <item.icon
                         className={cn(
-                          'h-4.5 w-4.5 transition-colors',
+                          'h-5 w-5 transition-colors',
                           currentTab === item.value ? 'text-foreground' : 'text-muted-foreground',
                         )}
                       />
@@ -3709,11 +2047,11 @@ export function SettingsDialog({
                       >
                         {item.label}
                       </span>
-                    </button>
+                    </TabsTrigger>
                   ))}
-                </div>
+                </TabsList>
               </div>
-            </div>
+            </Tabs>
           </div>
         </DrawerContent>
       </Drawer>
@@ -3731,21 +2069,20 @@ export function SettingsDialog({
         </DialogHeader>
 
         <div className="flex flex-1 overflow-hidden">
-          <div className="w-52 m-0! border-r border-border/40 overflow-y-auto">
-            <div className="p-3 gap-0.5! flex flex-col">
+          <div className="w-48 !m-0">
+            <div className="p-2 !gap-1 flex flex-col">
               {tabItems.map((item) => (
                 <button
                   key={item.value}
                   onClick={() => setCurrentTab(item.value)}
                   className={cn(
-                    'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors',
-                    'hover:bg-accent/50',
+                    'w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
+                    'hover:bg-muted',
                     currentTab === item.value
-                      ? 'bg-accent text-foreground font-medium'
+                      ? 'bg-muted text-foreground'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
-                  <span className="font-pixel-grid text-[11px] text-muted-foreground/50 w-3.5">{item.number}</span>
                   <item.icon className="h-4 w-4" />
                   <span>{item.label}</span>
                 </button>
@@ -3754,9 +2091,11 @@ export function SettingsDialog({
           </div>
 
           <div className="flex-1 overflow-hidden">
-            <ScrollArea className="h-[calc(85vh-120px)] scrollbar-w-1! scrollbar-track-transparent! scrollbar-thumb-muted-foreground/20! hover:scrollbar-thumb-muted-foreground/30!">
+            <ScrollArea className="h-[calc(85vh-120px)] !scrollbar-w-1 !scrollbar-track-transparent !scrollbar-thumb-muted-foreground/20 hover:!scrollbar-thumb-muted-foreground/30">
               <div className="p-6 pb-8">
-                <div>{contentSections}</div>
+                <Tabs value={currentTab} onValueChange={setCurrentTab} orientation="vertical">
+                  {contentSections}
+                </Tabs>
               </div>
             </ScrollArea>
           </div>

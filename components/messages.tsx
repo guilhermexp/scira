@@ -3,11 +3,12 @@ import { Message } from '@/components/message';
 import { DataUIPart, isToolUIPart } from 'ai';
 import { EnhancedErrorDisplay } from '@/components/message';
 import { MessagePartRenderer } from '@/components/message-parts';
-// import { SciraLogoHeader } from '@/components/scira-logo-header';
+import { SciraLogoHeader } from '@/components/scira-logo-header';
 import { deleteTrailingMessages } from '@/app/actions';
-import { Attachment, ChatMessage, CustomUIDataTypes } from '@/lib/types';
+import { ChatMessage, CustomUIDataTypes } from '@/lib/types';
 import { UseChatHelpers } from '@ai-sdk/react';
 import { ComprehensiveUserData } from '@/lib/user-data-server';
+
 // Define interface for part, messageIndex and partIndex objects
 interface PartInfo {
   part: any;
@@ -22,7 +23,6 @@ interface MessagesProps {
   setInput: (value: string) => void;
   setMessages: UseChatHelpers<ChatMessage>['setMessages'];
   regenerate: UseChatHelpers<ChatMessage>['regenerate'];
-  stop: UseChatHelpers<ChatMessage>['stop'];
   sendMessage: UseChatHelpers<ChatMessage>['sendMessage'];
   suggestedQuestions: string[];
   setSuggestedQuestions: (questions: string[]) => void;
@@ -35,10 +35,6 @@ interface MessagesProps {
   initialMessages?: any[]; // Add initial messages prop to detect existing chat
   isOwner?: boolean; // Add ownership prop
   onHighlight?: (text: string) => void; // Add highlight handler
-  attachmentsRenderer?: (attachments: Attachment[]) => React.ReactNode;
-  hasSubmitted?: boolean;
-  isTransitioning?: boolean;
-  onBeforeSubmit?: () => void;
 }
 
 const Messages: React.FC<MessagesProps> = ({
@@ -56,19 +52,24 @@ const Messages: React.FC<MessagesProps> = ({
   initialMessages,
   isOwner,
   onHighlight,
-  attachmentsRenderer,
   sendMessage,
   regenerate,
-  stop,
-  hasSubmitted,
-  isTransitioning,
-  onBeforeSubmit,
 }) => {
   // Track visibility state for each reasoning section using messageIndex-partIndex as key
   const [reasoningVisibilityMap, setReasoningVisibilityMap] = useState<Record<string, boolean>>({});
   const [reasoningFullscreenMap, setReasoningFullscreenMap] = useState<Record<string, boolean>>({});
   const reasoningScrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [hasInitialScrolled, setHasInitialScrolled] = useState(false);
+
+  // Scroll to bottom immediately (without animation) when opening existing chat
+  useEffect(() => {
+    if (initialMessages && initialMessages.length > 0 && !hasInitialScrolled && messagesEndRef.current) {
+      // Use scrollTo with instant behavior for existing chats
+      messagesEndRef.current.scrollIntoView({ behavior: 'instant' });
+      setHasInitialScrolled(true);
+    }
+  }, [initialMessages, hasInitialScrolled]);
 
   // Filter messages to only show the ones we want to display
   const memoizedMessages = useMemo(() => {
@@ -124,16 +125,13 @@ const Messages: React.FC<MessagesProps> = ({
     return false;
   }, [memoizedMessages, status]);
 
-  // Compute the index of the message that is missing an assistant response.
-  // This is scoped to the last message in the conversation only, so older chats
-  // do not incorrectly show the "No response generated" block.
-  const missingAssistantResponseIndex = useMemo(() => {
-    const lastIndex = memoizedMessages.length - 1;
-    const lastMessage = memoizedMessages[lastIndex];
+  // Check if we need to show retry due to missing assistant response (different from error status)
+  const isMissingAssistantResponse = useMemo(() => {
+    const lastMessage = memoizedMessages[memoizedMessages.length - 1];
 
     // Case 1: Last message is user and no assistant response yet
     if (lastMessage?.role === 'user' && status === 'ready' && !error) {
-      return lastIndex;
+      return true;
     }
 
     // Case 2: Last message is assistant but lacks visible content
@@ -148,11 +146,11 @@ const Messages: React.FC<MessagesProps> = ({
 
       // If there is no visible content at all, consider the response missing
       if (!hasVisibleContent) {
-        return lastIndex;
+        return true;
       }
     }
 
-    return -1;
+    return false;
   }, [memoizedMessages, status, error]);
 
   // Memoize the retry handler
@@ -161,23 +159,16 @@ const Messages: React.FC<MessagesProps> = ({
       const lastUserMessage = messages.findLast((m) => m.role === 'user');
       if (!lastUserMessage) return;
 
-      // Step 1: Stop any in-flight stream first to prevent the old response's
-      // onFinish from saving stale messages to DB after we delete them
-      await stop();
-
-      // Step 2: Small delay to allow the abort to propagate and any in-flight
-      // server-side onFinish to complete before we delete
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Step 3: Delete trailing messages if user is authenticated
+      // Step 1: Delete trailing messages if user is authenticated
       if (user && lastUserMessage.id) {
         await deleteTrailingMessages({
           id: lastUserMessage.id,
         });
       }
 
-      // Step 4: Update local state to remove assistant messages
+      // Step 2: Update local state to remove assistant messages
       const newMessages = [];
+      // Find the index of the last user message
       for (let i = 0; i < messages.length; i++) {
         newMessages.push(messages[i]);
         if (messages[i].id === lastUserMessage.id) {
@@ -185,16 +176,16 @@ const Messages: React.FC<MessagesProps> = ({
         }
       }
 
-      // Step 5: Update UI state
+      // Step 3: Update UI state
       setMessages(newMessages);
       setSuggestedQuestions([]);
 
-      // Step 6: Regenerate
+      // Step 4: Reload
       await regenerate();
     } catch (error) {
       console.error('Error in retry:', error);
     }
-  }, [messages, user, setMessages, setSuggestedQuestions, regenerate, stop]);
+  }, [messages, user, setMessages, setSuggestedQuestions, regenerate]);
 
   // Handle rendering of message parts - using the new MessagePartRenderer component
   const renderPart = useCallback(
@@ -232,8 +223,6 @@ const Messages: React.FC<MessagesProps> = ({
           setMessages={setMessages}
           setSuggestedQuestions={setSuggestedQuestions}
           regenerate={regenerate}
-          stop={stop}
-          sendMessage={sendMessage}
           onHighlight={onHighlight}
           annotations={annotations}
         />
@@ -251,8 +240,6 @@ const Messages: React.FC<MessagesProps> = ({
       setMessages,
       setSuggestedQuestions,
       regenerate,
-      stop,
-      sendMessage,
       reasoningVisibilityMap,
       reasoningFullscreenMap,
       setReasoningVisibilityMap,
@@ -263,19 +250,25 @@ const Messages: React.FC<MessagesProps> = ({
 
   // Check if we should show loading animation
   const shouldShowLoading = useMemo(() => {
-    // Fire immediately via the onBeforeSubmit callback — before SDK status updates
-    if (isTransitioning) return true;
-    const lastMessage = memoizedMessages[memoizedMessages.length - 1];
-    if (lastMessage?.role === 'user') return true;
-    if (status === 'submitted') return true;
+    if (status === 'submitted') {
+      return true;
+    }
+
     if (status === 'streaming') {
+      const lastMessage = memoizedMessages[memoizedMessages.length - 1];
+      // Show loading if only user message exists (no assistant response yet)
+      if (lastMessage?.role === 'user') {
+        return true;
+      }
+      // Show loading if assistant message exists but has 0 or 1 parts (just starting)
       if (lastMessage?.role === 'assistant') {
         const partsCount = lastMessage.parts?.length || 0;
         return partsCount <= 1;
       }
     }
+
     return false;
-  }, [isTransitioning, status, memoizedMessages]);
+  }, [status, memoizedMessages]);
 
   // Compute index of the most recent assistant message; only that one should keep min-height
   const lastAssistantIndex = useMemo(() => {
@@ -307,13 +300,11 @@ const Messages: React.FC<MessagesProps> = ({
   // Loader reserves min-height when submitted, or streaming after user, or
   // streaming with assistant in skeleton phase (0/1 parts)
   const shouldReserveLoaderMinHeight = useMemo(() => {
-    if (isTransitioning) return true;
     const lastMessage = memoizedMessages[memoizedMessages.length - 1];
-    if (lastMessage?.role === 'user') return true;
     if (status === 'submitted') return true;
-    if (status === 'streaming' && isActiveAssistantSkeleton) return true;
+    if (status === 'streaming' && (lastMessage?.role === 'user' || isActiveAssistantSkeleton)) return true;
     return false;
-  }, [isTransitioning, memoizedMessages, status, isActiveAssistantSkeleton]);
+  }, [memoizedMessages, status, isActiveAssistantSkeleton]);
 
   // No useEffect here - let the parent handle scrolling when it receives streaming data
 
@@ -354,8 +345,8 @@ const Messages: React.FC<MessagesProps> = ({
   console.log('✅ Proceeding to render', memoizedMessages.length, 'messages');
 
   return (
-    <div className="space-y-0 mb-38! sm:mb-42! flex flex-col" style={{ overflowAnchor: 'none' }}>
-      <div className="grow">
+    <div className="space-y-0 !mb-34 sm:!mb-36 flex flex-col">
+      <div className="flex-grow">
         {memoizedMessages.map((message, index) => {
           console.log(`=== RENDERING MESSAGE ${index} ===`);
           console.log('Message role:', message.role);
@@ -376,7 +367,7 @@ const Messages: React.FC<MessagesProps> = ({
             messageClasses = 'mb-0';
           } else if (isCurrentMessageAssistant && index < memoizedMessages.length - 1) {
             // Add border and spacing only if this is not the last assistant message
-            messageClasses = 'mb-8 pb-6 border-b border-border dark:border-border';
+            messageClasses = 'mb-6 pb-6 border-b border-border dark:border-border';
           } else if (isCurrentMessageAssistant && index === memoizedMessages.length - 1) {
             // Last assistant message should have no bottom margin (min-height is now handled in Message component)
             messageClasses = 'mb-0';
@@ -403,15 +394,13 @@ const Messages: React.FC<MessagesProps> = ({
                 selectedVisibilityType={selectedVisibilityType}
                 isLastMessage={isLastMessage}
                 error={error}
-                isMissingAssistantResponse={index === missingAssistantResponseIndex}
+                isMissingAssistantResponse={isMissingAssistantResponse}
                 handleRetry={handleRetry}
                 isOwner={isOwner}
                 onHighlight={onHighlight}
-                attachmentsRenderer={attachmentsRenderer}
-                onBeforeSubmit={onBeforeSubmit}
                 shouldReduceHeight={
                   message.role === 'assistant'
-                    ? isTransitioning || status === 'submitted' || memoizedMessages[memoizedMessages.length - 1]?.role === 'user'
+                    ? status === 'submitted'
                       ? true
                       : status === 'streaming'
                         ? activeAssistantIndex !== -1
@@ -431,21 +420,21 @@ const Messages: React.FC<MessagesProps> = ({
       {/* Loading animation when status is submitted or streaming with minimal assistant content */}
       {shouldShowLoading && (
         <div
-          className={`flex items-start ${shouldReserveLoaderMinHeight ? 'min-h-[calc(100vh-18rem)]' : ''} m-0! p-0!`}
+          className={`flex items-start ${shouldReserveLoaderMinHeight ? 'min-h-[calc(100vh-18rem)]' : ''} !m-0 !p-0`}
         >
-          <div className="w-full m-0! p-0!">
-            {/* <SciraLogoHeader /> */}
-            <div className="flex space-x-2 mt-5 ml-2">
+          <div className="w-full !m-0 !p-0">
+            <SciraLogoHeader />
+            <div className="flex space-x-2 ml-8 mt-2">
               <div
-                className="size-3 rounded-full bg-muted-foreground dark:bg-muted-foreground animate-bounce"
+                className="w-2 h-2 rounded-full bg-muted-foreground dark:bg-muted-foreground animate-bounce"
                 style={{ animationDelay: '0ms' }}
               ></div>
               <div
-                className="size-3 rounded-full bg-muted-foreground dark:bg-muted-foreground animate-bounce"
+                className="w-2 h-2 rounded-full bg-muted-foreground dark:bg-muted-foreground animate-bounce"
                 style={{ animationDelay: '150ms' }}
               ></div>
               <div
-                className="size-3 rounded-full bg-muted-foreground dark:bg-muted-foreground animate-bounce"
+                className="w-2 h-2 rounded-full bg-muted-foreground dark:bg-muted-foreground animate-bounce"
                 style={{ animationDelay: '300ms' }}
               ></div>
             </div>

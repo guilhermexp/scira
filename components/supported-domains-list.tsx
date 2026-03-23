@@ -10,12 +10,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { sileo } from 'sileo';
-import { Eye, Search, AlertCircle, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
+import { Eye, Search, University, AlertCircle, RefreshCw } from 'lucide-react';
 import { getStudentDomainsAction } from '@/app/actions';
-import { cn } from '@/lib/utils';
 
 interface SupportedDomainsListProps {
   className?: string;
@@ -44,13 +44,13 @@ export function SupportedDomainsList({ className }: SupportedDomainsListProps) {
       setDomainsData(result);
 
       if (result.fallback && result.error) {
-        sileo.error({ title: 'Failed to load latest domains, showing fallback list' });
+        toast.error('Failed to load latest domains, showing fallback list');
       } else if (result.fallback) {
-        sileo.info({ title: 'Showing basic domain list' });
+        toast.info('Showing basic domain list');
       }
     } catch (error) {
       console.error('Failed to load domains:', error);
-      sileo.error({ title: 'Failed to load supported domains' });
+      toast.error('Failed to load supported domains');
       setDomainsData({
         success: false,
         domains: ['.edu', '.ac.in'],
@@ -81,8 +81,8 @@ export function SupportedDomainsList({ className }: SupportedDomainsListProps) {
     domainsData?.domains.filter((domain) => domain.toLowerCase().includes(searchTerm.toLowerCase())) || [];
 
   const getDomainDisplayName = (domain: string) => {
-    if (domain === '.edu') return 'US Educational Institutions';
-    if (domain === '.ac.in') return 'Indian Academic Institutions';
+    if (domain === '.edu') return 'US Educational Institutions (.edu)';
+    if (domain === '.ac.in') return 'Indian Academic Institutions (.ac.in)';
     if (domain.startsWith('.')) return `${domain} domains`;
     return domain;
   };
@@ -90,88 +90,92 @@ export function SupportedDomainsList({ className }: SupportedDomainsListProps) {
   const getDomainType = (domain: string) => {
     if (domain === '.edu') return 'US';
     if (domain === '.ac.in') return 'India';
-    if (domain.includes('.edu')) return 'Edu';
+    if (domain.includes('.edu')) return 'Educational';
     if (domain.includes('.ac.')) return 'Academic';
-    return 'Uni';
+    return 'University';
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className={cn('rounded-lg gap-1.5 h-8 text-xs', className)}>
-          <Eye className="w-3.5 h-3.5" />
-          Universities
+        <Button variant="default" size="sm" className={className}>
+          <Eye className="w-4 h-4 mr-2" />
+          View supported universities
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="text-base font-semibold tracking-tight">Supported Domains</DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground">
-            Universities that qualify for the student discount.
+          <DialogTitle className="flex items-center gap-2">
+            <University className="w-5 h-5" />
+            Supported University Domains
+          </DialogTitle>
+          <DialogDescription>
+            Universities and educational institutions that automatically qualify for the student discount.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="mt-1 max-h-[65vh] flex flex-col min-w-0">
-          {/* Search + controls */}
-          <div className="flex items-center gap-2 pb-3 min-w-0">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/50" />
+        {/* Body layout: header controls + scrollable list + footer info all inside dialog */}
+        <div className="mt-2 max-h-[70vh] flex flex-col min-w-0">
+          {/* Header controls */}
+          <div className="flex items-center justify-between gap-2 pb-3 min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <Badge variant="secondary">
+                {domainsData?.count || 0} {(domainsData?.count || 0) === 1 ? 'domain' : 'domains'} supported
+              </Badge>
+              {domainsData?.fallback && (
+                <Badge variant="outline" className="text-orange-600 border-orange-200">
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  Basic list
+                </Badge>
+              )}
+            </div>
+            <Button variant="ghost" size="sm" onClick={refreshDomains} disabled={isLoading}>
+              <RefreshCw className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {/* Search */}
+          <form className="pb-3 min-w-0" onSubmit={(e) => e.preventDefault()}>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 inset-y-0 my-auto w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search domains..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 rounded-lg h-8 text-xs border-border/60"
+                className="w-full pl-9"
                 autoFocus
               />
             </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              {domainsData && (
-                <span className="font-pixel text-[9px] text-muted-foreground/40 uppercase tracking-wider tabular-nums">
-                  {filteredDomains.length}
-                </span>
-              )}
-              <Button variant="ghost" size="sm" onClick={refreshDomains} disabled={isLoading} className="rounded-lg h-8 w-8 p-0">
-                <RefreshCw className={cn('w-3.5 h-3.5', isLoading && 'animate-spin')} />
-              </Button>
-            </div>
-          </div>
+          </form>
 
-          {/* Fallback warning */}
-          {domainsData?.fallback && (
-            <div className="flex items-center gap-2 text-[11px] text-amber-600 dark:text-amber-400 pb-2">
-              <AlertCircle className="w-3 h-3 shrink-0" />
-              <span>Showing basic list</span>
-            </div>
-          )}
-
-          {/* Domain list */}
+          {/* Scrollable list area */}
           <div className="flex-1 min-h-0">
             {isLoading ? (
-              <div className="flex items-center justify-center py-10 text-xs text-muted-foreground">
-                <RefreshCw className="w-3.5 h-3.5 animate-spin mr-2" />
-                Loading...
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="w-6 h-6 animate-spin mr-2" />
+                Loading domains...
               </div>
             ) : domainsData ? (
               <ScrollArea className="h-full w-full">
-                <div className="rounded-xl border border-border/60 divide-y divide-border/30 overflow-hidden">
+                <div className="space-y-2 pr-2">
                   {filteredDomains.length > 0 ? (
                     filteredDomains.map((domain, index) => (
                       <div
                         key={index}
-                        className="flex items-center justify-between py-2.5 px-3.5 hover:bg-accent/30 transition-colors"
+                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
                       >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-medium truncate">{getDomainDisplayName(domain)}</p>
-                          <code className="font-pixel text-[9px] text-muted-foreground/40 uppercase tracking-wider">{domain}</code>
+                        <div className="flex-1">
+                          <div className="font-medium text-sm">{getDomainDisplayName(domain)}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Domain pattern: <code className="bg-muted px-1 rounded">{domain}</code>
+                          </div>
                         </div>
-                        <span className="font-pixel text-[8px] text-muted-foreground/30 uppercase tracking-wider shrink-0 ml-3">
-                          {getDomainType(domain)}
-                        </span>
+                        <Badge variant="outline">{getDomainType(domain)}</Badge>
                       </div>
                     ))
                   ) : (
-                    <div className="py-10 text-center">
-                      <p className="text-xs text-muted-foreground">{searchTerm ? 'No domains match your search' : 'No domains available'}</p>
+                    <div className="text-center py-8 text-muted-foreground">
+                      {searchTerm ? 'No domains found matching your search' : 'No domains available'}
                     </div>
                   )}
                 </div>
@@ -179,11 +183,15 @@ export function SupportedDomainsList({ className }: SupportedDomainsListProps) {
             ) : null}
           </div>
 
-          {/* Footer */}
+          {/* Footer info stays inside dialog */}
           <div className="pt-3">
-            <p className="text-[11px] text-muted-foreground/60">
-              Don&apos;t see your university? Use &quot;Request Domain&quot; to add it.
-            </p>
+            <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded-lg">
+              <p className="mb-1">
+                <strong>How it works:</strong> Sign up with an email from any of these domains to automatically receive
+                the student discount.
+              </p>
+              <p>Don&apos;t see your university? Use the &quot;Request University Domain&quot; button to add it.</p>
+            </div>
           </div>
         </div>
       </DialogContent>

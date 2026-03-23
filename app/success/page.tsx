@@ -1,202 +1,61 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Check, ArrowRight, Loader2, Infinity, Cpu, FileText, Eye, RefreshCw, Sparkles } from 'lucide-react';
+import { Check, ArrowRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { useSession } from '@/lib/auth-client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getCurrentUser } from '@/app/actions';
-
-const PRO_FEATURES = [
-  { icon: Infinity, label: 'Unlimited searches', description: 'No daily limits' },
-  { icon: Cpu, label: 'All AI models', description: 'Access every model' },
-  { icon: FileText, label: 'PDF analysis', description: 'Upload & analyze documents' },
-  { icon: Eye, label: 'Scira Lookout', description: 'Real-time monitoring' },
-];
-
-const MAX_FEATURES = [
-  { icon: Infinity, label: 'Unlimited searches', description: 'No daily limits' },
-  { icon: Cpu, label: 'Claude Max models', description: 'Access Sonnet, Opus & Thinking models' },
-  { icon: FileText, label: 'PDF analysis', description: 'Upload & analyze documents' },
-  { icon: Eye, label: 'Scira Lookout', description: 'Real-time monitoring' },
-];
 
 export default function SuccessPage() {
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const { data: session, isPending: isSessionPending } = useSession();
-  const {
-    data: freshUser,
-    isLoading,
-    refetch,
-  } = useQuery({
-    queryKey: ['success-page-user'],
-    queryFn: () => getCurrentUser(),
-    enabled: Boolean(session),
-    staleTime: 0,
-    refetchOnWindowFocus: false,
-  });
-  const isProUser = freshUser?.isProUser === true;
-  const user = freshUser;
-  const [showContent, setShowContent] = useState(false);
-  const [showRetry, setShowRetry] = useState(false);
-  const [isClearing, setIsClearing] = useState(false);
-  const animationRef = useRef<number | null>(null);
-  const hasTriggeredConfetti = useRef(false);
 
-  // Redirect if not authenticated
   useEffect(() => {
-    if (!isSessionPending && !session) {
-      router.push('/sign-in');
-    }
-  }, [isSessionPending, session, router]);
+    // Initial burst
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 },
+    });
 
-  // Poll for fresh server-backed subscription status if not yet active
-  useEffect(() => {
-    if (!session || isProUser || isLoading) return;
+    // Side cannons
+    const end = Date.now() + 3 * 1000; // 3 seconds
+    const colors = ['hsl(var(--foreground))', 'hsl(var(--muted-foreground))', 'hsl(var(--border))'];
 
-    const interval = setInterval(() => {
-      refetch();
-    }, 2000);
+    const frame = () => {
+      if (Date.now() > end) return;
 
-    // Show retry button after 10 seconds
-    const retryTimeout = setTimeout(() => {
-      setShowRetry(true);
-    }, 10000);
-
-    // Stop polling after 30 seconds
-    const timeout = setTimeout(() => {
-      clearInterval(interval);
-    }, 30000);
-
-    return () => {
-      clearInterval(interval);
-      clearTimeout(timeout);
-      clearTimeout(retryTimeout);
-    };
-  }, [session, isProUser, isLoading, refetch]);
-
-  const handleClearCache = async () => {
-    setIsClearing(true);
-    // Clear localStorage cache so stale subscription data doesn't persist
-    try {
-      localStorage.removeItem('scira-user-data');
-    } catch {}
-    // Invalidate all user-related queries
-    await queryClient.invalidateQueries({ queryKey: ['comprehensive-user-data'] });
-    await refetch();
-    setIsClearing(false);
-  };
-
-  const isMaxUser = user?.isMaxUser === true;
-  const planName = isMaxUser ? 'Max' : 'Pro';
-  const planFeatures = isMaxUser ? MAX_FEATURES : PRO_FEATURES;
-  const planIntro = isMaxUser
-    ? "Your Max subscription is now active. Here's what you've unlocked."
-    : "Your subscription is now active. Here's what you've unlocked.";
-
-  // Trigger confetti when plan status is confirmed
-  useEffect(() => {
-    if (isProUser && !hasTriggeredConfetti.current) {
-      hasTriggeredConfetti.current = true;
-      setShowContent(true);
-
-      // Initial burst
       confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#171717', '#525252', '#a3a3a3'],
+        particleCount: 2,
+        angle: 60,
+        spread: 55,
+        startVelocity: 60,
+        origin: { x: 0, y: 0.5 },
+        colors: colors,
+      });
+      confetti({
+        particleCount: 2,
+        angle: 120,
+        spread: 55,
+        startVelocity: 60,
+        origin: { x: 1, y: 0.5 },
+        colors: colors,
       });
 
-      // Side cannons
-      const end = Date.now() + 2500;
-
-      const frame = () => {
-        if (Date.now() > end) {
-          animationRef.current = null;
-          return;
-        }
-
-        confetti({
-          particleCount: 2,
-          angle: 60,
-          spread: 55,
-          startVelocity: 60,
-          origin: { x: 0, y: 0.5 },
-          colors: ['#171717', '#525252', '#a3a3a3'],
-        });
-        confetti({
-          particleCount: 2,
-          angle: 120,
-          spread: 55,
-          startVelocity: 60,
-          origin: { x: 1, y: 0.5 },
-          colors: ['#171717', '#525252', '#a3a3a3'],
-        });
-
-        animationRef.current = requestAnimationFrame(frame);
-      };
-
-      setTimeout(() => {
-        animationRef.current = requestAnimationFrame(frame);
-      }, 300);
-    }
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
+      requestAnimationFrame(frame);
     };
-  }, [isProUser]);
 
-  // Don't render anything while redirecting unauthenticated users
-  if (!isSessionPending && !session) {
-    return null;
-  }
-
-  // Loading state while verifying session or subscription
-  if (isSessionPending || isLoading || (!isProUser && !showContent)) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-6 w-full">
-        <div className="text-center max-w-md">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-6 text-muted-foreground" />
-          <h2 className="text-lg font-medium text-foreground mb-2">Verifying your subscription</h2>
-          <p className="text-sm text-muted-foreground mb-6">This will only take a moment...</p>
-
-          {showRetry && (
-            <div className="space-y-3">
-              <p className="text-xs text-muted-foreground">Taking longer than expected?</p>
-              <Button variant="outline" size="sm" onClick={handleClearCache} disabled={isClearing} className="h-9">
-                {isClearing ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                )}
-                Clear cache & retry
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
+    // Delay the side cannons slightly
+    setTimeout(() => {
+      frame();
+    }, 500);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-6 w-full">
-      <div
-        className="text-center max-w-lg w-full"
-        style={{
-          opacity: showContent ? 1 : 0,
-          transform: showContent ? 'translateY(0)' : 'translateY(8px)',
-          transition: 'opacity 0.5s ease-out, transform 0.5s ease-out',
-        }}
-      >
+    <div className="min-h-screen bg-background flex items-center justify-center px-6">
+      <div className="text-center max-w-md">
         {/* Success Icon */}
-        <div className="mx-auto mb-8 w-14 h-14 rounded-full bg-primary flex items-center justify-center">
-          <Check className="h-6 w-6 text-primary-foreground" strokeWidth={2.5} />
+        <div className="mx-auto mb-8 w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+          <Check className="h-5 w-5 text-muted-foreground" />
         </div>
 
         {/* Content */}
@@ -206,27 +65,11 @@ export default function SuccessPage() {
         {/* Action */}
         <Button
           onClick={() => router.push('/')}
-          className="h-10 px-8 text-sm font-medium"
-          style={{
-            opacity: showContent ? 1 : 0,
-            transform: showContent ? 'translateY(0)' : 'translateY(8px)',
-            transition: 'opacity 0.4s ease-out 550ms, transform 0.4s ease-out 550ms',
-          }}
+          className="bg-primary hover:bg-primary/90 text-primary-foreground h-9 px-6 text-sm font-normal"
         >
           Start searching
-          <ArrowRight className="ml-2 h-4 w-4" />
+          <ArrowRight className="ml-2 h-3.5 w-3.5" />
         </Button>
-
-        {/* Subtle footer */}
-        <p
-          className="text-xs text-muted-foreground mt-8"
-          style={{
-            opacity: showContent ? 1 : 0,
-            transition: 'opacity 0.4s ease-out 650ms',
-          }}
-        >
-          Manage your subscription anytime in Settings
-        </p>
       </div>
     </div>
   );

@@ -3,7 +3,6 @@ import { webSearchTool } from '@/lib/tools';
 import { xSearchTool } from '@/lib/tools/x-search';
 import { xai } from '@ai-sdk/xai';
 import { convertToModelMessages, customProvider, generateText, stepCountIs } from 'ai';
-import { xai } from '@ai-sdk/xai';
 
 const scira = customProvider({
   languageModels: {

@@ -2,8 +2,6 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { Valyu } from 'valyu-js';
 import { serverEnv } from '@/env/server';
-import { all } from 'better-all';
-import { getBetterAllOptions } from '@/lib/better-all';
 
 export const currencyConverterTool = tool({
   description: 'Convert currency from one to another using Valyu forex data',
@@ -63,17 +61,7 @@ export const currencyConverterTool = tool({
       }
     };
 
-    const { forwardRateRaw, reverseRateRaw } = await all(
-      {
-        async forwardRateRaw() {
-          return fetchRate(from, to);
-        },
-        async reverseRateRaw() {
-          return fetchRate(to, from);
-        },
-      },
-      getBetterAllOptions(),
-    );
+    const [forwardRateRaw, reverseRateRaw] = await Promise.all([fetchRate(from, to), fetchRate(to, from)]);
 
     const forwardRate =
       typeof forwardRateRaw === 'number' && Number.isFinite(forwardRateRaw) ? forwardRateRaw : undefined;

@@ -1,25 +1,12 @@
 /* eslint-disable @next/next/no-img-element */
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
-import dynamic from 'next/dynamic';
+import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { XLogoIcon } from '@phosphor-icons/react';
+import { Tweet } from 'react-tweet';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
-import { CustomUIDataTypes, DataQueryCompletionPart } from '@/lib/types';
-import type { DataUIPart } from 'ai';
-
-// Dynamically import Tweet component - it's a heavy library for Twitter embeds
-const Tweet = dynamic(() => import('react-tweet').then(mod => ({ default: mod.Tweet })), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full h-[200px] rounded-lg border border-border bg-muted/30 animate-pulse flex items-center justify-center">
-      <Spinner className="w-4 h-4" />
-    </div>
-  ),
-});
 
 // Custom Premium Icons
 const Icons = {
@@ -97,124 +84,45 @@ interface NormalizedXSearchArgs {
 }
 
 interface XSearchProps {
-  result: XSearchResponse | null;
+  result: XSearchResponse;
   args: XSearchArgs;
-  annotations?: DataQueryCompletionPart[];
 }
 
-function extractTweetId(url?: string | null) {
-  if (!url) return null;
-  return url.match(/\/status\/(\d+)/)?.[1] ?? null;
-}
-
-const XSearchLoadingState: React.FC<{ queries: string[]; annotations: DataUIPart<CustomUIDataTypes>[] }> = React.memo(({ queries, annotations }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
-  const loadingQueryTagsRef = React.useRef<HTMLDivElement>(null);
-  const totalSources = useMemo(
-    () => annotations.reduce((sum, a) => sum + (a.data.resultsCount || 0), 0),
-    [annotations]
-  );
-
-  const handleWheelScroll = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
-    const container = e.currentTarget;
-    if (e.deltaY === 0) return;
-    const canScrollHorizontally = container.scrollWidth > container.clientWidth;
-    if (!canScrollHorizontally) return;
-    e.stopPropagation();
-    const isAtLeftEdge = container.scrollLeft <= 1;
-    const isAtRightEdge = container.scrollLeft >= container.scrollWidth - container.clientWidth - 1;
-    if (!isAtLeftEdge && !isAtRightEdge) {
-      e.preventDefault();
-      container.scrollLeft += e.deltaY;
-    } else if (isAtLeftEdge && e.deltaY > 0) {
-      e.preventDefault();
-      container.scrollLeft += e.deltaY;
-    } else if (isAtRightEdge && e.deltaY < 0) {
-      e.preventDefault();
-      container.scrollLeft += e.deltaY;
-    }
-  }, []);
-
+const XSearchLoadingState = () => {
   return (
-    <div className="w-full my-3">
-      <div className="rounded-xl border border-border/60 overflow-hidden bg-card/30">
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-muted/20 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <div className="p-1 rounded bg-background/80 shrink-0">
-              <XLogoIcon className="h-2.5 w-2.5 text-foreground" />
-            </div>
-            <span className="font-pixel text-xs text-muted-foreground/80 uppercase tracking-wider">X Search</span>
+    <div className="w-full my-2 border border-border/60 rounded-lg overflow-hidden bg-card/50">
+      <div className="px-3 py-2 border-b border-border/60">
+        <div className="flex items-center gap-2">
+          <div className="p-1 rounded bg-muted animate-pulse">
+            <XLogoIcon className="h-3 w-3 text-muted-foreground" />
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] text-muted-foreground/60 tabular-nums">{totalSources || 0}</span>
-            <Icons.ChevronDown
-              className={cn(
-                'h-3 w-3 text-muted-foreground/60 transition-transform duration-200',
-                isExpanded && 'rotate-180',
-              )}
-            />
+          <div className="space-y-1 flex-1">
+            <div className="h-3 w-24 bg-muted rounded animate-pulse" />
+            <div className="h-2 w-36 bg-muted/60 rounded animate-pulse" />
           </div>
-        </button>
-
-        {isExpanded && (
-          <div className="border-t border-border/40">
-            <div
-              ref={loadingQueryTagsRef}
-              className="px-3.5 py-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar border-b border-border/30"
-              onWheel={handleWheelScroll}
-            >
-              {queries.length ? (
-                queries.map((query, i) => {
-                  const isCompleted = annotations.some((a) => a.data.query === query && a.data.status === 'completed');
-                  const annotation = annotations.find((a) => a.data.query === query);
-                  const sourcesCount = annotation?.data.resultsCount || 0;
-                  return (
-                    <span key={i} className="inline-flex items-center gap-1.5 text-[10px] shrink-0">
-                      {isCompleted ? (
-                        <svg className="w-2.5 h-2.5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M20 6L9 17l-5-5" />
-                        </svg>
-                      ) : (
-                        <Spinner className="w-2.5 h-2.5" />
-                      )}
-                      <span className={cn('font-medium', isCompleted ? 'text-foreground' : 'text-muted-foreground')}>{query}</span>
-                      {sourcesCount > 0 && <span className="text-[9px] text-muted-foreground/50 tabular-nums">({sourcesCount})</span>}
-                      {i < queries.length - 1 && <span className="text-muted-foreground/30 ml-1">/</span>}
-                    </span>
-                  );
-                })
-              ) : (
-                <span className="inline-flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                  <Spinner className="w-2.5 h-2.5" />
-                  <span className="font-medium">Searching X...</span>
-                </span>
-              )}
-            </div>
-
-            <div className="divide-y divide-border/20">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="px-3.5 py-2 flex items-center gap-2.5">
-                  <div className="w-3.5 h-3.5 rounded-sm bg-muted/30 animate-pulse shrink-0" style={{ animationDelay: `${i * 100}ms` }} />
-                  <div className="flex-1 space-y-1">
-                    <div className="h-3 bg-muted/30 rounded animate-pulse w-3/4" style={{ animationDelay: `${i * 100 + 50}ms` }} />
-                    <div className="h-2 bg-muted/20 rounded animate-pulse w-1/2" style={{ animationDelay: `${i * 100 + 80}ms` }} />
-                  </div>
-                </div>
-              ))}
+        </div>
+      </div>
+      <div className="p-2.5 space-y-2">
+        {[...Array(2)].map((_, i) => (
+          <div key={i} className="p-2 border border-border/60 rounded animate-pulse">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <div className="h-5 w-5 bg-muted rounded-full" />
+                <div className="h-2.5 w-20 bg-muted rounded" />
+              </div>
+              <div className="space-y-1">
+                <div className="h-2 w-full bg-muted rounded" />
+                <div className="h-2 w-2/3 bg-muted rounded" />
+              </div>
             </div>
           </div>
-        )}
+        ))}
       </div>
     </div>
   );
-});
+};
 
-XSearchLoadingState.displayName = 'XSearchLoadingState';
-
-const XSearch: React.FC<XSearchProps> = ({ result, args, annotations = [] }) => {
+const XSearch: React.FC<XSearchProps> = ({ result, args }) => {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -242,20 +150,20 @@ const XSearch: React.FC<XSearchProps> = ({ result, args, annotations = [] }) => 
   const tweetCitations = useMemo(() => {
     const mapped = allCitations
       .filter((citation) => {
+        // Handle both string URLs and objects with url property
         const url = typeof citation === 'string' ? citation : citation.url;
         const isTwitterUrl = url && (url.includes('x.com') || url.includes('twitter.com'));
         return isTwitterUrl;
       })
       .map((citation) => {
+        // Handle both string URLs and objects with url property
         const url = typeof citation === 'string' ? citation : citation.url;
-        const tweetId = extractTweetId(url);
+        const match = url.match(/\/status\/(\d+)/);
         let title = typeof citation === 'object' ? citation.title : '';
 
-        if (!title && uniqueSources.length) {
-          const matchingSource = uniqueSources.find((source) => {
-            const sourceId = extractTweetId(source.link);
-            return sourceId && sourceId === tweetId;
-          });
+        // If no title from citation, try to get it from sources with generated titles
+        if (!title && allSources) {
+          const matchingSource = allSources.find((source) => source.link === url);
           title = matchingSource?.title || '';
         }
 
@@ -299,34 +207,38 @@ const XSearch: React.FC<XSearchProps> = ({ result, args, annotations = [] }) => 
   const formatDateRange = (dateRange: string) => {
     const [start, end] = dateRange.split(' to ');
     return {
-      start: toDisplayDate(startRaw),
-      end: toDisplayDate(endRaw),
+      start: new Date(start).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+      end: new Date(end).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }),
     };
   };
 
-  const { start, end } = formatDateRange(result?.dateRange);
-
-  if (!result) {
-    return <XSearchLoadingState queries={normalizedQueries} annotations={annotations} />;
-  }
+  const { start, end } = formatDateRange(result.dateRange);
 
   return (
     <div className="w-full my-2">
-      <div className="rounded-lg border border-border/60 overflow-hidden bg-card/30">
-        {/* Header */}
+      <div className="border border-border/40 rounded-lg overflow-hidden bg-card">
+        {/* Compact Header */}
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full px-2 py-2 flex items-center justify-between hover:bg-muted/20 transition-colors group"
+          className="w-full px-3 py-2 flex items-center justify-between hover:bg-accent/20 transition-colors group"
         >
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="p-1 rounded bg-background/80 shrink-0">
-              <XLogoIcon className="size-5 text-foreground" />
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="p-1 rounded bg-black dark:bg-white flex-shrink-0">
+              <XLogoIcon className="h-3 w-3 text-white dark:text-black" />
             </div>
-            <div className="flex flex-col items-start gap-0.5 min-w-0">
-              <span className="font-pixel text-xs text-muted-foreground/80 uppercase tracking-wider">X Search</span>
-              <span className="text-[8.5px] text-muted-foreground/60 truncate">
-                {tweetCitations.length} posts {start !== 'Unknown' ? `· ${start} - ${end}` : ''}
-              </span>
+            <div className="text-left min-w-0 flex-1">
+              <h3 className="font-medium text-xs text-foreground">X Search</h3>
+              <p className="text-[10px] text-muted-foreground/80 truncate">
+                {tweetCitations.length} posts • {start} - {end}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -363,7 +275,7 @@ const XSearch: React.FC<XSearchProps> = ({ result, args, annotations = [] }) => 
 
             {/* Tweets Grid - more compact and browsable */}
             {tweetCitations.length > 0 && (
-              <div className="px-2.5 pt-1.5">
+              <div className="px-2.5">
                 <div className="flex gap-2.5 overflow-x-auto no-scrollbar">
                   {displayedTweets.map((citation, index) => (
                     <motion.div
@@ -371,7 +283,7 @@ const XSearch: React.FC<XSearchProps> = ({ result, args, annotations = [] }) => 
                       initial={{ opacity: 0, scale: 0.96 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: index * 0.03 }}
-                      className="shrink-0 w-[260px] sm:w-[300px]"
+                      className="flex-shrink-0 w-[260px] sm:w-[300px]"
                     >
                       {citation.tweet_id && (
                         <div className="tweet-wrapper">
@@ -386,7 +298,7 @@ const XSearch: React.FC<XSearchProps> = ({ result, args, annotations = [] }) => 
                     <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
                       <button
                         onClick={() => setIsSheetOpen(true)}
-                        className="shrink-0 w-[260px] sm:w-[300px] min-h-[160px] border border-dashed border-border/60 dark:border-2 dark:border-solid dark:border-border rounded-lg flex flex-col items-center justify-center hover:border-border dark:hover:border-border hover:bg-accent/20 transition-colors group"
+                        className="flex-shrink-0 w-[260px] sm:w-[300px] min-h-[160px] border border-dashed border-border/60 dark:border-2 dark:border-solid dark:border-border rounded-lg flex flex-col items-center justify-center hover:border-border dark:hover:border-border hover:bg-accent/20 transition-colors group"
                       >
                         <div className="p-2 rounded-full bg-muted/50 mb-2 group-hover:bg-muted transition-colors">
                           <Icons.Messages className="h-4 w-4 text-muted-foreground" />
@@ -398,8 +310,8 @@ const XSearch: React.FC<XSearchProps> = ({ result, args, annotations = [] }) => 
                         <div className="flex flex-col h-full bg-background">
                           <SheetHeader className="px-4 py-3 border-b border-border/40">
                             <SheetTitle className="flex items-center gap-2 text-sm">
-                              <div className="p-1 rounded bg-background/80">
-                                <XLogoIcon className="h-3 w-3 text-foreground" />
+                              <div className="p-1 rounded bg-black dark:bg-white">
+                                <XLogoIcon className="h-3 w-3 text-white dark:text-black" />
                               </div>
                               <span>All Posts ({tweetCitations.length})</span>
                             </SheetTitle>
@@ -441,7 +353,7 @@ const XSearch: React.FC<XSearchProps> = ({ result, args, annotations = [] }) => 
             )}
 
             {/* External links - cleaner and more compact */}
-            {/* {allCitations.length > tweetCitations.length && (
+            {allCitations.length > tweetCitations.length && (
               <div className="border-t border-border/40 px-2.5 py-2">
                 <h4 className="text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wider mb-1.5">
                   Sources
@@ -467,13 +379,13 @@ const XSearch: React.FC<XSearchProps> = ({ result, args, annotations = [] }) => 
                           <div className="flex-1 min-w-0">
                             <p className="text-[11px] text-foreground/90 truncate leading-tight">{title}</p>
                           </div>
-                          <Icons.ArrowUpRight className="h-2.5 w-2.5 text-muted-foreground/50 group-hover:text-muted-foreground shrink-0 transition-colors" />
+                          <Icons.ExternalLink className="h-2.5 w-2.5 text-muted-foreground/50 group-hover:text-muted-foreground flex-shrink-0 transition-colors" />
                         </a>
                       );
                     })}
                 </div>
               </div>
-            )} */}
+            )}
           </div>
         )}
       </div>

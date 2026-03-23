@@ -8,6 +8,9 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import { Analytics01Icon, Settings02Icon, ConnectIcon, Brain02Icon } from '@hugeicons/core-free-icons';
 import { useSearchParams } from 'next/navigation';
 import { Card } from '@/components/ui/card';
+import { useRouter } from 'next/navigation';
+import { ChevronLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
@@ -18,14 +21,7 @@ import { useClerk } from '@clerk/nextjs';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { SidebarLayout } from '@/components/sidebar-layout';
-import { signOut } from '@/lib/auth-client';
-import { useQueryClient } from '@tanstack/react-query';
-import { sileo } from 'sileo';
-import { Button } from '@/components/ui/button';
-import { LogoutIcon } from '@hugeicons/core-free-icons';
-import { SidebarTrigger } from '@/components/ui/sidebar';
-import { useRouter } from 'next/navigation';
+import { ArrowLeftIcon } from '@phosphor-icons/react';
 
 function SettingsPageInner() {
   const router = useRouter();
@@ -48,7 +44,7 @@ function SettingsPageInner() {
     'scira-custom-instructions-enabled',
     true,
   );
-  const [blurPersonalInfo, setBlurPersonalInfo] = useSyncedPreferences<boolean>('scira-blur-personal-info', false);
+  const [blurPersonalInfo, setBlurPersonalInfo] = useLocalStorage<boolean>('scira-blur-personal-info', false);
 
   useEffect(() => {
     if (!requestedTab) {
@@ -66,10 +62,10 @@ function SettingsPageInner() {
   }, [requestedTab, router, searchParams, tabs]);
 
   return (
-    <div className="w-full">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 border-b border-border/40">
-        <div className="flex h-14 items-center justify-between px-4 md:px-6 max-w-7xl mx-auto w-full">
+    <div className="min-h-screen bg-background">
+      {/* Minimal Header with actions */}
+      <div className="mt-6">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Button
               variant={'secondary'}
@@ -106,21 +102,18 @@ function SettingsPageInner() {
               Sign out
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground hidden sm:block">
-            {tabs.find((t) => t.value === activeTab)?.label}
-          </p>
         </div>
-      </header>
+      </div>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto p-4 md:p-6 max-w-7xl mx-auto w-full">
+      <div className="container mx-auto px-4 py-6">
         {/* User Profile - Mobile */}
         <div className="lg:hidden mb-6">
-          <Card className="p-4 shadow-none border-border/60">
+          <Card className="p-4 shadow-none">
             <div className="flex items-center gap-3">
-              <Avatar className="h-12 w-12 overflow-hidden rounded-full ring-2 ring-border/50 ring-offset-2 ring-offset-background mask-[radial-gradient(white,black)] [-webkit-mask-image:-webkit-radial-gradient(white,black)]">
+              <Avatar className="h-12 w-12">
                 <AvatarImage src={user?.image || ''} className={cn(blurPersonalInfo && 'blur-sm')} />
-                <AvatarFallback className="text-sm font-medium">
+                <AvatarFallback>
                   {user?.name
                     ? user.name
                         .split(' ')
@@ -147,17 +140,6 @@ function SettingsPageInner() {
               </Label>
               <Switch id="blur-personal-mobile" checked={!!blurPersonalInfo} onCheckedChange={setBlurPersonalInfo} />
             </div>
-            <div className="mt-3">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full gap-2 text-muted-foreground hover:text-foreground"
-                onClick={handleSignOut}
-              >
-                <HugeiconsIcon icon={LogoutIcon} size={16} strokeWidth={1.5} />
-                Sign Out
-              </Button>
-            </div>
           </Card>
         </div>
 
@@ -179,7 +161,6 @@ function SettingsPageInner() {
                 {tabs.map((tab) => (
                   <SelectItem key={tab.value} value={tab.value}>
                     <div className="flex items-center gap-2">
-                      <span className="font-pixel-grid text-[9px] text-muted-foreground/40 w-4">{tab.number}</span>
                       <HugeiconsIcon icon={tab.icon} size={16} strokeWidth={1.5} />
                       <span>{tab.label}</span>
                     </div>
@@ -192,7 +173,7 @@ function SettingsPageInner() {
           {/* Desktop Sidebar Navigation */}
           <aside className="hidden lg:block lg:w-64 shrink-0 space-y-4">
             {/* User Profile Card */}
-            <Card className="p-6 shadow-none border-border/60">
+            <Card className="p-6 shadow-none">
               <div className="flex flex-col items-center text-center space-y-4">
                 <Avatar className="h-20 w-20">
                   <AvatarImage src={user?.image || ''} className={cn(blurPersonalInfo && 'blur-sm')} />
@@ -229,20 +210,19 @@ function SettingsPageInner() {
             </Card>
 
             {/* Tabs */}
-            <Card className="p-2 shadow-none border-border/60">
-              <TabsList className="flex flex-col h-auto w-full bg-transparent gap-0.5">
+            <Card className="p-2 shadow-none">
+              <TabsList className="flex flex-col h-auto w-full bg-transparent gap-1">
                 {tabs.map((tab) => (
                   <TabsTrigger
                     key={tab.value}
                     value={tab.value}
                     className={cn(
-                      'w-full justify-start gap-3 px-3 py-2.5 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground',
-                      'hover:bg-accent/50 transition-colors shadow-none! rounded-lg',
+                      'w-full justify-start gap-3 px-4 py-3 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground',
+                      'hover:bg-accent/50 transition-colors !shadow-none',
                     )}
                   >
-                    <span className="font-pixel-grid text-[9px] text-muted-foreground/40 w-4">{tab.number}</span>
-                    <HugeiconsIcon icon={tab.icon} size={16} strokeWidth={1.5} />
-                    <span className="text-sm font-medium">{tab.label}</span>
+                    <HugeiconsIcon icon={tab.icon} size={18} strokeWidth={1.5} />
+                    <span className="font-medium">{tab.label}</span>
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -255,10 +235,7 @@ function SettingsPageInner() {
               <TabsContent value="usage" className="m-0">
                 <div className="space-y-4">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-pixel-grid text-xs text-muted-foreground/30">01</span>
-                      <h2 className="text-lg font-semibold">Usage Statistics</h2>
-                    </div>
+                    <h2 className="text-lg font-semibold">Usage Statistics</h2>
                     <p className="text-sm text-muted-foreground">Track your daily and monthly usage</p>
                   </div>
                   <UsageSection user={user} />
@@ -268,16 +245,13 @@ function SettingsPageInner() {
               <TabsContent value="preferences" className="m-0">
                 <div className="space-y-4">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-pixel-grid text-xs text-muted-foreground/30">03</span>
-                      <h2 className="text-lg font-semibold">Preferences</h2>
-                    </div>
+                    <h2 className="text-lg font-semibold">Preferences</h2>
                     <p className="text-sm text-muted-foreground">Customize your search and AI experience</p>
                   </div>
                   <PreferencesSection
                     user={user}
                     isCustomInstructionsEnabled={isCustomInstructionsEnabled}
-                    setIsCustomInstructionsEnabledAction={setIsCustomInstructionsEnabled}
+                    setIsCustomInstructionsEnabled={setIsCustomInstructionsEnabled}
                   />
                 </div>
               </TabsContent>
@@ -285,10 +259,7 @@ function SettingsPageInner() {
               <TabsContent value="connectors" className="m-0">
                 <div className="space-y-4">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-pixel-grid text-xs text-muted-foreground/30">04</span>
-                      <h2 className="text-lg font-semibold">Connectors</h2>
-                    </div>
+                    <h2 className="text-lg font-semibold">Connectors</h2>
                     <p className="text-sm text-muted-foreground">Connect your external services and data sources</p>
                   </div>
                   <ConnectorsSection user={user} />
@@ -298,79 +269,39 @@ function SettingsPageInner() {
               <TabsContent value="memories" className="m-0">
                 <div className="space-y-4">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-pixel-grid text-xs text-muted-foreground/30">06</span>
-                      <h2 className="text-lg font-semibold">Memories</h2>
-                    </div>
+                    <h2 className="text-lg font-semibold">Memories</h2>
                     <p className="text-sm text-muted-foreground">Manage your stored memories and context</p>
                   </div>
                   <MemoriesSection />
                 </div>
               </TabsContent>
-
-              <TabsContent value="uploads" className="m-0">
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-pixel-grid text-xs text-muted-foreground/30">07</span>
-                      <h2 className="text-lg font-semibold">Uploads</h2>
-                    </div>
-                    <p className="text-sm text-muted-foreground">View and manage files you&apos;ve uploaded in chats</p>
-                  </div>
-                  <UploadsSection />
-                </div>
-              </TabsContent>
             </Card>
           </div>
         </Tabs>
-      </main>
+      </div>
     </div>
   );
 }
 
 export default function SettingsPage() {
   return (
-    <SidebarLayout>
-      <Suspense
-        fallback={
-          <div className="w-full">
-            <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border/40">
-              <div className="flex h-14 items-center justify-between px-4 md:px-6 max-w-7xl mx-auto w-full">
-                <div className="flex items-center gap-3">
-                  <div className="md:hidden h-6 w-6 bg-muted rounded" />
-                  <div className="h-5 w-24 bg-muted rounded" />
-                </div>
-              </div>
-            </header>
-            <main className="flex-1 overflow-auto p-4 md:p-6 max-w-7xl mx-auto w-full">
-              <div className="flex flex-col lg:flex-row gap-6">
-                <div className="hidden lg:block lg:w-64 shrink-0 space-y-4">
-                  <div className="rounded-xl border border-border/60 p-6">
-                    <div className="flex flex-col items-center space-y-4">
-                      <div className="h-20 w-20 bg-muted rounded-full" />
-                      <div className="space-y-2 w-full">
-                        <div className="h-4 w-24 bg-muted rounded mx-auto" />
-                        <div className="h-3 w-32 bg-muted rounded mx-auto" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-border/60 p-2 space-y-1">
-                    {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-                      <div key={i} className="h-10 bg-muted/30 rounded-lg" />
-                    ))}
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <div className="h-8 w-40 bg-muted rounded mb-4" />
-                  <div className="h-64 w-full bg-muted/30 rounded-xl" />
-                </div>
-              </div>
-            </main>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-background">
+          <div className="border-b border-border/40">
+            <div className="container mx-auto px-4 py-3 flex items-center gap-3">
+              <div className="h-8 w-8" />
+              <div className="h-5 w-24 bg-muted rounded" />
+            </div>
           </div>
-        }
-      >
-        <SettingsContent />
-      </Suspense>
-    </SidebarLayout>
+          <div className="container mx-auto px-4 py-6">
+            <div className="h-10 w-40 bg-muted rounded mb-4" />
+            <div className="h-64 w-full bg-muted rounded" />
+          </div>
+        </div>
+      }
+    >
+      <SettingsPageInner />
+    </Suspense>
   );
 }

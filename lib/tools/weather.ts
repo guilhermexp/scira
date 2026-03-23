@@ -1,8 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { serverEnv } from '@/env/server';
-import { all } from 'better-all';
-import { getBetterAllOptions } from '@/lib/better-all';
 
 export const weatherTool = tool({
   description: 'Get the weather data for a location using either location name or coordinates with OpenWeather API.',
@@ -86,39 +84,20 @@ export const weatherTool = tool({
       console.log('Location:', locationName);
 
       const apiKey = serverEnv.OPENWEATHER_API_KEY;
-      const { weatherResponse, airPollutionResponse, openMeteoResponse } = await all(
-        {
-          async weatherResponse() {
-            return fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lng}&appid=${apiKey}`);
-          },
-          async airPollutionResponse() {
-            return fetch(
-              `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lng}&appid=${apiKey}`,
-            );
-          },
-          async openMeteoResponse() {
-            return fetch(
-              `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=temperature_2m_max,temperature_2m_min,weathercode,precipitation_probability_max,windspeed_10m_max,relative_humidity_2m_max&timezone=auto&forecast_days=16`,
-            );
-          },
-        },
-        getBetterAllOptions(),
-      );
+      const [weatherResponse, airPollutionResponse, dailyForecastResponse] = await Promise.all([
+        fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lng}&appid=${apiKey}`),
+        fetch(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lng}&appid=${apiKey}`),
+        fetch(`https://api.openweathermap.org/data/2.5/forecast/daily?lat=${lat}&lon=${lng}&cnt=16&appid=${apiKey}`),
+      ]);
 
-      const { weatherData, airPollutionData, openMeteoData } = await all(
-        {
-          async weatherData() {
-            return weatherResponse.json();
-          },
-          async airPollutionData() {
-            return airPollutionResponse.json();
-          },
-          async openMeteoData() {
-            return openMeteoResponse.json();
-          },
-        },
-        getBetterAllOptions(),
-      );
+      const [weatherData, airPollutionData, dailyForecastData] = await Promise.all([
+        weatherResponse.json(),
+        airPollutionResponse.json(),
+        dailyForecastResponse.json().catch((error) => {
+          console.error('Daily forecast API error:', error);
+          return { list: [] };
+        }),
+      ]);
 
       const airPollutionForecastResponse = await fetch(
         `https://api.openweathermap.org/data/2.5/air_pollution/forecast?lat=${lat}&lon=${lng}&appid=${apiKey}`,
@@ -126,7 +105,9 @@ export const weatherTool = tool({
       const airPollutionForecastData = await airPollutionForecastResponse.json();
 
       console.log('Air pollution forecast data:', airPollutionForecastData);
-      console.log('Open-Meteo 16-day forecast:', openMeteoData);
+
+      console.log('Daily forecast data:', dailyForecastData);
+
       console.log('Weather data:', weatherData);
 
       return {
@@ -140,7 +121,7 @@ export const weatherTool = tool({
         },
         air_pollution: airPollutionData,
         air_pollution_forecast: airPollutionForecastData,
-        open_meteo_forecast: openMeteoData,
+        daily_forecast: dailyForecastData,
       };
     } catch (error) {
       console.error('Weather data error:', error);

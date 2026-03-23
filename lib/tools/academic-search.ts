@@ -1,10 +1,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
+import Exa from 'exa-js';
 import { serverEnv } from '@/env/server';
-import { UIMessageStreamWriter } from 'ai';
-import { ChatMessage } from '@/lib/types';
-import { all } from 'better-all';
-import { getBetterAllOptions } from '@/lib/better-all';
 
 export const academicSearchTool = tool({
   description: 'Search academic papers and research with multiple queries.',
@@ -21,107 +18,58 @@ export const academicSearchTool = tool({
     try {
       const exa = new Exa(serverEnv.EXA_API_KEY as string);
 
-const firecrawl = new Firecrawl({ apiKey: serverEnv.FIRECRAWL_API_KEY });
+      console.log('Academic search queries:', queries);
+      console.log('Max results:', maxResults);
 
       const searchPromises = queries.map(async (query: any, index: number) => {
         const currentMaxResults = maxResults?.[index] || maxResults?.[0] || 20;
 
-        const searchPromises = queries.map(async (query, index) => {
-          const currentMaxResults = maxResults?.[index] || maxResults?.[0] || 20;
+        try {
+          const result = await exa.searchAndContents(query, {
+            type: 'auto',
+            numResults: currentMaxResults,
+            category: 'research paper',
+            summary: {
+              query: 'Abstract of the Paper',
+            },
+          });
 
-          try {
-            // Send start notification
-            dataStream?.write({
-              type: 'data-query_completion',
-              data: {
-                query,
-                index,
-                total: queries.length,
-                status: 'started',
-                resultsCount: 0,
-                imagesCount: 0,
-              },
+          const processedResults = result.results.reduce<typeof result.results>((acc, paper) => {
+            if (acc.some((p) => p.url === paper.url) || !paper.summary) return acc;
+
+            const cleanSummary = paper.summary.replace(/^Summary:\s*/i, '');
+            const cleanTitle = paper.title?.replace(/\s\[.*?\]$/, '');
+
+            acc.push({
+              ...paper,
+              title: cleanTitle || '',
+              summary: cleanSummary,
             });
 
-            const { processedResults } = await all(
-              {
-                firecrawlResults: async function () {
-                  return firecrawl.search(query, {
-                    categories: ['research', 'pdf'],
-                    limit: currentMaxResults,
-                    scrapeOptions: {
-                      storeInCache: true,
-                    },
-                  });
-                },
-                processedResults: async function () {
-                  const firecrawlResults = await this.$.firecrawlResults;
-                  if (!firecrawlResults.web || !Array.isArray(firecrawlResults.web)) return [];
-                  return firecrawlResults.web.map((result) => ({
-                    url: (result as SearchResultWeb).url || '',
-                    title: (result as SearchResultWeb).title || '',
-                    summary: (result as SearchResultWeb).description || '',
-                  }));
-                },
-              },
-              getBetterAllOptions(),
-            );
+            return acc;
+          }, []);
 
-            const resultsCount = processedResults.length;
+          return {
+            query,
+            results: processedResults,
+          };
+        } catch (error) {
+          console.error(`Academic search error for query "${query}":`, error);
+          return {
+            query,
+            results: [],
+          };
+        }
+      });
 
-            // Send completion notification
-            dataStream?.write({
-              type: 'data-query_completion',
-              data: {
-                query,
-                index,
-                total: queries.length,
-                status: 'completed',
-                resultsCount: resultsCount,
-                imagesCount: 0,
-              },
-            });
+      const searches = await Promise.all(searchPromises);
 
-            return {
-              query,
-              results: processedResults,
-            };
-          } catch (error) {
-            console.error(`Academic search error for query "${query}":`, error);
-
-            // Send error notification
-            dataStream?.write({
-              type: 'data-query_completion',
-              data: {
-                query,
-                index,
-                total: queries.length,
-                status: 'error',
-                resultsCount: 0,
-                imagesCount: 0,
-              },
-            });
-
-            return {
-              query,
-              results: [],
-            };
-          }
-        });
-
-        const searchMap = await all(
-          Object.fromEntries(searchPromises.map((promise, index) => [`q:${index}`, async () => promise])),
-          getBetterAllOptions(),
-        );
-        const searches = queries.map((_, index) => searchMap[`q:${index}`]);
-
-        return {
-          searches,
-        };
-      } catch (error) {
-        console.error('Academic search error:', error);
-        throw error;
-      }
-    },
-  });
-}
+      return {
+        searches,
+      };
+    } catch (error) {
+      console.error('Academic search error:', error);
+      throw error;
+    }
+  },
+});

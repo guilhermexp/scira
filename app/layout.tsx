@@ -3,12 +3,9 @@ import 'katex/dist/katex.min.css';
 import 'leaflet/dist/leaflet.css';
 
 import { Metadata, Viewport } from 'next';
-import { Be_Vietnam_Pro, Baumans, Geist, Instrument_Serif } from 'next/font/google';
-import { GeistPixelSquare, GeistPixelGrid } from 'geist/font/pixel';
+import { Be_Vietnam_Pro, Inter, Baumans } from 'next/font/google';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
-import { Toaster } from '@/components/ui/sileo-toaster';
-import { SidebarProvider } from '@/components/ui/sidebar';
-import { NewChatHotkey } from '@/components/new-chat-hotkey';
+import { Toaster } from '@/components/ui/sonner';
 import { ClientAnalytics } from '@/components/client-analytics';
 import { ClerkProvider } from '@clerk/nextjs';
 // import { Databuddy } from '@databuddy/sdk';
@@ -18,23 +15,16 @@ import { Providers } from './providers';
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://scira.ai'),
   title: {
-    default: 'Scira AI - Research anything. Do anything.',
+    default: 'Scira AI - Fastest AI research engine, Perplexity alternative',
     template: '%s | Scira AI',
   },
   description:
-    'Scira is an AI assistant that searches the web in depth, cites sources, and connects to 100+ apps including GitHub, Notion, and Slack.',
+    'Scira is a free AI research engine that finds, analyzes, and cites the live web. $15/month—fast answers; 10k+ stars on GitHub.',
   openGraph: {
     url: process.env.NEXT_PUBLIC_APP_URL || 'https://scira.ai',
     siteName: 'Scira AI',
   },
   keywords: [
-    'agentic research platform',
-    'agentic research',
-    'agentic search',
-    'agentic search engine',
-    'agentic search platform',
-    'agentic search tool',
-    'agentic search tool',
     'scira.ai',
     'free ai search',
     'ai search',
@@ -85,9 +75,6 @@ export const metadata: Metadata = {
       follow: true,
     },
   },
-  alternates: {
-    canonical: 'https://scira.ai',
-  },
 };
 
 export const viewport: Viewport = {
@@ -102,6 +89,14 @@ export const viewport: Viewport = {
     { media: '(prefers-color-scheme: dark)', color: '#111111' },
   ],
 };
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-sans',
+  preload: true,
+  weight: 'variable',
+  display: 'swap',
+});
 
 const beVietnamPro = Be_Vietnam_Pro({
   subsets: ['latin'],
@@ -119,24 +114,7 @@ const baumans = Baumans({
   weight: ['400'],
 });
 
-const geist = Geist({
-  subsets: ['latin'],
-  variable: '--font-sans',
-  preload: true,
-  display: 'swap',
-  weight: ['400', '500', '600', '700'],
-});
-
-const instrumentSerif = Instrument_Serif({
-  subsets: ['latin'],
-  variable: '--font-instrument-serif',
-  preload: true,
-  display: 'swap',
-  weight: ['400'],
-  style: ['normal', 'italic'],
-});
-
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { sileo } from 'sileo';
+import { toast } from 'sonner';
 import {
   createScheduledLookout,
   getUserLookouts,
@@ -12,18 +12,6 @@ import {
   testLookoutAction,
 } from '@/app/actions';
 
-type LookoutRunStatus = 'success' | 'error' | 'timeout';
-
-interface LookoutRun {
-  runAt: string;
-  chatId: string;
-  status: LookoutRunStatus;
-  error?: string;
-  duration?: number;
-  tokensUsed?: number;
-  searchesPerformed?: number;
-}
-
 interface Lookout {
   id: string;
   title: string;
@@ -32,24 +20,10 @@ interface Lookout {
   timezone: string;
   nextRunAt: Date;
   status: 'active' | 'paused' | 'archived' | 'running';
-  searchMode?: string;
   lastRunAt?: Date | null;
   lastRunChatId?: string | null;
-  runHistory?: LookoutRun[];
   createdAt: Date;
   cronSchedule?: string;
-}
-
-function getLastRunStatus(lookout: Lookout): LookoutRunStatus | null {
-  const history = lookout.runHistory ?? [];
-  if (!history.length) return null;
-  return history[history.length - 1]?.status ?? null;
-}
-
-function getLastRunError(lookout: Lookout): string | null {
-  const history = lookout.runHistory ?? [];
-  if (!history.length) return null;
-  return history[history.length - 1]?.error ?? null;
 }
 
 // Query key factory
@@ -136,23 +110,8 @@ export function useLookouts() {
       const completionKey = `${lookout.id}-${lookout.lastRunAt?.getTime()}`;
       recentCompletionsRef.current.add(completionKey);
 
-      const lastRunStatus = getLastRunStatus(lookout) ?? 'success';
-      const lastRunError = getLastRunError(lookout);
       const statusText = lookout.frequency === 'once' ? 'completed' : 'run finished';
-
-      if (lastRunStatus === 'success') {
-        sileo.success({ title: `Lookout "${lookout.title}" ${statusText} successfully!` });
-      } else if (lastRunStatus === 'timeout') {
-        sileo.show({
-          title: `Lookout "${lookout.title}" ${statusText} (timed out)`,
-          description: lastRunError ?? undefined,
-        });
-      } else {
-        sileo.error({
-          title: `Lookout "${lookout.title}" ${statusText} (failed)`,
-          description: lastRunError ?? undefined,
-        });
-      }
+      toast.success(`Lookout "${lookout.title}" ${statusText} successfully!`);
 
       // Clear completion key after 30 seconds to allow future notifications
       setTimeout(() => {
@@ -184,7 +143,7 @@ export function useLookouts() {
     onSuccess: (data) => {
       // Only show create toast for actual user-initiated creation
       if (isActualCreateRef.current) {
-        sileo.success({ title: 'Lookout created successfully!' });
+        toast.success('Lookout created successfully!');
         isActualCreateRef.current = false; // Reset flag
       }
       // Immediate cache invalidation for real-time updates
@@ -196,7 +155,7 @@ export function useLookouts() {
     },
     onError: (error: Error) => {
       isActualCreateRef.current = false; // Reset flag on error
-      sileo.error({ title: error.message });
+      toast.error(error.message);
     },
   });
 
@@ -232,14 +191,14 @@ export function useLookouts() {
             : data.status === 'archived'
               ? 'archived'
               : 'updated';
-      sileo.success({ title: `Lookout ${statusText}` });
+      toast.success(`Lookout ${statusText}`);
     },
     onError: (error: Error, variables, context) => {
       // Rollback on error
       if (context?.previousLookouts) {
         queryClient.setQueryData(lookoutKeys.lists(), context.previousLookouts);
       }
-      sileo.error({ title: error.message });
+      toast.error(error.message);
     },
     onSettled: () => {
       // Always refetch after error or success for real-time updates
@@ -267,7 +226,7 @@ export function useLookouts() {
       return { result, onSuccess: successCallback };
     },
     onSuccess: (data) => {
-      sileo.success({ title: 'Lookout updated successfully!' });
+      toast.success('Lookout updated successfully!');
       // Immediate cache invalidation and refetch for real-time updates
       queryClient.invalidateQueries({ queryKey: lookoutKeys.lists() });
       queryClient.refetchQueries({ queryKey: lookoutKeys.lists() });
@@ -276,7 +235,7 @@ export function useLookouts() {
       }
     },
     onError: (error: Error) => {
-      sileo.error({ title: error.message });
+      toast.error(error.message);
     },
   });
 
@@ -304,7 +263,7 @@ export function useLookouts() {
       return { previousLookouts };
     },
     onSuccess: () => {
-      sileo.success({ title: 'Lookout deleted successfully' });
+      toast.success('Lookout deleted successfully');
       // Force immediate refetch after delete
       queryClient.refetchQueries({ queryKey: lookoutKeys.lists() });
     },
@@ -313,7 +272,7 @@ export function useLookouts() {
       if (context?.previousLookouts) {
         queryClient.setQueryData(lookoutKeys.lists(), context.previousLookouts);
       }
-      sileo.error({ title: error.message });
+      toast.error(error.message);
     },
     onSettled: () => {
       // Always refetch after error or success for real-time updates
@@ -346,14 +305,14 @@ export function useLookouts() {
       return { previousLookouts };
     },
     onSuccess: () => {
-      sileo.success({ title: "Test run started - you'll be notified when complete!" });
+      toast.success("Test run started - you'll be notified when complete!");
     },
     onError: (error: Error, variables, context) => {
       // Rollback on error
       if (context?.previousLookouts) {
         queryClient.setQueryData(lookoutKeys.lists(), context.previousLookouts);
       }
-      sileo.error({ title: error.message });
+      toast.error(error.message);
     },
     onSettled: () => {
       // Always refetch after error or success to get real status

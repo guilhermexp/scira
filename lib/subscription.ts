@@ -8,15 +8,16 @@ import {
   createSubscriptionKey,
   getProUserStatus,
   setProUserStatus,
-  getDodoSubscriptions,
-  setDodoSubscriptions,
-  getDodoSubscriptionExpiration,
-  setDodoSubscriptionExpiration,
+  getDodoPayments,
+  setDodoPayments,
+  getDodoPaymentExpiration,
+  setDodoPaymentExpiration,
   getDodoProStatus,
   setDodoProStatus,
 } from './performance-cache';
-import { flow } from 'better-all';
-import { getBetterAllOptions } from './better-all';
+
+// Configurable subscription duration for DodoPayments (in months)
+const DODO_SUBSCRIPTION_DURATION_MONTHS = parseInt(process.env.DODO_SUBSCRIPTION_DURATION_MONTHS || '1');
 
 export type SubscriptionDetails = {
   id: string;
@@ -39,81 +40,55 @@ export type SubscriptionDetailsResult = {
   errorType?: 'CANCELED' | 'EXPIRED' | 'GENERAL';
 };
 
-interface DodoSubscriptionRecord {
-  id: string;
-  status: string;
-  currentPeriodEnd: Date | string | null;
-  cancelAtPeriodEnd: boolean | null;
-  [key: string]: unknown;
-}
-
-function toDate(value: Date | string | null | undefined): Date | null {
-  if (!value) return null;
-  if (value instanceof Date) return value;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function isDodoSubscriptionWithinPaidPeriod(subscriptionRow: DodoSubscriptionRecord, now: Date): boolean {
-  const periodEnd = toDate(subscriptionRow?.currentPeriodEnd);
-  if (!periodEnd) return false;
-  return periodEnd.getTime() > now.getTime();
-}
-
-function isDodoSubscriptionActiveForAccess(subscriptionRow: DodoSubscriptionRecord, now: Date): boolean {
-  if (!subscriptionRow) return false;
-  if (!isDodoSubscriptionWithinPaidPeriod(subscriptionRow, now)) return false;
-  if (subscriptionRow.status === 'active') return true;
-  if (subscriptionRow.status === 'cancelled') return true;
-  return false;
-}
-
-// Helper function to check Dodo Subscriptions status
-async function checkDodoSubscriptionProStatus(userId: string): Promise<boolean> {
+// Helper function to check DodoPayments status for Indian users
+async function checkDodoPaymentsProStatus(userId: string): Promise<boolean> {
   try {
     // Check cache first
     const cachedStatus = getDodoProStatus(userId);
     if (cachedStatus !== null) {
-      // Backward compatibility: handle both old (hasSubscriptions) and new (isProUser) cache formats
-      return cachedStatus.isProUser ?? cachedStatus.hasSubscriptions ?? false;
+      return cachedStatus.isProUser;
     }
 
-    // Check cache for subscriptions to avoid DB hit
-    let userSubscriptions = getDodoSubscriptions(userId);
-    if (!userSubscriptions) {
-      // Use maindb to avoid replication lag for immediate subscription recognition
-      userSubscriptions = await maindb
-        .select()
-        .from(dodosubscription)
-        .where(eq(dodosubscription.userId, userId));
-      setDodoSubscriptions(userId, userSubscriptions);
+    // Check cache for payments to avoid DB hit
+    let userPayments = getDodoPayments(userId);
+    if (!userPayments) {
+      userPayments = await db.select().from(payment).where(eq(payment.userId, userId)).$withCache();
+      setDodoPayments(userId, userPayments);
     }
 
-    // Check if any subscription is active (active status or cancelled with time left)
+    // Get the most recent successful payment
+    const successfulPayments = userPayments
+      .filter((p: any) => p.status === 'succeeded')
+      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    if (successfulPayments.length === 0) {
+      const statusData = { isProUser: false, hasPayments: false };
+      setDodoProStatus(userId, statusData);
+      console.log('No successful payments found');
+      return false;
+    }
+
+    // Check if the most recent payment is within the subscription duration
+    const mostRecentPayment = successfulPayments[0];
+    const paymentDate = new Date(mostRecentPayment.createdAt);
+    const subscriptionEndDate = new Date(paymentDate);
+    subscriptionEndDate.setMonth(subscriptionEndDate.getMonth() + DODO_SUBSCRIPTION_DURATION_MONTHS);
+
     const now = new Date();
-    const activeSubscription = userSubscriptions.find((sub: DodoSubscriptionRecord) =>
-      isDodoSubscriptionActiveForAccess(sub, now),
-    );
-
-    const isProUser = !!activeSubscription;
+    const isActive = subscriptionEndDate > now;
 
     // Cache the result
     const statusData = {
-      isProUser,
-      hasSubscriptions: userSubscriptions.length > 0,
-      subscriptionEndDate: activeSubscription?.currentPeriodEnd
-        ? toDate(activeSubscription.currentPeriodEnd)?.toISOString() ?? null
-        : null,
+      isProUser: isActive,
+      hasPayments: true,
+      mostRecentPayment: mostRecentPayment.createdAt,
+      subscriptionEndDate: subscriptionEndDate.toISOString(),
     };
     setDodoProStatus(userId, statusData);
 
-    if (!isProUser) {
-      console.log('No active Dodo subscriptions found');
-    }
-
-    return isProUser;
+    return isActive;
   } catch (error) {
-    console.error('Error checking Dodo Subscription status:', error);
+    console.error('Error checking DodoPayments status:', error);
     return false;
   }
 }
@@ -173,8 +148,8 @@ export async function getUserSubscriptionStatus(): Promise<'active' | 'canceled'
   return 'active';
 }
 
-// Helper to get Dodo Subscription expiration date
-export async function getDodoSubscriptionExpirationDate(): Promise<Date | null> {
+// Helper to get DodoPayments expiration date
+export async function getDodoPaymentsExpirationDate(): Promise<Date | null> {
   try {
     const { userId } = await clerkAuth();
 
@@ -195,42 +170,31 @@ export async function getDodoSubscriptionExpirationDate(): Promise<Date | null> 
       setDodoPayments(userId, userPayments);
     }
 
-    // Get active subscriptions sorted by current period end
-    // Include cancelled subscriptions with cancelAtPeriodEnd: true that are still within period
-    const now = new Date();
-    const activeSubscriptions = userSubscriptions
-      .filter((sub: DodoSubscriptionRecord) => isDodoSubscriptionActiveForAccess(sub, now))
-      .sort((a: DodoSubscriptionRecord, b: DodoSubscriptionRecord) => {
-        const periodEndA = toDate(a.currentPeriodEnd)?.getTime() ?? 0;
-        const periodEndB = toDate(b.currentPeriodEnd)?.getTime() ?? 0;
-        return periodEndB - periodEndA;
-      });
+    const successfulPayments = userPayments
+      .filter((p: any) => p.status === 'succeeded')
+      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    if (activeSubscriptions.length === 0) {
+    if (successfulPayments.length === 0) {
       const expirationData = { expirationDate: null };
       setDodoPaymentExpiration(userId, expirationData);
       return null;
     }
 
-    // Get the expiration date from the most recent active subscription
-    const mostRecentSubscription = activeSubscriptions[0];
-    const expirationDate = toDate(mostRecentSubscription.currentPeriodEnd);
-    if (!expirationDate) {
-      const expirationData = { expirationDate: null };
-      setDodoSubscriptionExpiration(session.user.id, expirationData);
-      return null;
-    }
+    // Calculate expiration date based on payment date and configured duration
+    const mostRecentPayment = successfulPayments[0];
+    const expirationDate = new Date(mostRecentPayment.createdAt);
+    expirationDate.setMonth(expirationDate.getMonth() + DODO_SUBSCRIPTION_DURATION_MONTHS);
 
     // Cache the result
     const expirationData = {
       expirationDate: expirationDate.toISOString(),
-      subscriptionId: mostRecentSubscription.id,
+      paymentDate: mostRecentPayment.createdAt,
     };
     setDodoPaymentExpiration(userId, expirationData);
 
     return expirationDate;
   } catch (error) {
-    console.error('Error getting Dodo Subscription expiration date:', error);
+    console.error('Error getting DodoPayments expiration date:', error);
     return null;
   }
 }

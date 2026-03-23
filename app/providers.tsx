@@ -1,7 +1,9 @@
 'use client';
 
+import { clientEnv } from '@/env/client';
 import { ThemeProvider } from 'next-themes';
 import { ReactNode } from 'react';
+import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { UserProvider } from '@/contexts/user-context';
@@ -12,16 +14,11 @@ import { LanguageProvider } from '@/contexts/language-context';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes - increased to reduce unnecessary refetches
-      refetchOnWindowFocus: false, // Disabled globally for better performance - enable per-query if needed
-      refetchOnMount: false, // Use cached data when available
-      gcTime: 1000 * 60 * 30, // 30 minutes - keep cached data much longer
+      staleTime: 1000 * 60 * 0.5, // 30 seconds
+      refetchOnWindowFocus: true, // Enable for real-time updates
+      gcTime: 1000 * 60 * 0.5, // 30 seconds
       retry: 3,
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-      // Use structural sharing to prevent unnecessary re-renders
-      structuralSharing: true,
-      // Keep showing placeholder data while fetching new data
-      notifyOnChangeProps: ['data', 'error', 'isLoading'],
     },
   },
 });

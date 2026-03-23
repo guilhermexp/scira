@@ -123,26 +123,26 @@ export function TimePicker({ value, onChange, name, selectedDate, filterPastTime
   return (
     <>
       <input type="hidden" name={name} value={value} />
-      <div className="flex gap-1.5">
+      <div className="flex gap-2">
         <Select value={currentHourMinute} onValueChange={handleHourMinuteChange}>
-          <SelectTrigger className="h-9 flex-1 rounded-lg text-sm">
+          <SelectTrigger className="h-9 flex-1">
             <SelectValue placeholder="Time" />
           </SelectTrigger>
-          <SelectContent className="max-h-[180px] min-w-[100px]" position="popper" sideOffset={4}>
+          <SelectContent className="max-h-[200px]">
             {filteredHourMinuteOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value} className="text-xs py-1.5">
+              <SelectItem key={option.value} value={option.value}>
                 {option.label}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Select value={correctedAmPm} onValueChange={handleAmPmChange}>
-          <SelectTrigger className="h-9 w-[76px] rounded-lg text-sm">
+          <SelectTrigger className="h-9 w-[70px]">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent position="popper" sideOffset={4}>
+          <SelectContent>
             {availableAmPmOptions.map((option) => (
-              <SelectItem key={option} value={option} className="text-xs py-1.5">
+              <SelectItem key={option} value={option}>
                 {option}
               </SelectItem>
             ))}

@@ -1,0 +1,65 @@
+- generic [active] [ref=e1]:
+  - region "Notifications alt+T"
+  - generic [ref=e4]:
+    - link "Scira AI" [ref=e6] [cursor=pointer]:
+      - /url: /
+      - img [ref=e7]
+      - generic [ref=e15]: Scira AI
+    - generic [ref=e16]:
+      - generic [ref=e17]:
+        - heading "AI Search that actually understands you" [level=2] [ref=e18]
+        - paragraph [ref=e19]: Skip the ads. Get real answers. From the latest AI models.
+      - generic [ref=e20]:
+        - heading "What people are saying" [level=3] [ref=e21]
+        - region [ref=e22]:
+          - generic [ref=e24]:
+            - group [ref=e25]:
+              - link [ref=e26] [cursor=pointer]:
+                - /url: https://x.com/chrisuniverseb/status/1943025911043100835
+                - blockquote [ref=e27]:
+                  - generic [ref=e28]: "\"Scira @sciraai is better than Grok at digging up information from X, its own platform! I asked it 3 different queries to help scrape and find some data points I was interested in about my own account and Scira did much much better with insanely accurate answers!\""
+                  - generic [ref=e30]:
+                    - generic [ref=e31]: Chris Universe
+                    - generic [ref=e32]: "@chrisuniverseb"
+            - group [ref=e33]:
+              - link [ref=e34] [cursor=pointer]:
+                - /url: https://x.com/nyaaier/status/1932810453107065284
+                - blockquote [ref=e35]:
+                  - generic [ref=e36]: "\"scira dot ai does a really good job scraping through the reddit mines btw\""
+                  - generic [ref=e38]:
+                    - generic [ref=e39]: nyaaier
+                    - generic [ref=e40]: "@nyaaier"
+            - group [ref=e41]:
+              - link [ref=e42] [cursor=pointer]:
+                - /url: https://x.com/aniruddhadak/status/1917140602107445545
+                - blockquote [ref=e43]:
+                  - generic [ref=e44]: Hi @sciraai, just for curiosity, I searched for myself using its Gemini 2.5 Pro and in extreme mode to see what results it could generate. And it created this 👇🏻 It is not just the best, it is wild. And the best part is it's 10000% accurate.
+                  - generic [ref=e46]:
+                    - generic [ref=e47]: Aniruddha Dak
+                    - generic [ref=e48]: "@aniruddhadak"
+            - group [ref=e49]:
+              - link [ref=e50] [cursor=pointer]:
+                - /url: https://x.com/itsRajnandinit/status/1897896134837682288
+                - blockquote [ref=e51]:
+                  - generic [ref=e52]: "\"read nothing the whole sem and here I am with @sciraai to top my mid sems !! Literally so good to get all the related diagram, points and even topics from the website my professor uses to teach us 🙌\""
+                  - generic [ref=e54]:
+                    - generic [ref=e55]: Rajnandinit
+                    - generic [ref=e56]: "@itsRajnandinit"
+          - generic [ref=e57]:
+            - button "Go to testimonial 1" [ref=e58] [cursor=pointer]
+            - button "Go to testimonial 2" [ref=e59] [cursor=pointer]
+            - button "Go to testimonial 3" [ref=e60] [cursor=pointer]
+            - button "Go to testimonial 4" [ref=e61] [cursor=pointer]
+    - generic [ref=e62]:
+      - generic [ref=e63]:
+        - generic [ref=e64]: Live Search
+        - generic [ref=e65]: •
+        - generic [ref=e66]: 1M+ Searches served
+      - paragraph [ref=e67]:
+        - text: Featured on
+        - link "Vercel" [ref=e68] [cursor=pointer]:
+          - /url: https://vercel.com/blog/ai-sdk-4-1
+        - text: •
+        - link "#1 Product of the Week on Peerlist" [ref=e69] [cursor=pointer]:
+          - /url: https://peerlist.io/zaidmukaddam/project/scira-ai-20
+  - alert [ref=e71]

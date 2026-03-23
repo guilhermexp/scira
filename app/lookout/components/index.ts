@@ -1,4 +1,5 @@
 // Component exports for easier importing
+export { Navbar } from './navbar';
 export { StatusBadge } from './status-badge';
 export { LookoutSkeleton, LoadingSkeletons } from './loading-skeleton';
 export { EmptyState, NoActiveLookoutsEmpty, NoArchivedLookoutsEmpty } from './empty-state';

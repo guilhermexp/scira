@@ -21,15 +21,15 @@ interface UserContextType {
   polarSubscription: any;
   hasPolarSubscription: boolean;
 
-  // Dodo Subscription details
-  dodoSubscription: any;
-  hasDodoSubscription: boolean;
+  // DodoPayments details
+  dodoPayments: any;
+  hasDodoPayments: boolean;
   dodoExpiresAt: Date | null | undefined;
   isDodoExpiring: boolean;
   isDodoExpired: boolean;
 
-  // Subscription history
-  subscriptionHistory: any[];
+  // Payment history
+  paymentHistory: any[];
 
   // Rate limiting helpers
   shouldCheckLimits: boolean | undefined;

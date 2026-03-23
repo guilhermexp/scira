@@ -4,19 +4,16 @@ import type { Chat } from '@/lib/db/schema';
 import { ChatSDKError } from '@/lib/errors';
 import type { ChatMessage } from '@/lib/types';
 import { createUIMessageStream, JsonToSseTransformStream } from 'ai';
-import { createResumableUIMessageStream } from 'ai-resumable-stream';
-import { getResumableStreamClients } from '@/lib/redis';
+import { getStreamContext } from '../../route';
 import { differenceInSeconds } from 'date-fns';
-import { all } from 'better-all';
-import { getBetterAllOptions } from '@/lib/better-all';
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: chatId } = await params;
 
-  const clients = getResumableStreamClients();
+  const streamContext = getStreamContext();
   const resumeRequestedAt = new Date();
 
-  if (!clients) {
+  if (!streamContext) {
     return new Response(null, { status: 204 });
   }
 
@@ -30,6 +27,17 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return new ChatSDKError('unauthorized:chat').toResponse();
   }
 
+  let chat: Chat;
+  if (!chatId) {
+    return new ChatSDKError('bad_request:api').toResponse();
+  }
+
+  try {
+    chat = await getChatById({ id: chatId });
+  } catch {
+    return new ChatSDKError('not_found:chat').toResponse();
+  }
+
   if (!chat) {
     return new ChatSDKError('not_found:chat').toResponse();
   }
@@ -37,6 +45,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (chat.visibility === 'private' && chat.userId !== userId) {
     return new ChatSDKError('forbidden:chat').toResponse();
   }
+
+  const streamIds = await getStreamIdsByChatId({ chatId });
 
   if (!streamIds.length) {
     return new ChatSDKError('not_found:stream').toResponse();
@@ -52,11 +62,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     execute: () => {},
   });
 
-  const stream = await context.resumeStream();
-
-  const emptyDataStream = createUIMessageStream<ChatMessage>({
-    execute: () => {},
-  });
+  const stream = await streamContext.resumableStream(recentStreamId, () =>
+    emptyDataStream.pipeThrough(new JsonToSseTransformStream()),
+  );
 
   /*
    * For when the generation is streaming during SSR
@@ -69,19 +77,19 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     if (!mostRecentMessage) {
       console.log('No most recent message found');
-      return new Response(emptyDataStream.pipeThrough(new JsonToSseTransformStream()), { status: 200 });
+      return new Response(emptyDataStream, { status: 200 });
     }
 
     if (mostRecentMessage.role !== 'assistant') {
       console.log('Most recent message is not an assistant message');
-      return new Response(emptyDataStream.pipeThrough(new JsonToSseTransformStream()), { status: 200 });
+      return new Response(emptyDataStream, { status: 200 });
     }
 
     const messageCreatedAt = new Date(mostRecentMessage.createdAt);
 
     if (differenceInSeconds(resumeRequestedAt, messageCreatedAt) > 15) {
       console.log('Most recent message is too old');
-      return new Response(emptyDataStream.pipeThrough(new JsonToSseTransformStream()), { status: 200 });
+      return new Response(emptyDataStream, { status: 200 });
     }
 
     const restoredStream = createUIMessageStream<ChatMessage>({
@@ -99,5 +107,5 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return new Response(restoredStream.pipeThrough(new JsonToSseTransformStream()), { status: 200 });
   }
 
-  return new Response((stream as ReadableStream<any>).pipeThrough(new JsonToSseTransformStream()), { status: 200 });
+  return new Response(stream, { status: 200 });
 }

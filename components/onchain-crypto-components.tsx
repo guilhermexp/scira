@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { sileo } from 'sileo';
+import { toast } from 'sonner';
 
 // UI Components
 import { Card } from '@/components/ui/card';
@@ -94,7 +94,7 @@ export const OnChainTokenPrice: React.FC<OnChainTokenPriceProps> = ({ result, ne
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(token.address);
-                      sileo.success({ title: 'Copied!' });
+                      toast.success('Copied!');
                     }}
                     className="p-0.5 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded"
                   >

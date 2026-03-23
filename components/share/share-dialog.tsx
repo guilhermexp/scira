@@ -10,12 +10,10 @@ import {
   XLogoIcon,
   RedditLogoIcon,
 } from '@phosphor-icons/react';
-import { Copy } from 'lucide-react';
-import { HugeiconsIcon } from '@/components/ui/hugeicons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import { Share03Icon } from '@hugeicons/core-free-icons';
-import { sileo } from 'sileo';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { ExternalLink } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
@@ -59,32 +57,15 @@ export function ShareDialog({
     }
   }, [isOpen]);
 
-  useEffect(() => {
-    setChoice(selectedVisibilityType);
-    setIsShared(selectedVisibilityType === 'public');
-  }, [selectedVisibilityType]);
-
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
-      sileo.success({ 
-        title: 'Link copied to clipboard',
-        description: 'You can now paste it anywhere',
-        icon: <Copy className="h-4 w-4" />,
-        button: {
-          title: 'Open link',
-          onClick: () => window.open(shareUrl, '_blank', 'noopener,noreferrer')
-        }
-      });
+      toast.success('Link copied to clipboard');
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       console.error('Failed to copy to clipboard:', error);
-      sileo.error({ 
-        title: 'Failed to copy link',
-        description: 'Please try again',
-        icon: <XLogoIcon className="h-4 w-4" weight="fill" />
-      });
+      toast.error('Failed to copy link');
     }
   };
 
@@ -92,17 +73,13 @@ export function ShareDialog({
     setIsChangingVisibility(true);
 
     try {
-      await onVisibilityChange('public');
-      setChoice('public');
-      setIsShared(true);
+      if (selectedVisibilityType === 'private') {
+        await onVisibilityChange('public');
+      }
       await handleCopyLink();
     } catch (error) {
       console.error('Error sharing chat:', error);
-      sileo.error({ 
-        title: 'Failed to share chat',
-        description: 'Please try again',
-        icon: <XLogoIcon className="h-4 w-4" weight="fill" />
-      });
+      toast.error('Failed to share chat');
     } finally {
       setIsChangingVisibility(false);
     }
@@ -113,21 +90,11 @@ export function ShareDialog({
 
     try {
       await onVisibilityChange('private');
-      setChoice('private');
-      setIsShared(false);
-      sileo.success({ 
-        title: 'Chat is now private',
-        description: 'Your chat is no longer publicly accessible',
-        icon: <LockIcon className="h-4 w-4" weight="fill" />
-      });
+      toast.success('Chat is now private');
       onOpenChange(false);
     } catch (error) {
       console.error('Error making chat private:', error);
-      sileo.error({ 
-        title: 'Failed to make chat private',
-        description: 'Please try again',
-        icon: <XLogoIcon className="h-4 w-4" weight="fill" />
-      });
+      toast.error('Failed to make chat private');
     } finally {
       setIsChangingVisibility(false);
     }
@@ -179,23 +146,35 @@ export function ShareDialog({
     return null;
   }
 
-  const isPublic = isShared;
+  const isPublic = selectedVisibilityType === 'public';
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="w-100 sm:max-w-130 gap-0 p-0 border-0 shadow-lg">
+      <DialogContent className="sm:max-w-[460px] gap-0 p-0 border-0 shadow-lg">
         <div className="px-6 pt-6 pb-5">
           <DialogHeader className="space-y-1 pb-0">
-            <DialogTitle className="text-base font-semibold tracking-tight">
-              {isPublic ? 'Chat shared' : 'Share chat'}
-            </DialogTitle>
-            <p className="text-[13px] text-muted-foreground pt-0.5">
-              {isPublic ? 'Future messages aren’t included' : 'Only messages up until now will be shared'}
-            </p>
+            <DialogTitle className="text-base font-semibold tracking-tight">Share</DialogTitle>
+            <div className="flex items-center gap-2 text-[13px] text-muted-foreground pt-0.5">
+              {isPublic ? (
+                <>
+                  <div className="flex items-center justify-center rounded-full bg-primary/10 size-[18px]">
+                    <GlobeIcon size={11} className="text-primary" weight="fill" />
+                  </div>
+                  <span>Public link - Anyone can view</span>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-center rounded-full bg-muted size-[18px]">
+                    <LockIcon size={11} weight="fill" />
+                  </div>
+                  <span>Private - Only you can view</span>
+                </>
+              )}
+            </div>
           </DialogHeader>
         </div>
 
-        <div className="px-6 pb-6 overflow-x-hidden">
+        <div className="px-6 pb-6">
           {isPublic ? (
             <div className="space-y-4">
               {/* Link Copy - Main Focus */}
@@ -296,7 +275,7 @@ export function ShareDialog({
                   size="sm"
                   onClick={handleMakePrivate}
                   disabled={isChangingVisibility}
-                  className={cn('w-full flex items-start gap-3 px-5 py-4 text-left hover:bg-muted/50')}
+                  className="h-8 text-xs text-muted-foreground hover:text-foreground -ml-2"
                 >
                   <LockIcon size={14} className="mr-1.5" />
                   Make Private
@@ -308,15 +287,11 @@ export function ShareDialog({
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Access options */}
-              <div className="rounded-2xl border bg-card overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setChoice('private')}
-                  className={cn('w-full flex items-start gap-3 px-5 py-4 text-left hover:bg-muted/50')}
-                >
-                  <div className="mt-0.5">
-                    <LockIcon size={16} weight="fill" />
+              {/* Private State - Premium Look */}
+              <div className="rounded-xl bg-gradient-to-br from-muted/40 to-muted/20 border border-dashed p-6 text-center">
+                <div className="flex items-center justify-center mb-3">
+                  <div className="flex items-center justify-center rounded-full bg-background size-10 shadow-sm ring-1 ring-black/5 dark:ring-white/10">
+                    <GlobeIcon size={18} className="text-muted-foreground" />
                   </div>
                 </div>
                 <p className="text-sm font-medium text-foreground mb-1.5">Share this conversation</p>
@@ -333,9 +308,16 @@ export function ShareDialog({
                 <Button
                   onClick={handleShareAndCopy}
                   disabled={isChangingVisibility}
-                  className="h-10 px-4 font-medium"
+                  className="flex-1 h-10 font-medium"
                 >
-                  {isChangingVisibility ? 'Creating…' : 'Create share link'}
+                  {isChangingVisibility ? (
+                    <>Creating...</>
+                  ) : (
+                    <>
+                      <GlobeIcon size={16} className="mr-2" weight="fill" />
+                      Create Link
+                    </>
+                  )}
                 </Button>
               </div>
             </div>

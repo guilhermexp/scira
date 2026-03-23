@@ -3,14 +3,13 @@
 
 // React and React-related imports
 import React, { memo, useCallback, useEffect, useMemo, useRef, useReducer, useState } from 'react';
-import Link from 'next/link';
 
 // Third-party library imports
 import { useChat } from '@ai-sdk/react';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { useRouter } from 'next/navigation';
 import { parseAsString, useQueryState } from 'nuqs';
-import { sileo } from 'sileo';
+import { toast } from 'sonner';
 import { v7 as uuidv7 } from 'uuid';
 
 // Internal app imports
@@ -28,41 +27,6 @@ const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
 });
 import { Button } from '@/components/ui/button';
 import FormComponent from '@/components/ui/form-component';
-import { ShareDialog } from '@/components/share/share-dialog';
-import { ExampleCategories } from '@/components/example-categories';
-import {
-  Pencil,
-  Trash2,
-  Share as ShareIcon,
-  ChevronDown,
-  X,
-  Check,
-  AlertCircle,
-  ExternalLink,
-  ArrowRight,
-} from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Input } from '@/components/ui/input';
-import { deleteChat, updateChatTitle } from '@/app/actions';
-import { ButtonGroup } from '@/components/ui/button-group';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from '@/components/ui/alert-dialog';
 
 // Hook imports
 import { useAutoResume } from '@/hooks/use-auto-resume';
@@ -70,7 +34,6 @@ import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useUsageData } from '@/hooks/use-usage-data';
 import { useUser } from '@/contexts/user-context';
 import { useOptimizedScroll } from '@/hooks/use-optimized-scroll';
-import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 
 // Utility and type imports
 import { SEARCH_LIMITS } from '@/lib/constants';
@@ -84,7 +47,6 @@ import { chatReducer, createInitialState } from '@/components/chat-state';
 import { useDataStream } from './data-stream-provider';
 import { DefaultChatTransport } from 'ai';
 import { ChatMessage } from '@/lib/types';
-import type { ElicitationData } from '@/components/mcp-elicitation-modal';
 
 interface ChatInterfaceProps {
   initialChatId?: string;
@@ -93,16 +55,6 @@ interface ChatInterfaceProps {
   isOwner?: boolean;
   initialAllowContinuation?: boolean;
 }
-
-interface AutoRouterConfig {
-  routes: Array<{
-    name: string;
-    description: string;
-    model: string;
-  }>;
-}
-
-const INITIAL_QUERY_DEDUPE_WINDOW_MS = 5000;
 
 const ChatInterface = memo(
   ({
@@ -113,85 +65,17 @@ const ChatInterface = memo(
     initialAllowContinuation = true,
   }: ChatInterfaceProps): React.JSX.Element => {
     const router = useRouter();
-    const pathname = usePathname();
-    const queryClient = useQueryClient();
-    const { state } = useSidebar();
     const [query] = useQueryState('query', parseAsString.withDefault(''));
     const [q] = useQueryState('q', parseAsString.withDefault(''));
-    const [groupParam] = useQueryState('group', parseAsString.withDefault(''));
-    const [input, setInput] = useLocalStorage<string>('scira-draft-input', '');
-    const [localChatTitle, setLocalChatTitle] = useState<string>(chatTitle || (initialChatId ? 'Chat' : 'New Chat'));
-    const [isEditingTitle, setIsEditingTitle] = useState(false); // legacy inline edit (to be removed)
-    const [titleInput, setTitleInput] = useState(localChatTitle);
-    const [isSavingTitle, setIsSavingTitle] = useState(false);
-    const [isDeleting, setIsDeleting] = useState(false);
-    const [isShareOpen, setIsShareOpen] = useState(false);
-    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-    const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
-    const headerGroupRef = useRef<HTMLDivElement>(null);
-    const chevronBtnRef = useRef<HTMLButtonElement>(null);
-    const [groupWidth, setGroupWidth] = useState<number>(0);
-    const [alignOffset, setAlignOffset] = useState<number>(0);
-
-    const measureHeaderMenuAlignment = React.useCallback(() => {
-      const groupEl = headerGroupRef.current;
-      if (!groupEl) return;
-      const gW = groupEl.offsetWidth;
-      setGroupWidth(gW);
-      const cW = chevronBtnRef.current ? chevronBtnRef.current.offsetWidth : 0;
-      // Align content to be centered within the full button group (not just the chevron)
-      // With align="center", a negative offset of half the width difference moves the menu's center
-      // from the chevron button to the center of the whole group.
-      setAlignOffset(-((gW - cW) / 2));
-    }, []);
-
-    useEffect(() => {
-      const groupEl = headerGroupRef.current;
-      if (!groupEl) return;
-      const ro = new ResizeObserver(measureHeaderMenuAlignment);
-      ro.observe(groupEl);
-      measureHeaderMenuAlignment();
-      window.addEventListener('resize', measureHeaderMenuAlignment);
-      return () => {
-        ro.disconnect();
-        window.removeEventListener('resize', measureHeaderMenuAlignment);
-      };
-    }, [measureHeaderMenuAlignment]);
-
-    // Re-measure when path/title changes or when menu opens
-    useEffect(() => {
-      if (!headerMenuOpen) return;
-      // microtask to allow layout to settle when replaceState changes DOM
-      queueMicrotask(() => measureHeaderMenuAlignment());
-    }, [pathname, localChatTitle, headerMenuOpen, measureHeaderMenuAlignment]);
+    const [input, setInput] = useState<string>('');
 
     const [selectedModel, setSelectedModel] = useLocalStorage<string>('scira-selected-model', DEFAULT_MODEL);
     const [selectedGroup, setSelectedGroup] = useLocalStorage<SearchGroupId>('scira-selected-group', 'web');
     const [selectedConnectors, setSelectedConnectors] = useState<ConnectorProvider[]>([]);
-    const [isMultiAgentModeEnabled, setIsMultiAgentModeEnabled] = useLocalStorage('scira-multi-agent-enabled', false);
     const [isCustomInstructionsEnabled, setIsCustomInstructionsEnabled] = useLocalStorage(
       'scira-custom-instructions-enabled',
       true,
     );
-    // Simple state for temp chat - no useEffect, just direct localStorage
-    const [isTemporaryChatEnabled, _setIsTemporaryChatEnabled] = useState(() => {
-      if (typeof window === 'undefined') return false;
-      try {
-        return localStorage.getItem('scira-temporary-chat-enabled') === 'true';
-      } catch {
-        return false;
-      }
-    });
-    const setIsTemporaryChatEnabled = useCallback((value: boolean | ((prev: boolean) => boolean)) => {
-      _setIsTemporaryChatEnabled((prev) => {
-        const next = typeof value === 'function' ? value(prev) : value;
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('scira-temporary-chat-enabled', String(next));
-        }
-        return next;
-      });
-    }, []);
 
     // Settings page navigation (replaces dialog/hash approach)
     const [settingsOpen, setSettingsOpen] = useState(false);
@@ -223,18 +107,8 @@ const ChatInterface = memo(
 
     const [searchProvider, _] = useLocalStorage<'exa' | 'parallel' | 'tavily' | 'firecrawl'>(
       'scira-search-provider',
-      'firecrawl',
+      'parallel',
     );
-
-    const [extremeSearchModel] = useLocalStorage<
-      'scira-ext-1' | 'scira-ext-2' | 'scira-ext-4' | 'scira-ext-5' | 'scira-ext-6' | 'scira-ext-7' | 'scira-ext-8'
-    >('scira-extreme-search-model', 'scira-ext-1');
-    const [isAutoRouterEnabled] = useSyncedPreferences<boolean>('scira-auto-router-enabled', false);
-    const [autoRouterConfig] = useSyncedPreferences<AutoRouterConfig>('scira-auto-router-config', { routes: [] });
-    const [scrollToLatestOnOpen] = useSyncedPreferences<boolean>('scira-scroll-to-latest-on-open', false);
-
-    // State for tracking the auto-routed model
-    const [autoRoutedModel, setAutoRoutedModel] = useState<{ model: string; route: string } | null>(null);
 
     // Use reducer for complex state management
     const [chatState, dispatch] = useReducer(
@@ -255,9 +129,8 @@ const ChatInterface = memo(
       shouldCheckLimits: shouldCheckUserLimits,
       shouldBypassLimitsForModel,
     } = useUser();
-    const isUserMax = user?.isMaxUser === true;
 
-    const { dataStream, setDataStream } = useDataStream();
+    const { setDataStream } = useDataStream();
 
     const initialState = useMemo(
       () => ({
@@ -266,219 +139,28 @@ const ChatInterface = memo(
       [query, q],
     );
 
-    useEffect(() => {
-      // keep local title in sync if prop changes (e.g., server updated)
-      if (chatTitle && chatTitle !== localChatTitle) {
-        setLocalChatTitle(chatTitle);
-        if (!isEditingTitle) setTitleInput(chatTitle);
-      }
-    }, [chatTitle, localChatTitle, isEditingTitle]);
-
-    const handleStartEditTitle = useCallback(() => {
-      const currentChatId = initialChatId || (pathname?.startsWith('/search/') ? pathname.split('/')[2] : null);
-      if (!currentChatId) return;
-      setTitleInput(localChatTitle || '');
-      setIsEditDialogOpen(true);
-    }, [initialChatId, localChatTitle, pathname]);
-
-    const handleCancelEditTitle = useCallback(() => {
-      setIsEditDialogOpen(false);
-      setIsEditingTitle(false);
-      setTitleInput(localChatTitle || '');
-    }, [localChatTitle]);
-
-    const handleSaveTitle = useCallback(async () => {
-      const currentChatId = initialChatId || (pathname?.startsWith('/search/') ? pathname.split('/')[2] : null);
-      if (!currentChatId) return;
-      const next = titleInput.trim();
-      if (!next) {
-        sileo.error({
-          title: 'Title cannot be empty',
-          description: 'Please enter a valid title',
-          icon: <AlertCircle className="h-4 w-4" />,
-        });
-        return;
-      }
-      if (next.length > 100) {
-        sileo.error({
-          title: 'Title is too long (max 100 characters)',
-          description: 'Please shorten your title',
-          icon: <AlertCircle className="h-4 w-4" />,
-        });
-        return;
-      }
-      try {
-        setIsSavingTitle(true);
-        const updated = await updateChatTitle(currentChatId, next);
-        if (updated) {
-          setLocalChatTitle(next);
-          sileo.success({
-            title: 'Title updated',
-            description: 'The chat title has been updated',
-            icon: <Pencil className="h-4 w-4" />,
-          });
-          setIsEditingTitle(false);
-          setIsEditDialogOpen(false);
-        } else {
-          sileo.error({
-            title: 'Failed to update title',
-            description: 'Please try again',
-            icon: <X className="h-4 w-4" />,
-          });
-        }
-      } catch (e) {
-        sileo.error({
-          title: 'Failed to update title',
-          description: 'Please try again',
-          icon: <X className="h-4 w-4" />,
-        });
-      } finally {
-        setIsSavingTitle(false);
-      }
-    }, [initialChatId, titleInput, pathname]);
-
-    const handleOpenDelete = useCallback(() => {
-      const currentChatId = initialChatId || (pathname?.startsWith('/search/') ? pathname.split('/')[2] : null);
-      if (!currentChatId) return;
-      setIsDeleteOpen(true);
-    }, [initialChatId, pathname]);
-
-    const handleConfirmDelete = useCallback(async () => {
-      const currentChatId = initialChatId || (pathname?.startsWith('/search/') ? pathname.split('/')[2] : null);
-      if (!currentChatId) return;
-      try {
-        setIsDeleting(true);
-        await deleteChat(currentChatId);
-        sileo.success({
-          title: 'Chat deleted',
-          description: 'The chat has been permanently removed',
-          icon: <Trash2 className="h-4 w-4" />,
-        });
-        setIsDeleteOpen(false);
-        router.push('/');
-      } catch (e) {
-        sileo.error({
-          title: 'Failed to delete chat',
-          description: 'Please try again',
-          icon: <X className="h-4 w-4" />,
-        });
-      } finally {
-        setIsDeleting(false);
-      }
-    }, [initialChatId, pathname, router]);
-
     const lastSubmittedQueryRef = useRef(initialState.query);
     const bottomRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null!);
     const inputRef = useRef<HTMLTextAreaElement>(null!);
     const initializedRef = useRef(false);
-    const openChatAutoScrolledRef = useRef<string | null>(null);
 
-    // Touch active = don't run scrollToBottom so we never fight the user's finger
-    const touchActiveRef = useRef(false);
-    const nestedScrollActiveRef = useRef(false);
-    const skipAutoScrollRef = useRef(false);
-    const lastTouchYRef = useRef<number | null>(null);
-    const touchEndTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const nestedScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // Use optimized scroll hook
+    const { scrollToBottom, markManualScroll, resetManualScroll } = useOptimizedScroll(bottomRef);
 
-    const syncSkipAutoScroll = useCallback(() => {
-      skipAutoScrollRef.current = touchActiveRef.current || nestedScrollActiveRef.current;
-    }, []);
-
-    // Use optimized scroll hook (skip programmatic scroll while user interacts with nested MCP scrollers)
-    const { scrollToBottom, markManualScroll, resetManualScroll } = useOptimizedScroll(bottomRef, {
-      skipScrollWhen: skipAutoScrollRef,
-    });
-
-    // Detect intentional user scroll to stop auto-scrolling.
-    // On touch: mark manual scroll on any touch + movement, and skip auto-scroll while finger is down.
-    const TOUCH_MOVE_THRESHOLD = 5; // px movement in any direction = user is scrolling
-    const TOUCH_END_SETTLE_MS = 150; // wait for momentum to settle before re-evaluating "at bottom"
-
+    // Listen for manual scroll (wheel and touch)
     useEffect(() => {
-      // Scroll: update manual state when not touching (mouse/keyboard or after touch ended)
-      const handleScroll = () => {
-        if (!touchActiveRef.current) markManualScroll();
-      };
-      // Wheel: upward wheel = intentional read-back
-      const handleWheel = (e: WheelEvent) => {
-        if (e.deltaY < 0) markManualScroll({ userScrolledUp: true });
-      };
-      const handleTouchStart = (e: TouchEvent) => {
-        touchActiveRef.current = true;
-        syncSkipAutoScroll();
-        lastTouchYRef.current = e.touches[0]?.clientY ?? null;
-        // Sync manual state from current position so we don't jump on first frame
-        markManualScroll();
-      };
-      const handleTouchMove = (e: TouchEvent) => {
-        if (!touchActiveRef.current) return;
-        const y = e.touches[0]?.clientY;
-        if (y != null && lastTouchYRef.current != null) {
-          const dy = y - lastTouchYRef.current;
-          // Any intentional scroll (up or down) = user is in control, stop auto-scroll
-          if (Math.abs(dy) >= TOUCH_MOVE_THRESHOLD) {
-            if (dy < 0) markManualScroll({ userScrolledUp: true });
-            else markManualScroll();
-          }
-        }
-        lastTouchYRef.current = y ?? lastTouchYRef.current;
-      };
-      const handleTouchEnd = () => {
-        touchActiveRef.current = false;
-        syncSkipAutoScroll();
-        lastTouchYRef.current = null;
-        if (touchEndTimeoutRef.current) clearTimeout(touchEndTimeoutRef.current);
-        // Re-evaluate after momentum settles so we don't wrongly think user is at bottom
-        touchEndTimeoutRef.current = setTimeout(() => {
-          touchEndTimeoutRef.current = null;
-          markManualScroll();
-        }, TOUCH_END_SETTLE_MS);
-      };
-      window.addEventListener('scroll', handleScroll, { passive: true });
-      window.addEventListener('wheel', handleWheel, { passive: true });
-      window.addEventListener('touchstart', handleTouchStart, { passive: true });
-      window.addEventListener('touchmove', handleTouchMove, { passive: true });
-      window.addEventListener('touchend', handleTouchEnd, { passive: true });
-      window.addEventListener('touchcancel', handleTouchEnd, { passive: true });
-      const handleNestedScrollInteraction = (event: Event) => {
-        const customEvent = event as CustomEvent<{ active?: boolean; userScrolledUp?: boolean }>;
-        const isActive = customEvent.detail?.active ?? false;
-        const userScrolledUp = customEvent.detail?.userScrolledUp ?? false;
-
-        nestedScrollActiveRef.current = isActive;
-        if (userScrolledUp) {
-          markManualScroll({ userScrolledUp: true });
-        }
-
-        if (nestedScrollTimeoutRef.current) clearTimeout(nestedScrollTimeoutRef.current);
-        if (isActive) {
-          nestedScrollTimeoutRef.current = setTimeout(() => {
-            nestedScrollActiveRef.current = false;
-            syncSkipAutoScroll();
-            nestedScrollTimeoutRef.current = null;
-          }, 250);
-        }
-
-        syncSkipAutoScroll();
-      };
-      window.addEventListener('scira:nested-scroll-active', handleNestedScrollInteraction as EventListener);
+      const handleManualScroll = () => markManualScroll();
+      window.addEventListener('wheel', handleManualScroll);
+      window.addEventListener('touchmove', handleManualScroll);
       return () => {
-        if (touchEndTimeoutRef.current) clearTimeout(touchEndTimeoutRef.current);
-        if (nestedScrollTimeoutRef.current) clearTimeout(nestedScrollTimeoutRef.current);
-        window.removeEventListener('scroll', handleScroll);
-        window.removeEventListener('wheel', handleWheel);
-        window.removeEventListener('touchstart', handleTouchStart);
-        window.removeEventListener('touchmove', handleTouchMove);
-        window.removeEventListener('touchend', handleTouchEnd);
-        window.removeEventListener('touchcancel', handleTouchEnd);
-        window.removeEventListener('scira:nested-scroll-active', handleNestedScrollInteraction as EventListener);
+        window.removeEventListener('wheel', handleManualScroll);
+        window.removeEventListener('touchmove', handleManualScroll);
       };
-    }, [markManualScroll, syncSkipAutoScroll]);
+    }, [markManualScroll]);
 
-    const shouldFetchUsageData = Boolean(user && !isUserPro);
-    const { data: usageData } = useUsageData(user || null, shouldFetchUsageData);
+    // Use clean React Query hooks for all data fetching
+    const { data: usageData, refetch: refetchUsage } = useUsageData(user || null);
 
     // Sign-in prompt timer
     const signInTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -486,48 +168,17 @@ const ChatInterface = memo(
     // Generate a consistent ID for new chats
     const chatId = useMemo(() => initialChatId ?? uuidv7(), [initialChatId]);
 
-    // Reset transient elicitation UI state when chat context changes.
-    useEffect(() => {
-      setActiveElicitation(null);
-      dismissedElicitationIdsRef.current.clear();
-      openedElicitationIdsRef.current.clear();
-    }, [chatId]);
-
     // Pro users bypass all limit checks - much cleaner!
-    const effectiveSelectedModel = useMemo(() => {
-      if (proStatusLoading) return selectedModel;
-      if (requiresProSubscription(selectedModel) && !isUserPro) return 'scira-default';
-      return selectedModel;
-    }, [selectedModel, isUserPro, proStatusLoading]);
-    const shouldBypassLimits = shouldBypassLimitsForModel(effectiveSelectedModel);
-
-    // Check the appropriate limit based on selected group
-    const isExtremeMode = effectiveSelectedGroup === 'extreme';
-    const currentUsageCount = usageData ? (isExtremeMode ? usageData.extremeSearchCount : usageData.messageCount) : 0;
-    const currentLimit = isExtremeMode ? SEARCH_LIMITS.EXTREME_SEARCH_LIMIT : SEARCH_LIMITS.DAILY_SEARCH_LIMIT;
-
-    // Check if current mode has exceeded its limit
-    const hasExceededCurrentModeLimit =
+    const shouldBypassLimits = shouldBypassLimitsForModel(selectedModel);
+    const hasExceededLimit =
       shouldCheckUserLimits &&
       !proStatusLoading &&
       !shouldBypassLimits &&
       usageData &&
-      currentUsageCount >= currentLimit;
+      usageData.count >= SEARCH_LIMITS.DAILY_SEARCH_LIMIT;
+    const isLimitBlocked = Boolean(hasExceededLimit);
 
-    // Check if BOTH limits are exhausted
-    const messageCountExhausted = usageData && usageData.messageCount >= SEARCH_LIMITS.DAILY_SEARCH_LIMIT;
-    const extremeSearchCountExhausted = usageData && usageData.extremeSearchCount >= SEARCH_LIMITS.EXTREME_SEARCH_LIMIT;
-
-    // Only block UI when BOTH limits are exhausted (so user can switch modes if one still has quota)
-    const isLimitBlocked = Boolean(
-      shouldCheckUserLimits &&
-      !proStatusLoading &&
-      !shouldBypassLimits &&
-      messageCountExhausted &&
-      extremeSearchCountExhausted,
-    );
-
-    // Timer ref cleanup only — sign-in prompt is now a passive inline CTA, not an auto-firing modal
+    // Auto-switch away from pro models when user loses pro access
     useEffect(() => {
       if (proStatusLoading) return;
 
@@ -552,12 +203,30 @@ const ChatInterface = memo(
           clearTimeout(signInTimerRef.current);
           signInTimerRef.current = null;
         }
+        // Reset the flag so it can show again in future sessions if they log out
         setPersitedHasShownSignInPrompt(false);
         if (chatState.showSignInPrompt) {
           dispatch({ type: 'SET_SHOW_SIGNIN_PROMPT', payload: false });
         }
         return;
       }
+
+      // Only start timer if user is not authenticated and hasn't been shown the prompt yet
+      if (!user && !chatState.hasShownSignInPrompt) {
+        // Clear any existing timer
+        if (signInTimerRef.current) {
+          clearTimeout(signInTimerRef.current);
+        }
+
+        // Set timer for 1 minute (60000 ms)
+        signInTimerRef.current = setTimeout(() => {
+          dispatch({ type: 'SET_SHOW_SIGNIN_PROMPT', payload: true });
+          dispatch({ type: 'SET_HAS_SHOWN_SIGNIN_PROMPT', payload: true });
+          setPersitedHasShownSignInPrompt(true);
+        }, 60000);
+      }
+
+      // Cleanup timer on unmount
       return () => {
         if (signInTimerRef.current) {
           clearTimeout(signInTimerRef.current);
@@ -580,76 +249,36 @@ const ChatInterface = memo(
 
     type VisibilityType = 'public' | 'private';
 
-    // Only consider it an existing chat if we have an actual chat ID (not empty string or undefined-like values)
-    const routeChatId = pathname?.startsWith('/search/') ? pathname.split('/')[2] : null;
-    const isExistingChat = Boolean(
-      initialChatId || (routeChatId && routeChatId !== 'undefined' && routeChatId !== 'null'),
-    );
-    const isTemporaryChat = isTemporaryChatEnabled && !isExistingChat;
-    const existingChatId = isExistingChat ? initialChatId || routeChatId : null;
-
     // Create refs to store current values to avoid closure issues
-    const selectedModelRef = useRef(effectiveSelectedModel);
-    const selectedGroupRef = useRef(effectiveSelectedGroup);
+    const selectedModelRef = useRef(selectedModel);
+    const selectedGroupRef = useRef(selectedGroup);
     const isCustomInstructionsEnabledRef = useRef(isCustomInstructionsEnabled);
     const searchProviderRef = useRef(searchProvider);
-    const extremeSearchProviderRef = useRef<'exa'>('exa');
-    const extremeSearchModelRef = useRef(extremeSearchModel);
     const selectedConnectorsRef = useRef(selectedConnectors);
-    const isMultiAgentModeEnabledRef = useRef(isMultiAgentModeEnabled);
-    const isTemporaryChatRef = useRef(isTemporaryChat);
 
     // Update refs whenever state changes - this ensures we always have current values
-    selectedModelRef.current = effectiveSelectedModel;
-    selectedGroupRef.current = effectiveSelectedGroup;
+    selectedModelRef.current = selectedModel;
+    selectedGroupRef.current = selectedGroup;
     isCustomInstructionsEnabledRef.current = isCustomInstructionsEnabled;
     searchProviderRef.current = searchProvider;
-    extremeSearchProviderRef.current = 'exa';
-    extremeSearchModelRef.current = extremeSearchModel;
     selectedConnectorsRef.current = selectedConnectors;
-    isMultiAgentModeEnabledRef.current = isMultiAgentModeEnabled;
-    isTemporaryChatRef.current = isTemporaryChat;
 
-    const [activeElicitation, setActiveElicitation] = useState<ElicitationData | null>(null);
-    const dismissedElicitationIdsRef = useRef<Set<string>>(new Set());
-    const openedElicitationIdsRef = useRef<Set<string>>(new Set());
-    const [isTransitioning, setIsTransitioning] = useState(false);
-    const lastSuggestionKeyRef = useRef<string | null>(null);
-
-    const {
-      messages,
-      sendMessage,
-      setMessages,
-      regenerate,
-      stop: stopStream,
-      status,
-      error,
-      resumeStream,
-    } = useChat<ChatMessage>({
+    const { messages, sendMessage, setMessages, regenerate, stop, status, error, resumeStream } = useChat<ChatMessage>({
       id: chatId,
-      // resume: true,
       transport: new DefaultChatTransport({
         api: '/api/search',
         prepareSendMessagesRequest({ messages, body }) {
-          const latestUserMessage = [...messages].reverse().find((message) => message.role === 'user');
-          const shouldTrimRequestHistory = Boolean(user && !isTemporaryChatRef.current && latestUserMessage);
-
+          // Use ref values to get current state
           return {
             body: {
               id: chatId,
-              messages: shouldTrimRequestHistory && latestUserMessage ? [latestUserMessage] : messages,
+              messages,
               model: selectedModelRef.current,
-              group:
-                isUserPro && isMultiAgentModeEnabledRef.current
-                  ? ('multi-agent' as SearchGroupId)
-                  : selectedGroupRef.current,
+              group: selectedGroupRef.current,
               timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
               isCustomInstructionsEnabled: isCustomInstructionsEnabledRef.current,
               searchProvider: searchProviderRef.current,
-              extremeSearchProvider: extremeSearchProviderRef.current,
-              extremeSearchModel: extremeSearchModelRef.current,
               selectedConnectors: selectedConnectorsRef.current,
-              isTemporaryChat: isTemporaryChatRef.current,
               ...(initialChatId ? { chat_id: initialChatId } : {}),
               ...body,
             },
@@ -659,199 +288,47 @@ const ChatInterface = memo(
       experimental_throttle: 100,
       onData: (dataPart) => {
         console.log('onData<Client>', dataPart);
-        // Handle auto-routed model info from server
-        if (dataPart.type === 'data-auto_routed_model') {
-          const autoRouteData = dataPart.data;
-          if (autoRouteData?.model) {
-            setAutoRoutedModel({ model: autoRouteData.model, route: autoRouteData.route });
-          }
-        }
-        // Handle MCP elicitation requests.
-        if (dataPart.type === 'data-mcp_elicitation') {
-          const nextElicitation = dataPart.data as ElicitationData;
-          if (!nextElicitation?.elicitationId) return;
-          if (dismissedElicitationIdsRef.current.has(nextElicitation.elicitationId)) return;
-          if (openedElicitationIdsRef.current.has(nextElicitation.elicitationId)) return;
-
-          openedElicitationIdsRef.current.add(nextElicitation.elicitationId);
-          setActiveElicitation((current) =>
-            current?.elicitationId === nextElicitation.elicitationId ? current : { ...nextElicitation },
-          );
-        }
-        if (dataPart.type === 'data-mcp_elicitation_done') {
-          const doneId = dataPart.data?.elicitationId;
-          if (doneId) {
-            dismissedElicitationIdsRef.current.add(doneId);
-            openedElicitationIdsRef.current.delete(doneId);
-            setActiveElicitation((current) => (current?.elicitationId === doneId ? null : current));
-          }
-        }
-        // Handle chat title updates from server for new chats
-        if (dataPart.type === 'data-chat_title') {
-          const titleData = dataPart.data;
-          if (titleData?.title) {
-            setLocalChatTitle(titleData.title);
-            setTitleInput(titleData.title);
-          }
-        }
         setDataStream((ds) => (ds ? [...ds, dataPart] : []));
       },
       onFinish: async ({ message }) => {
         console.log('onFinish<Client>', message.parts);
-        // Keep post-finish work minimal so the chat settles quickly after streaming.
+        // Refresh usage data after message completion for authenticated users
         if (user) {
-          // Refetch chats cache to refresh sidebar (use refetch to bypass staleTime)
-          if (!isTemporaryChatRef.current) {
-            queryClient.refetchQueries({ queryKey: ['recent-chats', user.id] });
-          }
+          refetchUsage();
         }
 
         // Only generate suggested questions if authenticated user or private chat
         if (message.parts && message.role === 'assistant' && (user || chatState.selectedVisibilityType === 'private')) {
-          const assistantText = message.parts
-            .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
-            .map((p) => p.text)
-            .join('')
-            .trim();
-          const userText = (lastSubmittedQueryRef.current ?? '').trim();
-          if (!userText || !assistantText) return;
-          const suggestionKey = `${userText}::${assistantText}`;
-          if (lastSuggestionKeyRef.current === suggestionKey) return;
-          lastSuggestionKeyRef.current = suggestionKey;
-
+          const lastPart = message.parts[message.parts.length - 1];
+          const lastPartText = lastPart.type === 'text' ? lastPart.text : '';
           const newHistory = [
-            { role: 'user', content: userText },
-            { role: 'assistant', content: assistantText },
+            { role: 'user', content: lastSubmittedQueryRef.current },
+            { role: 'assistant', content: lastPartText },
           ];
-
-          void suggestQuestions(newHistory)
-            .then(({ questions }) => {
-              dispatch({ type: 'SET_SUGGESTED_QUESTIONS', payload: questions });
-            })
-            .catch((error) => {
-              console.error('Error generating suggested questions:', error);
-            });
+          console.log('newHistory', newHistory);
+          const { questions } = await suggestQuestions(newHistory);
+          dispatch({ type: 'SET_SUGGESTED_QUESTIONS', payload: questions });
         }
       },
       onError: (error) => {
         // Don't show toast for ChatSDK errors as they will be handled by the enhanced error display
         if (error instanceof ChatSDKError) {
           console.log('ChatSDK Error:', error.type, error.surface, error.message);
-          return;
+          // Only show toast for certain error types that need immediate attention
+          if (error.type === 'offline' || error.surface === 'stream') {
+            toast.error('Connection Error', {
+              description: error.message,
+            });
+          }
+        } else {
+          console.error('Chat error:', error.cause, error.message);
+          toast.error('An error occurred.', {
+            description: `Oops! An error occurred while processing your request. ${error.cause || error.message}`,
+          });
         }
-
-        console.error('Chat error:', error.cause, error.message);
       },
       messages: initialMessages || [],
     });
-
-    const [isManuallyStopping, setIsManuallyStopping] = useState(false);
-    const uiStatus = isManuallyStopping && status === 'streaming' ? 'ready' : status;
-
-    const stop = useCallback(async () => {
-      setIsManuallyStopping(true);
-      await Promise.allSettled([stopStream(), fetch(`/api/search/${chatId}/stop`, { method: 'DELETE' })]);
-    }, [stopStream, chatId]);
-
-    useEffect(() => {
-      if (status !== 'streaming') setIsManuallyStopping(false);
-    }, [status]);
-
-    useEffect(() => {
-      if (!existingChatId) {
-        openChatAutoScrolledRef.current = null;
-        return;
-      }
-
-      if (openChatAutoScrolledRef.current === existingChatId) return;
-
-      if (!scrollToLatestOnOpen) {
-        openChatAutoScrolledRef.current = existingChatId;
-        return;
-      }
-
-      if (messages.length === 0 || uiStatus === 'streaming') return;
-
-      openChatAutoScrolledRef.current = existingChatId;
-      resetManualScroll();
-      requestAnimationFrame(() => requestAnimationFrame(() => scrollToBottom()));
-    }, [existingChatId, messages.length, resetManualScroll, scrollToBottom, scrollToLatestOnOpen, uiStatus]);
-
-    const sendMessageWithAutoRouting = useCallback(
-      async (message: Parameters<typeof sendMessage>[0], options?: Parameters<typeof sendMessage>[1]) => {
-        const isUsingAutoRouter = selectedModelRef.current === 'scira-auto';
-        // Prevent stale/ghost elicitation UI from previous requests.
-        setActiveElicitation(null);
-        // Keep dismissed/opened id sets so historical stream parts can't resurrect.
-
-        // Send message immediately to show in UI
-        return sendMessage(message, {
-          ...options,
-          body: {
-            ...(options?.body ?? {}),
-            isAutoRouted: isUsingAutoRouter,
-            autoRouterEnabled: isAutoRouterEnabled,
-            autoRouterConfig: isUsingAutoRouter ? autoRouterConfig : undefined,
-          },
-        });
-      },
-      [autoRouterConfig, isAutoRouterEnabled, sendMessage],
-    );
-
-    // Fallback: derive active elicitation from streamed data in case onData batching
-    // causes event handlers to miss/show late.
-    useEffect(() => {
-      if (activeElicitation) return;
-      if (!dataStream?.length) return;
-
-      for (let i = dataStream.length - 1; i >= 0; i -= 1) {
-        const part = dataStream[i];
-        if (!part) continue;
-        if (part.type !== 'data-mcp_elicitation') continue;
-        const candidate = part.data as ElicitationData;
-        if (!candidate?.elicitationId) continue;
-        if (dismissedElicitationIdsRef.current.has(candidate.elicitationId)) continue;
-        if (openedElicitationIdsRef.current.has(candidate.elicitationId)) continue;
-        openedElicitationIdsRef.current.add(candidate.elicitationId);
-        setActiveElicitation((current) =>
-          current?.elicitationId === candidate.elicitationId ? current : { ...candidate },
-        );
-        break;
-      }
-    }, [dataStream, activeElicitation]);
-
-    const isTemporaryChatLocked = useMemo(() => {
-      if (isExistingChat) return true;
-      return messages.length > 0 || (initialMessages?.length ?? 0) > 0;
-    }, [initialMessages?.length, isExistingChat, messages.length]);
-
-    // Compute active chat id used in header and data fetching (after messages/chatId exist)
-    const effectiveChatId = useMemo(() => {
-      if (isTemporaryChat) return null;
-      const routeChatId = pathname?.startsWith('/search/') ? pathname.split('/')[2] : null;
-      return initialChatId || routeChatId || (messages.length > 0 ? chatId : null);
-    }, [initialChatId, pathname, messages.length, chatId, isTemporaryChat]);
-
-    const shouldShowHeader = Boolean(user && effectiveChatId);
-    const canEditHeader = Boolean(isOwner && shouldShowHeader);
-    const headerOffsetClass =
-      state === 'expanded' ? 'md:left-[calc(var(--sidebar-width))]' : 'md:left-[calc(var(--sidebar-width-icon))]';
-
-    const { data: chatMeta } = useQuery({
-      queryKey: ['chat-meta', effectiveChatId, user?.id],
-      enabled: Boolean(effectiveChatId),
-      queryFn: async () => await getChatMeta(effectiveChatId as string, user?.id),
-      staleTime: 1000 * 60,
-      refetchOnWindowFocus: false,
-    });
-
-    // Keep local title in sync with server via React Query
-    useEffect(() => {
-      if (chatMeta?.title && chatMeta.title !== localChatTitle && !isEditingTitle) {
-        setLocalChatTitle(chatMeta.title);
-        setTitleInput(chatMeta.title);
-      }
-    }, [chatMeta?.title, isEditingTitle]);
 
     // Handle text highlighting and quoting
     const handleHighlight = useCallback(
@@ -881,7 +358,7 @@ const ChatInterface = memo(
     }
 
     useAutoResume({
-      autoResume: !isManuallyStopping,
+      autoResume: true,
       initialMessages: initialMessages || [],
       resumeStream,
       setMessages,
@@ -903,108 +380,72 @@ const ChatInterface = memo(
 
     useEffect(() => {
       if (!initializedRef.current && initialState.query && !messages.length && !initialChatId) {
-        if (typeof window !== 'undefined') {
-          const dedupeKey = `scira:initial-query:${initialState.query}`;
-          const previousTimestamp = Number(sessionStorage.getItem(dedupeKey) ?? '0');
-          const now = Date.now();
-          if (previousTimestamp && now - previousTimestamp < INITIAL_QUERY_DEDUPE_WINDOW_MS) {
-            initializedRef.current = true;
-            return;
-          }
-          sessionStorage.setItem(dedupeKey, String(now));
-        }
-
         initializedRef.current = true;
         console.log('[initial query]:', initialState.query);
-
-        // Send the message first
-        sendMessageWithAutoRouting({
+        sendMessage({
           parts: [{ type: 'text', text: initialState.query }],
           role: 'user',
         });
-
-        // For logged-in users (not in temporary mode), update URL to reflect the chat ID
-        if (user && !isTemporaryChat) {
-          window.history.replaceState({}, '', `/search/${chatId}`);
-        }
       }
-    }, [
-      initialState.query,
-      sendMessageWithAutoRouting,
-      setInput,
-      messages.length,
-      initialChatId,
-      user,
-      isTemporaryChat,
-      chatId,
-    ]);
+    }, [initialState.query, sendMessage, setInput, messages.length, initialChatId]);
 
-    // Generate suggested questions when opening a chat directly.
+    // Generate suggested questions when opening a chat directly
     useEffect(() => {
-      let isCancelled = false;
-
-      const generateSuggestionsForInitialMessages = () => {
+      const generateSuggestionsForInitialMessages = async () => {
+        // Only generate if we have initial messages, no suggested questions yet,
+        // user is authenticated or chat is private, and status is not streaming
         if (
           initialMessages &&
           initialMessages.length >= 2 &&
           !chatState.suggestedQuestions.length &&
           (user || chatState.selectedVisibilityType === 'private') &&
-          uiStatus === 'ready'
+          status === 'ready'
         ) {
           const lastUserMessage = initialMessages.filter((m) => m.role === 'user').pop();
           const lastAssistantMessage = initialMessages.filter((m) => m.role === 'assistant').pop();
 
           if (lastUserMessage && lastAssistantMessage) {
-            const getMessageText = (message: typeof lastUserMessage) => {
+            // Extract content from parts similar to onFinish callback
+            const getUserContent = (message: typeof lastUserMessage) => {
               if (message.parts && message.parts.length > 0) {
-                return (message.parts as Array<{ type: string; text?: string }>)
-                  .filter((p) => p.type === 'text' && p.text)
-                  .map((p) => p.text!)
-                  .join('')
-                  .trim();
+                const lastPart = message.parts[message.parts.length - 1];
+                return lastPart.type === 'text' ? lastPart.text : '';
               }
+              return message.content || '';
+            };
 
+            const getAssistantContent = (message: typeof lastAssistantMessage) => {
+              if (message.parts && message.parts.length > 0) {
+                const lastPart = message.parts[message.parts.length - 1];
+                return lastPart.type === 'text' ? lastPart.text : '';
+              }
               return message.content || '';
             };
 
             const newHistory = [
-              { role: 'user', content: getMessageText(lastUserMessage) },
-              { role: 'assistant', content: getMessageText(lastAssistantMessage) },
+              { role: 'user', content: getUserContent(lastUserMessage) },
+              { role: 'assistant', content: getAssistantContent(lastAssistantMessage) },
             ];
-            const userText = newHistory[0].content.trim();
-            const assistantText = newHistory[1].content.trim();
-            if (!userText || !assistantText) return;
-            const suggestionKey = `${userText}::${assistantText}`;
-            if (lastSuggestionKeyRef.current === suggestionKey) return;
-            lastSuggestionKeyRef.current = suggestionKey;
-
-            void suggestQuestions(newHistory)
-              .then(({ questions }) => {
-                if (!isCancelled) {
-                  dispatch({ type: 'SET_SUGGESTED_QUESTIONS', payload: questions });
-                }
-              })
-              .catch((error) => {
-                console.error('Error generating suggested questions:', error);
-              });
+            try {
+              const { questions } = await suggestQuestions(newHistory);
+              dispatch({ type: 'SET_SUGGESTED_QUESTIONS', payload: questions });
+            } catch (error) {
+              console.error('Error generating suggested questions:', error);
+            }
           }
         }
       };
 
       generateSuggestionsForInitialMessages();
-
-      return () => {
-        isCancelled = true;
-      };
-    }, [initialMessages, chatState.suggestedQuestions.length, uiStatus, user, chatState.selectedVisibilityType]);
+    }, [initialMessages, chatState.suggestedQuestions.length, status, user, chatState.selectedVisibilityType]);
 
     // Reset suggested questions when status changes to streaming
     useEffect(() => {
-      if (uiStatus === 'streaming') {
+      if (status === 'streaming') {
         // Clear suggested questions when a new message is being streamed
         dispatch({ type: 'RESET_SUGGESTED_QUESTIONS' });
       }
-    }, [uiStatus]);
+    }, [status]);
 
     const lastUserMessageIndex = useMemo(() => {
       for (let i = messages.length - 1; i >= 0; i--) {
@@ -1015,55 +456,20 @@ const ChatInterface = memo(
       return -1;
     }, [messages]);
 
-    // Reset isTransitioning as soon as the last message becomes an assistant message
     useEffect(() => {
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage?.role === 'assistant') {
-        setIsTransitioning(false);
-      }
-    }, [messages]);
-
-    // Scroll immediately when transitioning starts — don't wait for SDK status
-    useEffect(() => {
-      if (isTransitioning) {
+      // Reset manual scroll when streaming starts
+      if (status === 'streaming') {
         resetManualScroll();
         scrollToBottom();
       }
-    }, [isTransitioning, resetManualScroll, scrollToBottom]);
+    }, [status, resetManualScroll, scrollToBottom]);
 
-    const prevStatusRef = useRef<string>('');
+    // Auto-scroll during streaming when messages change
     useEffect(() => {
-      const prev = prevStatusRef.current;
-      prevStatusRef.current = uiStatus;
-      // Only reset manual scroll when transitioning from idle → streaming (new user submission)
-      // NOT during ongoing streaming status changes
-      if (uiStatus === 'streaming' && prev !== 'streaming') {
-        resetManualScroll();
+      if (status === 'streaming') {
         scrollToBottom();
       }
-    }, [uiStatus, resetManualScroll, scrollToBottom]);
-
-    // Auto-scroll during streaming when messages change; throttle so we don't fight touch/momentum
-    const lastScrollToBottomAtRef = useRef<number>(0);
-    const STREAM_SCROLL_THROTTLE_MS = 100;
-    useEffect(() => {
-      if (uiStatus !== 'streaming') return;
-      const now = Date.now();
-      if (now - lastScrollToBottomAtRef.current < STREAM_SCROLL_THROTTLE_MS) return;
-      lastScrollToBottomAtRef.current = now;
-      scrollToBottom();
-    }, [messages, uiStatus, scrollToBottom]);
-
-    // Disable browser scroll anchoring during streaming so images/layout don't pull the view up
-    useEffect(() => {
-      const el = document.documentElement;
-      if (uiStatus === 'streaming' && messages.length > 0) {
-        el.style.overflowAnchor = 'none';
-        return () => {
-          el.style.overflowAnchor = '';
-        };
-      }
-    }, [uiStatus, messages.length]);
+    }, [messages, status, scrollToBottom]);
 
     // Dialog management state - track command dialog state in chat state
     useEffect(() => {
@@ -1090,10 +496,6 @@ const ChatInterface = memo(
     const handleModelChange = useCallback(
       (model: string) => {
         setSelectedModel(model);
-        // Clear auto-routed model when switching away from auto
-        if (model !== 'scira-auto') {
-          setAutoRoutedModel(null);
-        }
       },
       [setSelectedModel],
     );
@@ -1101,32 +503,6 @@ const ChatInterface = memo(
     const resetSuggestedQuestions = useCallback(() => {
       dispatch({ type: 'RESET_SUGGESTED_QUESTIONS' });
     }, []);
-
-    // Handle example selection from ExampleCategories
-    const handleExampleSelect = useCallback(
-      (text: string, group?: string) => {
-        if (group) {
-          setSelectedGroup(group as SearchGroupId);
-        }
-
-        // Set the input value directly on the DOM element first
-        if (inputRef.current) {
-          inputRef.current.value = text;
-          // Trigger the onChange event manually so React state stays in sync
-          const event = new Event('input', { bubbles: true });
-          inputRef.current.dispatchEvent(event);
-
-          // Now set the cursor position
-          inputRef.current.focus();
-          const length = text.length;
-          inputRef.current.setSelectionRange(length, length);
-        }
-
-        // Also update React state
-        setInput(text);
-      },
-      [setInput, setSelectedGroup],
-    );
 
     // Handle visibility change
     const handleVisibilityChange = useCallback(
@@ -1159,38 +535,18 @@ const ChatInterface = memo(
             dispatch({ type: 'SET_VISIBILITY_TYPE', payload: visibility });
             console.log('🔄 Dispatched SET_VISIBILITY_TYPE with:', visibility);
 
-            const shareUrl = visibility === 'public' ? `https://scira.ai/share/${chatId}` : '';
-            sileo.success({
-              title: `Chat is now ${visibility}`,
-              description:
-                visibility === 'public' ? 'Your chat is now publicly accessible' : 'Your chat is now private',
-              icon: <ShareIcon className="h-4 w-4" />,
-              ...(visibility === 'public' && shareUrl
-                ? {
-                    button: {
-                      title: 'Open link',
-                      onClick: () => window.open(shareUrl, '_blank', 'noopener,noreferrer'),
-                    },
-                  }
-                : {}),
-            });
+            toast.success(`Chat is now ${visibility}`);
             console.log('🍞 Success toast shown:', `Chat is now ${visibility}`);
 
-            // Refetch cache to refresh the list with updated visibility (bypass staleTime)
-            if (user) {
-              queryClient.refetchQueries({ queryKey: ['recent-chats', user.id] });
-            }
-            console.log('🗑️ Cache refetched');
+            // Invalidate cache to refresh the list with updated visibility
+            invalidateChatsCache();
+            console.log('🗑️ Cache invalidated');
           } else {
             console.error('❌ Update failed - unsuccessful result:', {
               result,
               success_check: result?.success,
             });
-            sileo.error({
-              title: 'Failed to update chat visibility',
-              description: 'Please try again',
-              icon: <X className="h-4 w-4" />,
-            });
+            toast.error('Failed to update chat visibility');
             console.log('🍞 Error toast shown: Failed to update chat visibility');
           }
         } catch (error) {
@@ -1200,11 +556,7 @@ const ChatInterface = memo(
             error: error instanceof Error ? error.message : error,
             stack: error instanceof Error ? error.stack : undefined,
           });
-          sileo.error({
-            title: 'Failed to update chat visibility',
-            description: 'Please try again',
-            icon: <X className="h-4 w-4" />,
-          });
+          toast.error('Failed to update chat visibility');
           console.log('🍞 Error toast shown: Failed to update chat visibility');
         }
       },
@@ -1262,6 +614,7 @@ const ChatInterface = memo(
           chatId={initialChatId || (messages.length > 0 ? chatId : null)}
           selectedVisibilityType={chatState.selectedVisibilityType}
           onVisibilityChange={handleVisibilityChange}
+          status={status}
           user={user || null}
           onHistoryClick={() => dispatch({ type: 'SET_COMMAND_DIALOG_OPEN', payload: true })}
           isOwner={isOwner}
@@ -1269,7 +622,7 @@ const ChatInterface = memo(
           isProUser={isUserPro}
           isProStatusLoading={proStatusLoading}
           isCustomInstructionsEnabled={isCustomInstructionsEnabled}
-          setIsCustomInstructionsEnabledAction={setIsCustomInstructionsEnabled}
+          setIsCustomInstructionsEnabled={setIsCustomInstructionsEnabled}
           settingsOpen={settingsOpen}
           setSettingsOpen={setSettingsOpen}
           settingsInitialTab={settingsInitialTab}
@@ -1472,8 +825,7 @@ const ChatInterface = memo(
                   </div>
                 </div>
               </div>
-              <div className="h-6" aria-hidden="true" />
-            </>
+            </div>
           )}
         </div>
         </div>
