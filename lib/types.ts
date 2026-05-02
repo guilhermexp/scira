@@ -11,6 +11,7 @@ import type {
   trendingMoviesTool,
   textTranslateTool,
   xSearchTool,
+  videoSearchTool,
   stockChartTool,
   webSearchTool,
   youtubeSearchTool,
@@ -119,6 +120,7 @@ type retrieveTool = InferUITool<typeof retrieveTool>;
 type trendingMoviesTool = InferUITool<typeof trendingMoviesTool>;
 type textTranslateTool = InferUITool<typeof textTranslateTool>;
 type xSearchTool = InferUITool<typeof xSearchTool>;
+type videoSearchTool = InferUITool<typeof videoSearchTool>;
 type stockChartTool = InferUITool<typeof stockChartTool>;
 type greetingTool = InferUITool<ReturnType<typeof greetingTool>>;
 type flightTrackerTool = InferUITool<typeof flightTrackerTool>;
@@ -147,6 +149,7 @@ export type ChatTools = {
 
   // Search & Content Tools
   x_search: xSearchTool;
+  video_search: videoSearchTool;
   web_search: webSearch;
   academic_search: academicSearchTool;
   youtube_search: youtubeSearchTool;

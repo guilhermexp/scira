@@ -12,7 +12,7 @@ const inter = Inter({
   variable: '--font-sans',
   weight: 'variable',
   display: 'swap',
-  preload: true,
+  preload: false,
 });
 
 const beVietnamPro = Be_Vietnam_Pro({
@@ -20,7 +20,7 @@ const beVietnamPro = Be_Vietnam_Pro({
   variable: '--font-be-vietnam-pro',
   weight: ['300', '400', '500', '600', '700', '800'],
   display: 'swap',
-  preload: true,
+  preload: false,
 });
 
 const baumans = Baumans({
@@ -28,7 +28,7 @@ const baumans = Baumans({
   variable: '--font-baumans',
   weight: '400',
   display: 'swap',
-  preload: true,
+  preload: false,
 });
 
 interface GlobalErrorProps {

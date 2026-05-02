@@ -36,7 +36,6 @@ import {
   updateChatTitleById,
 } from '@/lib/db/queries';
 import { ChatSDKError } from '@/lib/errors';
-import { createResumableStreamContext, type ResumableStreamContext } from 'resumable-stream';
 import { after } from 'next/server';
 import { CustomInstructions } from '@/lib/db/schema';
 import { v7 as uuidv7 } from 'uuid';
@@ -53,6 +52,7 @@ import {
   trendingTvTool,
   academicSearchTool,
   youtubeSearchTool,
+  videoSearchTool,
   retrieveTool,
   weatherTool,
   codeInterpreterTool,
@@ -80,30 +80,11 @@ import { GoogleGenerativeAIProviderOptions } from '@ai-sdk/google';
 import { unauthenticatedRateLimit, getClientIdentifier } from '@/lib/rate-limit';
 import { CohereChatModelOptions } from '@ai-sdk/cohere';
 import { xai } from '@ai-sdk/xai';
-
-let globalStreamContext: ResumableStreamContext | null = null;
+import { isAuthenticationBypassed } from '@/lib/self-hosted-auth';
+import { getStreamContext } from '@/lib/search-stream-context';
 
 // Shared config promise to avoid duplicate calls
 let configPromise: Promise<any>;
-
-export function getStreamContext() {
-  if (!globalStreamContext) {
-    try {
-      globalStreamContext = createResumableStreamContext({
-        waitUntil: after,
-        keyPrefix: 'scira-ai',
-      });
-    } catch (error: any) {
-      if (error.message.includes('REDIS_URL')) {
-        console.log(' > Resumable streams are disabled due to missing REDIS_URL');
-      } else {
-        console.error(error);
-      }
-    }
-  }
-
-  return globalStreamContext;
-}
 
 export async function POST(req: Request) {
   const requestStartTime = Date.now();
@@ -122,6 +103,7 @@ export async function POST(req: Request) {
   const streamId = 'stream-' + uuidv7();
 
   console.log('🔍 Search API:', { model: model.trim(), group, latitude, longitude });
+  const authBypassed = isAuthenticationBypassed();
 
   // CRITICAL PATH: Get auth status first (required for all subsequent checks)
   const lightweightUser = await getLightweightUser();
@@ -141,7 +123,7 @@ export async function POST(req: Request) {
   }
 
   // Early exit checks (no DB operations needed)
-  if (!lightweightUser) {
+  if (!lightweightUser && !authBypassed) {
     if (requiresAuthentication(model)) {
       return new ChatSDKError('unauthorized:model', `${model} requires authentication`).toResponse();
     }
@@ -153,7 +135,7 @@ export async function POST(req: Request) {
           : 'Authentication required to use Extreme Search mode',
       ).toResponse();
     }
-  } else {
+  } else if (lightweightUser) {
     // SELF-HOSTED: Skip pro check - all models available
     if (false && requiresProSubscription(model) && !lightweightUser?.isProUser) {
       return new ChatSDKError('upgrade_required:model', `${model} requires a Pro subscription`).toResponse();
@@ -344,6 +326,7 @@ export async function POST(req: Request) {
           web_search: webSearchTool(dataStream, searchProvider),
           academic_search: academicSearchTool,
           youtube_search: youtubeSearchTool,
+          video_search: videoSearchTool,
           reddit_search: redditSearchTool,
           retrieve: retrieveTool,
 

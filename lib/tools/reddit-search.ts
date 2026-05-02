@@ -27,6 +27,23 @@ export const redditSearchTool = tool({
     maxResults?: number[];
     timeRange?: ('day' | 'week' | 'month' | 'year')[];
   }) => {
+    return runRedditSearch({
+      queries,
+      maxResults,
+      timeRange,
+    });
+  },
+});
+
+export async function runRedditSearch({
+  queries,
+  maxResults,
+  timeRange,
+}: {
+  queries: string[];
+  maxResults?: number[];
+  timeRange?: ('day' | 'week' | 'month' | 'year')[];
+}) {
     const apiKey = serverEnv.TAVILY_API_KEY;
     const tvly = tavily({ apiKey });
 
@@ -85,5 +102,4 @@ export const redditSearchTool = tool({
     return {
       searches,
     };
-  },
-});
+}

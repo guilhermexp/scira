@@ -2057,9 +2057,6 @@ const ExtremeSearchComponent = ({
 
   // Render sources section (minimal design)
   const renderSources = (sources: ExtremeSearchSource[]) => {
-    console.log('[ExtremeSearch] renderSources called with:', sources.length, 'sources');
-    console.log('[ExtremeSearch] Sources data:', sources);
-
     return (
       <div className="w-full border border-border rounded-lg overflow-hidden bg-card">
         <div className="w-full px-4 py-2.5 flex items-center justify-between">
@@ -2324,13 +2321,6 @@ const ExtremeSearchComponent = ({
         {/* Show loading skeletons when no plan and no items */}
         {(() => {
           const shouldShowSkeletons = !planData && searchQueries.length === 0 && codeExecutions.length === 0 && xSearchExecutions.length === 0;
-          console.log('[ExtremeSearch] Skeleton decision:', {
-            shouldShowSkeletons,
-            planData: !!planData,
-            searchQueriesCount: searchQueries.length,
-            codeExecutionsCount: codeExecutions.length,
-            xSearchExecutionsCount: xSearchExecutions.length
-          });
           return shouldShowSkeletons;
         })() && (
           <div className="mb-3">

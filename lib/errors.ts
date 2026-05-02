@@ -157,7 +157,11 @@ export function isSignInRequired(error: ChatSDKError): boolean {
 }
 
 export function isProRequired(error: ChatSDKError): boolean {
-  return error.type === 'upgrade_required' || error.type === 'forbidden' || error.type === 'model_restricted';
+  return (
+    error.type === 'upgrade_required' ||
+    error.type === 'model_restricted' ||
+    (error.type === 'forbidden' && error.surface === 'model')
+  );
 }
 
 export function isRateLimited(error: ChatSDKError): boolean {

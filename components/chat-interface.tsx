@@ -38,6 +38,8 @@ import { useOptimizedScroll } from '@/hooks/use-optimized-scroll';
 // Utility and type imports
 import { SEARCH_LIMITS } from '@/lib/constants';
 import { ChatSDKError } from '@/lib/errors';
+import { getMessageTextContent } from '@/lib/chat-message';
+import { shouldForkSharedChatContinuation } from '@/lib/chat-session';
 import { cn, SearchGroupId, invalidateChatsCache } from '@/lib/utils';
 import { DEFAULT_MODEL, LEGACY_DEFAULT_MODEL, requiresProSubscription } from '@/ai/providers';
 import { ConnectorProvider } from '@/lib/connectors';
@@ -165,8 +167,27 @@ const ChatInterface = memo(
     // Sign-in prompt timer
     const signInTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Generate a consistent ID for new chats
-    const chatId = useMemo(() => initialChatId ?? uuidv7(), [initialChatId]);
+    const shouldForkContinuation = shouldForkSharedChatContinuation({
+      initialChatId,
+      isOwner,
+      allowContinuation: chatState.allowContinuation,
+    });
+    const forkedChatIdRef = useRef<string | null>(null);
+
+    if (shouldForkContinuation && !forkedChatIdRef.current) {
+      forkedChatIdRef.current = uuidv7();
+    }
+
+    // Generate a consistent ID for new chats and fork shared chats into a new owner chat
+    const chatId = useMemo(() => {
+      if (shouldForkContinuation) {
+        return forkedChatIdRef.current ?? uuidv7();
+      }
+
+      return initialChatId ?? uuidv7();
+    }, [initialChatId, shouldForkContinuation]);
+
+    const sourceChatId = shouldForkContinuation ? initialChatId : undefined;
 
     // Pro users bypass all limit checks - much cleaner!
     const shouldBypassLimits = shouldBypassLimitsForModel(selectedModel);
@@ -279,7 +300,7 @@ const ChatInterface = memo(
               isCustomInstructionsEnabled: isCustomInstructionsEnabledRef.current,
               searchProvider: searchProviderRef.current,
               selectedConnectors: selectedConnectorsRef.current,
-              ...(initialChatId ? { chat_id: initialChatId } : {}),
+              ...(sourceChatId ? { chat_id: sourceChatId } : {}),
               ...body,
             },
           };
@@ -287,11 +308,9 @@ const ChatInterface = memo(
       }),
       experimental_throttle: 100,
       onData: (dataPart) => {
-        console.log('onData<Client>', dataPart);
         setDataStream((ds) => (ds ? [...ds, dataPart] : []));
       },
       onFinish: async ({ message }) => {
-        console.log('onFinish<Client>', message.parts);
         // Refresh usage data after message completion for authenticated users
         if (user) {
           refetchUsage();
@@ -299,13 +318,14 @@ const ChatInterface = memo(
 
         // Only generate suggested questions if authenticated user or private chat
         if (message.parts && message.role === 'assistant' && (user || chatState.selectedVisibilityType === 'private')) {
-          const lastPart = message.parts[message.parts.length - 1];
-          const lastPartText = lastPart.type === 'text' ? lastPart.text : '';
+          const lastPartText = getMessageTextContent(message);
+          if (!lastPartText.trim()) {
+            return;
+          }
           const newHistory = [
             { role: 'user', content: lastSubmittedQueryRef.current },
             { role: 'assistant', content: lastPartText },
           ];
-          console.log('newHistory', newHistory);
           const { questions } = await suggestQuestions(newHistory);
           dispatch({ type: 'SET_SUGGESTED_QUESTIONS', payload: questions });
         }
@@ -349,14 +369,6 @@ const ChatInterface = memo(
       [setInput],
     );
 
-    // Debug error structure
-    if (error) {
-      console.log('[useChat error]:', error);
-      console.log('[error type]:', typeof error);
-      console.log('[error message]:', error.message);
-      console.log('[error instance]:', error instanceof Error, error instanceof ChatSDKError);
-    }
-
     useAutoResume({
       autoResume: true,
       initialMessages: initialMessages || [],
@@ -365,14 +377,7 @@ const ChatInterface = memo(
     });
 
     useEffect(() => {
-      if (status) {
-        console.log('[status]:', status);
-      }
-    }, [status]);
-
-    useEffect(() => {
       if (user && status === 'streaming' && messages.length > 0) {
-        console.log('[chatId]:', chatId);
         // Invalidate chats cache to refresh the list
         invalidateChatsCache();
       }
@@ -381,7 +386,6 @@ const ChatInterface = memo(
     useEffect(() => {
       if (!initializedRef.current && initialState.query && !messages.length && !initialChatId) {
         initializedRef.current = true;
-        console.log('[initial query]:', initialState.query);
         sendMessage({
           parts: [{ type: 'text', text: initialState.query }],
           role: 'user',
@@ -405,26 +409,16 @@ const ChatInterface = memo(
           const lastAssistantMessage = initialMessages.filter((m) => m.role === 'assistant').pop();
 
           if (lastUserMessage && lastAssistantMessage) {
-            // Extract content from parts similar to onFinish callback
-            const getUserContent = (message: typeof lastUserMessage) => {
-              if (message.parts && message.parts.length > 0) {
-                const lastPart = message.parts[message.parts.length - 1];
-                return lastPart.type === 'text' ? lastPart.text : '';
-              }
-              return message.content || '';
-            };
+            const userContent = getMessageTextContent(lastUserMessage);
+            const assistantContent = getMessageTextContent(lastAssistantMessage);
 
-            const getAssistantContent = (message: typeof lastAssistantMessage) => {
-              if (message.parts && message.parts.length > 0) {
-                const lastPart = message.parts[message.parts.length - 1];
-                return lastPart.type === 'text' ? lastPart.text : '';
-              }
-              return message.content || '';
-            };
+            if (!userContent.trim() || !assistantContent.trim()) {
+              return;
+            }
 
             const newHistory = [
-              { role: 'user', content: getUserContent(lastUserMessage) },
-              { role: 'assistant', content: getAssistantContent(lastAssistantMessage) },
+              { role: 'user', content: userContent },
+              { role: 'assistant', content: assistantContent },
             ];
             try {
               const { questions } = await suggestQuestions(newHistory);

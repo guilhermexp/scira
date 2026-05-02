@@ -18,6 +18,7 @@ import { ShareButton } from '@/components/share';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { RepeatIcon, Copy01Icon, CpuIcon } from '@hugeicons/core-free-icons';
 import { ChatMessage, CustomUIDataTypes, DataQueryCompletionPart, DataExtremeSearchPart } from '@/lib/types';
+import { isInternalDataPart } from '@/lib/chat-message';
 import { UseChatHelpers } from '@ai-sdk/react';
 import { SciraLogoHeader } from '@/components/scira-logo-header';
 import Image from 'next/image';
@@ -180,6 +181,10 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
     annotations,
   }) => {
     const [isRegenerating, setIsRegenerating] = useState(false);
+
+    if (isInternalDataPart(part)) {
+      return null;
+    }
 
     // Handle text parts
     if (part.type === 'text') {
@@ -1282,6 +1287,35 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
             }
             break;
 
+          case 'tool-video_search':
+            switch (part.state) {
+              case 'input-streaming':
+                return (
+                  <div key={`${messageIndex}-${partIndex}-tool`} className="text-sm text-neutral-500">
+                    Preparing video search...
+                  </div>
+                );
+              case 'input-available':
+                return (
+                  <SearchLoadingState
+                    key={`${messageIndex}-${partIndex}-tool`}
+                    icon={Film}
+                    text="Searching videos..."
+                    color="red"
+                  />
+                );
+              case 'output-available':
+                return (
+                  <MultiSearch
+                    key={`${messageIndex}-${partIndex}-tool`}
+                    result={(part.output as any) || null}
+                    args={(part.input as any) ? (part.input as any) : {}}
+                    annotations={annotations as DataQueryCompletionPart[]}
+                  />
+                );
+            }
+            break;
+
           case 'tool-search_memories':
             switch (part.state) {
               case 'input-streaming':
@@ -2025,13 +2059,6 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
       }
     }
 
-    // Log unhandled part types for debugging
-    console.log(
-      'Unhandled part type:',
-      typeof part === 'object' && part !== null && 'type' in part ? part.type : 'unknown',
-      part,
-    );
-
     return null;
   },
   (prevProps: MessagePartRendererProps, nextProps: MessagePartRendererProps) => {
@@ -2050,11 +2077,6 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
       prevProps.selectedVisibilityType === nextProps.selectedVisibilityType &&
       prevProps.chatId === nextProps.chatId &&
       isEqual(prevProps.annotations, nextProps.annotations);
-
-    // Debug logging (can be removed in production)
-    if (!areEqual) {
-      console.log('MessagePartRenderer re-rendering');
-    }
 
     return areEqual;
   },

@@ -11,64 +11,16 @@ import {
   generateText,
 } from 'ai';
 import { ChatSDKError } from '@/lib/errors';
+import { directXqlRequestSchema, extractCitationUrls, normalizeXqlRequest } from '@/lib/scira-cli-contract';
 
 import { markdownJoinerTransform } from '@/lib/parser';
 import { scira } from '@/ai/providers';
 
-import { z } from 'zod';
 import { GroqProviderOptions } from '@ai-sdk/groq';
 import { XaiProviderOptions } from '@ai-sdk/xai';
 
-const xqlTool = tool({
-  description:
-    'Search X posts for recent information and discussions with the ability to filter by X handles, date range, and post engagement metrics.',
-  inputSchema: z
-    .object({
-      query: z.string().describe("The natural language query crafted from the user's arbitrary query"),
-      startDate: z
-        .string()
-        .optional()
-        .describe('The start date of the search in the format YYYY-MM-DD (default to 15 days ago if not specified)'),
-      endDate: z
-        .string()
-        .optional()
-        .describe('The end date of the search in the format YYYY-MM-DD (default to today if not specified)'),
-      includeXHandles: z
-        .array(z.string())
-        .max(10)
-        .optional()
-        .describe('The X handles to include in the search (max 10). Cannot be used with excludeXHandles.'),
-      excludeXHandles: z
-        .array(z.string())
-        .max(10)
-        .optional()
-        .describe(
-          'The X handles to exclude in the search (max 10). Cannot be used with includeXHandles. Note: "grok" handle is excluded by default.',
-        ),
-      postFavoritesCount: z
-        .number()
-        .min(0)
-        .optional()
-        .describe('Minimum number of favorites (likes) the post must have'),
-      postViewCount: z.number().min(0).optional().describe('Minimum number of views the post must have'),
-      maxResults: z
-        .number()
-        .min(1)
-        .max(100)
-        .optional()
-        .describe('The maximum number of search results to return (default 15) but you can go up to 30'),
-    })
-    .refine(
-      (data) => {
-        // Ensure includeXHandles and excludeXHandles are not both specified
-        return !(data.includeXHandles && data.excludeXHandles);
-      },
-      {
-        message: 'Cannot specify both includeXHandles and excludeXHandles - use one or the other',
-        path: ['includeXHandles', 'excludeXHandles'],
-      },
-    ),
-  async execute({
+async function executeXqlSearch(input: unknown) {
+  const {
     query,
     startDate,
     endDate,
@@ -77,55 +29,45 @@ const xqlTool = tool({
     postFavoritesCount,
     postViewCount,
     maxResults,
-  }) {
-    const sanitizeHandle = (handle: string) => handle.replace(/^@+/, '').trim();
+  } = normalizeXqlRequest(directXqlRequestSchema.parse(input));
 
-    const normalizedInclude = Array.isArray(includeXHandles)
-      ? includeXHandles.map(sanitizeHandle).filter(Boolean)
-      : undefined;
-    const normalizedExclude = Array.isArray(excludeXHandles)
-      ? excludeXHandles.map(sanitizeHandle).filter(Boolean)
-      : undefined;
+  console.log('X search - includeHandles:', includeXHandles, 'excludeHandles:', excludeXHandles);
 
-    const toYMD = (d: Date) => d.toISOString().slice(0, 10);
-    const today = new Date();
-    const daysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
-    const effectiveStart = startDate && startDate.trim().length > 0 ? startDate : toYMD(daysAgo);
-    const effectiveEnd = endDate && endDate.trim().length > 0 ? endDate : toYMD(today);
+  const result = await generateText({
+    model: scira.languageModel('scira-grok-4-fast'),
+    prompt: query,
+    maxOutputTokens: 10,
+    providerOptions: {
+      xai: {
+        searchParameters: {
+          mode: 'on',
+          fromDate: startDate,
+          toDate: endDate,
+          maxSearchResults: maxResults,
+          returnCitations: true,
+          sources: [
+            {
+              type: 'x',
+              ...(includeXHandles?.length ? { includedXHandles: includeXHandles } : {}),
+              ...(excludeXHandles?.length ? { excludedXHandles: excludeXHandles } : {}),
+              ...(typeof postFavoritesCount === 'number' ? { postFavoriteCount: postFavoritesCount } : {}),
+              ...(typeof postViewCount === 'number' ? { postViewCount: postViewCount } : {}),
+            },
+          ],
+        },
+      } satisfies XaiProviderOptions,
+    },
+  });
 
-    console.log('X search - includeHandles:', normalizedInclude, 'excludeHandles:', normalizedExclude);
+  return extractCitationUrls(result.sources);
+}
 
-    const result = await generateText({
-      model: scira.languageModel('scira-grok-4-fast'),
-      prompt: query,
-      maxOutputTokens: 10,
-      providerOptions: {
-        xai: {
-          searchParameters: {
-            mode: 'on',
-            fromDate: effectiveStart,
-            toDate: effectiveEnd,
-            maxSearchResults: maxResults && maxResults < 15 ? 15 : (maxResults ?? 15),
-            returnCitations: true,
-            sources: [
-              {
-                type: 'x',
-                ...(normalizedInclude?.length ? { includedXHandles: normalizedInclude } : {}),
-                ...(normalizedExclude?.length ? { excludedXHandles: normalizedExclude } : {}),
-                ...(typeof postFavoritesCount === 'number' ? { postFavoriteCount: postFavoritesCount } : {}),
-                ...(typeof postViewCount === 'number' ? { postViewCount: postViewCount } : {}),
-              },
-            ],
-          },
-        } satisfies XaiProviderOptions,
-      },
-    });
-
-    const citations =
-      result.sources.map((source) => (source.sourceType === 'url' ? source.url : null)).filter((url) => url !== null) ||
-      [];
-
-    return citations;
+const xqlTool = tool({
+  description:
+    'Search X posts for recent information and discussions with the ability to filter by X handles, date range, and post engagement metrics.',
+  inputSchema: directXqlRequestSchema,
+  async execute(input) {
+    return executeXqlSearch(input);
   },
 });
 
@@ -139,7 +81,19 @@ export async function POST(req: Request) {
   console.log('🔍 Search API endpoint hit');
 
   const requestStartTime = Date.now();
-  const { messages } = await req.json();
+  const body = await req.json();
+
+  if (body && typeof body === 'object' && 'query' in body) {
+    try {
+      const urls = await executeXqlSearch(body);
+      return Response.json(urls);
+    } catch (error) {
+      console.error('Direct XQL request failed:', error);
+      return new ChatSDKError('bad_request:api', 'Invalid XQL request payload').toResponse();
+    }
+  }
+
+  const { messages } = body;
 
   const user = await getCurrentUser();
 

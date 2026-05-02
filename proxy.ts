@@ -1,5 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
+import { isAuthenticationBypassed } from '@/lib/self-hosted-auth';
 
 const isProtectedRoute = createRouteMatcher(['/lookout(.*)', '/xql(.*)', '/settings(.*)']);
 
@@ -20,11 +21,17 @@ export default clerkMiddleware(async (auth, req) => {
 
   console.log('Pathname: ', pathname);
 
+  if (isAuthenticationBypassed()) {
+    return NextResponse.next();
+  }
+
   // Allow public API routes
   if (
     pathname === '/api/search' ||
+    pathname === '/api/xql' ||
     pathname.startsWith('/new') ||
     pathname.startsWith('/api/search') ||
+    pathname.startsWith('/api/xql') ||
     pathname.startsWith('/api/payments/webhooks') ||
     pathname.startsWith('/api/auth/polar/webhooks') ||
     pathname.startsWith('/api/auth/dodopayments/webhooks') ||

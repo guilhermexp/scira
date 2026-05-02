@@ -1,10 +1,10 @@
-import { auth as clerkAuth } from '@clerk/nextjs/server';
 import { getChatById, getMessagesByChatId, getStreamIdsByChatId } from '@/lib/db/queries';
 import type { Chat } from '@/lib/db/schema';
+import { getAuthenticatedChatUserId } from '@/lib/chat-auth';
 import { ChatSDKError } from '@/lib/errors';
 import type { ChatMessage } from '@/lib/types';
 import { createUIMessageStream, JsonToSseTransformStream } from 'ai';
-import { getStreamContext } from '../../route';
+import { getStreamContext } from '@/lib/search-stream-context';
 import { differenceInSeconds } from 'date-fns';
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -21,7 +21,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return new ChatSDKError('bad_request:api').toResponse();
   }
 
-  const { userId } = await clerkAuth();
+  const userId = await getAuthenticatedChatUserId();
 
   if (!userId) {
     return new ChatSDKError('unauthorized:chat').toResponse();

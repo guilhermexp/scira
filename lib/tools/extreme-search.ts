@@ -17,6 +17,9 @@ import { ChatMessage } from '../types';
 import FirecrawlApp from '@mendable/firecrawl-js';
 import { getTweet } from 'react-tweet/api';
 import { XaiProviderOptions, xai } from '@ai-sdk/xai';
+import { runRedditSearch } from './reddit-search';
+import { runYoutubeSearch } from './youtube-search';
+import { EXTREME_SUPPLEMENTAL_SOURCE_GUIDANCE } from '../extreme-search-tools';
 
 const pythonLibsAvailable = [
   'pandas',
@@ -239,7 +242,7 @@ Plan Guidelines:
 - No need to synthesize your findings into a comprehensive response, just return the results
 - The plan should be concise and to the point, no more than 10 items
 - Keep the titles concise and to the point, no more than 70 characters
-- Mention if the topic needs to use the xSearch tool
+- Mention if the topic needs to use the xSearch, Reddit, or YouTube tools
 - Mention any need for visualizations in the plan
 - Make the plan technical and specific to the topic`,
   });
@@ -307,12 +310,16 @@ For X search:
 - Use the maxResults parameter to limit the number of results, it's the maximum number of results to return
 - Use the startDate and endDate parameters to limit the date range of the search, it's the start and end date of the search
 
+${EXTREME_SUPPLEMENTAL_SOURCE_GUIDANCE}
+
 ### SEARCH STRATEGY EXAMPLES:
 - Topic: "AI model performance" → Search: "GPT-4 benchmark results 2025", "LLM performance comparison studies", "AI model evaluation metrics research"
 - Topic: "Company financials" → Search: "Tesla Q3 2025 earnings report", "Tesla revenue growth analysis", "electric vehicle market share 2025"
 - Topic: "Technical implementation" → Search: "React Server Components best practices", "Next.js performance optimization techniques", "modern web development patterns"
 - Topic: "Public opinion on topic" → X Search: "GPT-4 user reactions", "Tesla stock price discussions", search recent posts from specific handles if relevant
 - Topic: "Breaking news or events" → X Search: "OpenAI latest announcements", "tech conference live updates", "startup funding news"
+- Topic: "Developer pain points or migration stories" → Reddit Search: "Hermes Agent vs OpenClaw reddit", "Hermes Agent setup issues reddit"
+- Topic: "Hands-on setup or product walkthrough" → YouTube Search: "Hermes Agent tutorial", "Hermes Agent demo setup"
 
 
 Only use code when:
@@ -687,6 +694,110 @@ ${JSON.stringify(plan)}
 
             throw error;
           }
+        },
+      },
+      redditSearch: {
+        description: 'Search Reddit for community discussions, troubleshooting, sentiment, migration reports, and practitioner feedback',
+        inputSchema: z.object({
+          queries: z.array(z.string().max(200)).min(1).max(5),
+          maxResults: z.array(z.number()).optional(),
+          timeRange: z.array(z.enum(['day', 'week', 'month', 'year'])).optional(),
+        }),
+        execute: async ({ queries, maxResults, timeRange }, { toolCallId }) => {
+          const displayQuery = `[Reddit] ${queries.join(' | ')}`;
+
+          if (dataStream) {
+            dataStream.write({
+              type: 'data-extreme_search',
+              data: {
+                kind: 'query',
+                queryId: toolCallId,
+                query: displayQuery,
+                status: 'started',
+              },
+            });
+          }
+
+          const result = await runRedditSearch({ queries, maxResults, timeRange });
+
+          if (dataStream) {
+            for (const search of result.searches) {
+              for (const source of search.results) {
+                dataStream.write({
+                  type: 'data-extreme_search',
+                  data: {
+                    kind: 'source',
+                    queryId: toolCallId,
+                    source: { title: source.title || search.query, url: source.url },
+                  },
+                });
+              }
+            }
+
+            dataStream.write({
+              type: 'data-extreme_search',
+              data: {
+                kind: 'query',
+                queryId: toolCallId,
+                query: displayQuery,
+                status: 'completed',
+              },
+            });
+          }
+
+          return result;
+        },
+      },
+      youtubeSearch: {
+        description: 'Search YouTube for walkthroughs, demos, tutorials, launch videos, and conference talks',
+        inputSchema: z.object({
+          query: z.string().max(200),
+          timeRange: z.enum(['day', 'week', 'month', 'year', 'anytime']).optional(),
+        }),
+        execute: async ({ query, timeRange = 'anytime' }, { toolCallId }) => {
+          const displayQuery = `[YouTube] ${query}`;
+
+          if (dataStream) {
+            dataStream.write({
+              type: 'data-extreme_search',
+              data: {
+                kind: 'query',
+                queryId: toolCallId,
+                query: displayQuery,
+                status: 'started',
+              },
+            });
+          }
+
+          const result = await runYoutubeSearch({ query, timeRange });
+
+          if (dataStream) {
+            for (const video of result.results) {
+              dataStream.write({
+                type: 'data-extreme_search',
+                data: {
+                  kind: 'source',
+                  queryId: toolCallId,
+                  source: {
+                    title: video.details?.title || video.videoId,
+                    url: video.url,
+                  },
+                },
+              });
+            }
+
+            dataStream.write({
+              type: 'data-extreme_search',
+              data: {
+                kind: 'query',
+                queryId: toolCallId,
+                query: displayQuery,
+                status: 'completed',
+              },
+            });
+          }
+
+          return result;
         },
       },
     },

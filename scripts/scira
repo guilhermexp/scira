@@ -1,0 +1,596 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_NAME="scira"
+DEFAULT_BASE_URL="${SCIRA_BASE_URL:-http://localhost:3000}"
+DEFAULT_PUBLIC_MODEL="${SCIRA_DEFAULT_MODEL:-xai:grok-4.1-fast}"
+DEFAULT_TIMEZONE="${SCIRA_TIMEZONE:-America/Sao_Paulo}"
+CURL_BIN="${SCIRA_CURL_BIN:-curl}"
+JQ_BIN="${SCIRA_JQ_BIN:-jq}"
+
+if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+  COLOR_BLUE=$'\033[34m'
+  COLOR_CYAN=$'\033[36m'
+  COLOR_GREEN=$'\033[32m'
+  COLOR_YELLOW=$'\033[33m'
+  COLOR_MAGENTA=$'\033[35m'
+  COLOR_DIM=$'\033[2m'
+  COLOR_BOLD=$'\033[1m'
+  COLOR_RESET=$'\033[0m'
+else
+  COLOR_BLUE=''
+  COLOR_CYAN=''
+  COLOR_GREEN=''
+  COLOR_YELLOW=''
+  COLOR_MAGENTA=''
+  COLOR_DIM=''
+  COLOR_BOLD=''
+  COLOR_RESET=''
+fi
+
+print_error() {
+  printf '%s: %s\n' "$SCRIPT_NAME" "$*" >&2
+}
+
+die() {
+  print_error "$@"
+  exit 1
+}
+
+have_cmd() {
+  local candidate="$1"
+  if [[ "$candidate" == */* ]]; then
+    [[ -x "$candidate" ]]
+  else
+    command -v "$candidate" >/dev/null 2>&1
+  fi
+}
+
+require_cmd() {
+  local candidate="$1"
+  have_cmd "$candidate" || die "dependencia ausente: $candidate"
+}
+
+list_commands() {
+  cat <<'EOF'
+search
+academic
+youtube
+reddit
+extreme
+analysis
+chat
+x
+EOF
+}
+
+show_help() {
+  cat <<EOF
+${COLOR_BOLD}scira${COLOR_RESET} - CLI para os endpoints de busca do Scira
+
+Uso:
+  scira search "query"
+  scira academic "query"
+  scira youtube "query"
+  scira reddit "query"
+  scira extreme "query"
+  scira analysis "query"
+  scira chat "query"
+  scira x "query" [flags]
+
+Subcomandos:
+$(list_commands | sed 's/^/  /')
+
+Flags globais:
+  --base-url URL      Base URL do Scira (default: $DEFAULT_BASE_URL)
+  --model MODEL       Modelo publico da CLI (default: $DEFAULT_PUBLIC_MODEL)
+  --raw               Saida bruta do endpoint
+  --no-stream         Espera a resposta completa antes de parsear
+  --list              Lista subcomandos
+  --help              Mostra esta ajuda
+
+Flags do subcomando x:
+  --since VALUE       Intervalo relativo (7d, 1w, 2m) ou data YYYY-MM-DD
+  --until VALUE       Data final YYYY-MM-DD ou relativa
+  -h, --handle NAME   Inclui handle sem @
+  --exclude NAME      Exclui handle sem @
+  --min-likes N       Minimo de likes
+  --min-views N       Minimo de views
+  --max-results N     Maximo de resultados (default: 15)
+
+Exemplos:
+  scira search "latest bun release notes"
+  scira extreme "state of AI agents in 2026"
+  scira analysis "compare bun and node http performance"
+  scira x "openai agents" --since 7d -h sama --min-likes 100
+EOF
+}
+
+sanitize_handle() {
+  local value="$1"
+  value="${value#@}"
+  printf '%s' "$value"
+}
+
+resolve_backend_model() {
+  local model="$1"
+  case "$model" in
+    xai:grok-4.1-fast)
+      printf 'scira-grok4.1-fast-thinking'
+      ;;
+    xai:grok-4-fast)
+      printf 'scira-grok-4-fast'
+      ;;
+    *)
+      printf '%s' "$model"
+      ;;
+  esac
+}
+
+resolve_group() {
+  local command="$1"
+  case "$command" in
+    search) printf 'web' ;;
+    academic|youtube|reddit|extreme|chat) printf '%s' "$command" ;;
+    analysis) printf 'code' ;;
+    *)
+      die "subcomando invalido: $command"
+      ;;
+  esac
+}
+
+json_array() {
+  if (($# == 0)); then
+    printf '[]'
+    return 0
+  fi
+
+  printf '%s\n' "$@" | "$JQ_BIN" -R . | "$JQ_BIN" -cs .
+}
+
+today_ymd() {
+  if [[ -n "${SCIRA_NOW:-}" ]]; then
+    printf '%s' "$SCIRA_NOW"
+  else
+    date '+%Y-%m-%d'
+  fi
+}
+
+subtract_date() {
+  local base="$1"
+  local amount="$2"
+  local unit="$3"
+  local modifier=''
+
+  if date -j -f '%Y-%m-%d' "$base" '+%Y-%m-%d' >/dev/null 2>&1; then
+    case "$unit" in
+      d) modifier="-v-${amount}d" ;;
+      w) modifier="-v-$((amount * 7))d" ;;
+      m) modifier="-v-${amount}m" ;;
+      y) modifier="-v-${amount}y" ;;
+      *) die "unidade relativa invalida: $unit" ;;
+    esac
+    date -j "$modifier" -f '%Y-%m-%d' "$base" '+%Y-%m-%d'
+    return 0
+  fi
+
+  case "$unit" in
+    d) date -d "$base - ${amount} days" '+%Y-%m-%d' ;;
+    w) date -d "$base - $((amount * 7)) days" '+%Y-%m-%d' ;;
+    m) date -d "$base - ${amount} months" '+%Y-%m-%d' ;;
+    y) date -d "$base - ${amount} years" '+%Y-%m-%d' ;;
+    *) die "unidade relativa invalida: $unit" ;;
+  esac
+}
+
+resolve_date_input() {
+  local value="$1"
+  local base_date
+  base_date="$(today_ymd)"
+
+  if [[ "$value" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+    printf '%s' "$value"
+    return 0
+  fi
+
+  if [[ "$value" =~ ^([0-9]+)([dwmy])$ ]]; then
+    subtract_date "$base_date" "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+    return 0
+  fi
+
+  die "data invalida: $value"
+}
+
+print_label() {
+  local color="$1"
+  local label="$2"
+  local message="$3"
+  printf '%b[%s]%b %s\n' "$color" "$label" "$COLOR_RESET" "$message"
+}
+
+extract_message_text() {
+  local event_json="$1"
+  "$JQ_BIN" -r '
+    def message_data:
+      if (.data | type) == "string" then (.data | fromjson? // {})
+      elif (.data | type) == "object" then .data
+      else {}
+      end;
+
+    message_data
+    | if (.parts | type) == "array" then
+        [.parts[]? | select(.type == "text") | .text] | join("")
+      elif (.message | type) == "string" then
+        .message
+      elif (.content | type) == "string" then
+        .content
+      else
+        ""
+      end
+  ' <<<"$event_json"
+}
+
+consume_search_sse() {
+  local line json event_type kind text delta
+  local last_text=""
+  local text_open=0
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" ]] && continue
+    [[ "$line" == "data: [DONE]" ]] && continue
+    [[ "$line" != *:* ]] && continue
+
+    if [[ "$line" == data:* ]]; then
+      json="${line#data: }"
+    else
+      json="${line#*:}"
+    fi
+    if ! "$JQ_BIN" -e . >/dev/null 2>&1 <<<"$json"; then
+      continue
+    fi
+
+    event_type="$("$JQ_BIN" -r '.type // empty' <<<"$json")"
+
+    case "$event_type" in
+      data-extreme_search)
+        if ((text_open)); then
+          printf '\n'
+          text_open=0
+        fi
+        kind="$("$JQ_BIN" -r '.data.kind // empty' <<<"$json")"
+        case "$kind" in
+          plan)
+            print_label "$COLOR_BLUE" "Plan" "$("$JQ_BIN" -r '.data.status.title // "planejando"' <<<"$json")"
+            ;;
+          query)
+            print_label "$COLOR_CYAN" "Research" "$("$JQ_BIN" -r '.data.query // ""' <<<"$json")"
+            ;;
+          source)
+            print_label "$COLOR_GREEN" "Source" "$("$JQ_BIN" -r '.data.source.url // ""' <<<"$json")"
+            ;;
+          content)
+            print_label "$COLOR_YELLOW" "Content" "$("$JQ_BIN" -r '.data.content.title // ""' <<<"$json")"
+            ;;
+          code)
+            print_label "$COLOR_MAGENTA" "Code" "executando"
+            ;;
+          x_search)
+            print_label "$COLOR_CYAN" "X" "$("$JQ_BIN" -r '.data.query // ""' <<<"$json")"
+            ;;
+        esac
+        ;;
+      data-appendMessage)
+        text="$(extract_message_text "$json")"
+        [[ -z "$text" ]] && continue
+        if [[ "$text" == "$last_text" ]]; then
+          continue
+        fi
+        if [[ "$text" == "$last_text"* ]]; then
+          delta="${text#$last_text}"
+        else
+          if ((text_open)); then
+            printf '\n'
+          fi
+          delta="$text"
+        fi
+        printf '%s' "$delta"
+        last_text="$text"
+        if [[ "$delta" == *$'\n' ]]; then
+          text_open=0
+        else
+          text_open=1
+        fi
+        ;;
+      text-delta)
+        delta="$("$JQ_BIN" -r '.delta // ""' <<<"$json")"
+        [[ -z "$delta" ]] && continue
+        printf '%s' "$delta"
+        if [[ "$delta" == *$'\n' ]]; then
+          text_open=0
+        else
+          text_open=1
+        fi
+        ;;
+      text-end)
+        if ((text_open)); then
+          printf '\n'
+          text_open=0
+        fi
+        ;;
+      data-tool-result|tool-result)
+        if ((text_open)); then
+          printf '\n'
+          text_open=0
+        fi
+        print_label "$COLOR_DIM" "Tool" "$("$JQ_BIN" -c '.data // .' <<<"$json")"
+        ;;
+      tool-output-error)
+        if ((text_open)); then
+          printf '\n'
+          text_open=0
+        fi
+        print_label "$COLOR_DIM" "Tool" "$("$JQ_BIN" -r '.errorText // "erro de tool"' <<<"$json")"
+        ;;
+    esac
+  done
+
+  if ((text_open)); then
+    printf '\n'
+  fi
+}
+
+format_xql_json() {
+  local payload="$1"
+  local result_count
+
+  if ! "$JQ_BIN" -e 'type == "array"' >/dev/null 2>&1 <<<"$payload"; then
+    printf '%s\n' "$payload"
+    return 0
+  fi
+
+  result_count="$("$JQ_BIN" 'length' <<<"$payload")"
+  if [[ "$result_count" == "0" ]]; then
+    print_label "$COLOR_DIM" "X" "nenhum resultado"
+    return 0
+  fi
+
+  "$JQ_BIN" -r 'to_entries[] | "\(.key + 1). \(.value)"' <<<"$payload"
+}
+
+run_request() {
+  local url="$1"
+  local payload="$2"
+  local stream="$3"
+
+  local curl_args=(-sS -X POST "$url" -H 'Content-Type: application/json' --data-binary "$payload")
+  if [[ "$stream" == "1" ]]; then
+    curl_args=(-sS -N -X POST "$url" -H 'Content-Type: application/json' --data-binary "$payload")
+  fi
+
+  "$CURL_BIN" "${curl_args[@]}"
+}
+
+BASE_URL="$DEFAULT_BASE_URL"
+MODEL_PUBLIC="$DEFAULT_PUBLIC_MODEL"
+TIMEZONE="$DEFAULT_TIMEZONE"
+RAW=0
+STREAM=1
+SINCE=""
+UNTIL=""
+MIN_LIKES=""
+MIN_VIEWS=""
+MAX_RESULTS="15"
+QUERY=""
+COMMAND=""
+declare -a INCLUDE_HANDLES=()
+declare -a EXCLUDE_HANDLES=()
+declare -a EXTRA_ARGS=()
+
+require_cmd "$CURL_BIN"
+require_cmd "$JQ_BIN"
+
+if (($# == 0)); then
+  show_help
+  exit 0
+fi
+
+case "${1:-}" in
+  --help|help)
+    show_help
+    exit 0
+    ;;
+  --list|list)
+    list_commands
+    exit 0
+    ;;
+esac
+
+COMMAND="$1"
+shift
+
+while (($#)); do
+  case "$1" in
+    --help)
+      show_help
+      exit 0
+      ;;
+    --list)
+      list_commands
+      exit 0
+      ;;
+    --base-url)
+      [[ $# -ge 2 ]] || die "--base-url exige um valor"
+      BASE_URL="$2"
+      shift 2
+      ;;
+    --model)
+      [[ $# -ge 2 ]] || die "--model exige um valor"
+      MODEL_PUBLIC="$2"
+      shift 2
+      ;;
+    --raw)
+      RAW=1
+      shift
+      ;;
+    --no-stream)
+      STREAM=0
+      shift
+      ;;
+    --since)
+      [[ $# -ge 2 ]] || die "--since exige um valor"
+      SINCE="$2"
+      shift 2
+      ;;
+    --until)
+      [[ $# -ge 2 ]] || die "--until exige um valor"
+      UNTIL="$2"
+      shift 2
+      ;;
+    -h|--handle)
+      [[ $# -ge 2 ]] || die "$1 exige um valor"
+      INCLUDE_HANDLES+=("$(sanitize_handle "$2")")
+      shift 2
+      ;;
+    --exclude)
+      [[ $# -ge 2 ]] || die "--exclude exige um valor"
+      EXCLUDE_HANDLES+=("$(sanitize_handle "$2")")
+      shift 2
+      ;;
+    --min-likes)
+      [[ $# -ge 2 ]] || die "--min-likes exige um valor"
+      MIN_LIKES="$2"
+      shift 2
+      ;;
+    --min-views)
+      [[ $# -ge 2 ]] || die "--min-views exige um valor"
+      MIN_VIEWS="$2"
+      shift 2
+      ;;
+    --max-results)
+      [[ $# -ge 2 ]] || die "--max-results exige um valor"
+      MAX_RESULTS="$2"
+      shift 2
+      ;;
+    --)
+      shift
+      while (($#)); do
+        EXTRA_ARGS+=("$1")
+        shift
+      done
+      ;;
+    -*)
+      die "flag desconhecida: $1"
+      ;;
+    *)
+      if [[ -z "$QUERY" ]]; then
+        QUERY="$1"
+      else
+        EXTRA_ARGS+=("$1")
+      fi
+      shift
+      ;;
+  esac
+done
+
+if ((${#EXTRA_ARGS[@]} > 0)); then
+  die "argumentos extras nao suportados: ${EXTRA_ARGS[*]}"
+fi
+
+if [[ -z "$QUERY" ]]; then
+  die "informe uma query"
+fi
+
+BASE_URL="${BASE_URL%/}"
+
+case "$COMMAND" in
+  x)
+    [[ ${#INCLUDE_HANDLES[@]} -eq 0 || ${#EXCLUDE_HANDLES[@]} -eq 0 ]] || die "use include ou exclude, nunca ambos"
+    [[ -z "$MIN_LIKES" || "$MIN_LIKES" =~ ^[0-9]+$ ]] || die "--min-likes deve ser numerico"
+    [[ -z "$MIN_VIEWS" || "$MIN_VIEWS" =~ ^[0-9]+$ ]] || die "--min-views deve ser numerico"
+    [[ "$MAX_RESULTS" =~ ^[0-9]+$ ]] || die "--max-results deve ser numerico"
+
+    start_date=''
+    end_date=''
+    if [[ -n "$SINCE" ]]; then
+      start_date="$(resolve_date_input "$SINCE")"
+    fi
+    if [[ -n "$UNTIL" ]]; then
+      end_date="$(resolve_date_input "$UNTIL")"
+    fi
+
+    if ((${#INCLUDE_HANDLES[@]} > 0)); then
+      include_json="$(json_array "${INCLUDE_HANDLES[@]}")"
+    else
+      include_json='[]'
+    fi
+
+    if ((${#EXCLUDE_HANDLES[@]} > 0)); then
+      exclude_json="$(json_array "${EXCLUDE_HANDLES[@]}")"
+    else
+      exclude_json='[]'
+    fi
+    payload="$("$JQ_BIN" -cn \
+      --arg query "$QUERY" \
+      --arg start_date "$start_date" \
+      --arg end_date "$end_date" \
+      --argjson include_handles "$include_json" \
+      --argjson exclude_handles "$exclude_json" \
+      --argjson min_likes "${MIN_LIKES:-null}" \
+      --argjson min_views "${MIN_VIEWS:-null}" \
+      --argjson max_results "$MAX_RESULTS" '
+        { query: $query, maxResults: $max_results }
+        + (if $start_date != "" then { startDate: $start_date } else {} end)
+        + (if $end_date != "" then { endDate: $end_date } else {} end)
+        + (if ($include_handles | length) > 0 then { includeXHandles: $include_handles } else {} end)
+        + (if ($exclude_handles | length) > 0 then { excludeXHandles: $exclude_handles } else {} end)
+        + (if $min_likes != null then { postFavoritesCount: $min_likes } else {} end)
+        + (if $min_views != null then { postViewCount: $min_views } else {} end)
+      ')"
+
+    if ((RAW)); then
+      run_request "$BASE_URL/api/xql" "$payload" "0"
+    else
+      response="$(run_request "$BASE_URL/api/xql" "$payload" "0")"
+      format_xql_json "$response"
+    fi
+    ;;
+  search|academic|youtube|reddit|extreme|analysis|chat)
+    backend_model="$(resolve_backend_model "$MODEL_PUBLIC")"
+    group="$(resolve_group "$COMMAND")"
+    session_id="$(date '+%s')"
+    payload="$("$JQ_BIN" -cn \
+      --arg query "$QUERY" \
+      --arg model "$backend_model" \
+      --arg group "$group" \
+      --arg timezone "$TIMEZONE" \
+      --arg session_id "$session_id" '
+        {
+          messages: [
+            {
+              id: "cli",
+              role: "user",
+              parts: [{ type: "text", text: $query }]
+            }
+          ],
+          model: $model,
+          group: $group,
+          timezone: $timezone,
+          id: ("cli-" + $session_id)
+        }
+      ')"
+
+    if ((RAW)); then
+      run_request "$BASE_URL/api/search" "$payload" "$STREAM"
+    else
+      if ((STREAM)); then
+        run_request "$BASE_URL/api/search" "$payload" "1" | consume_search_sse
+      else
+        response="$(run_request "$BASE_URL/api/search" "$payload" "0")"
+        printf '%s\n' "$response" | consume_search_sse
+      fi
+    fi
+    ;;
+  *)
+    die "subcomando invalido: $COMMAND"
+    ;;
+esac

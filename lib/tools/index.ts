@@ -8,6 +8,7 @@ export { trendingMoviesTool } from './trending-movies';
 export { trendingTvTool } from './trending-tv';
 export { academicSearchTool } from './academic-search';
 export { youtubeSearchTool } from './youtube-search';
+export { videoSearchTool } from './video-search';
 export { retrieveTool } from './retrieve';
 export { weatherTool } from './weather';
 export { codeInterpreterTool } from './code-interpreter';

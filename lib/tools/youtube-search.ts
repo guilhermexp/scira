@@ -46,6 +46,20 @@ export const youtubeSearchTool = tool({
     query: string;
     timeRange: 'day' | 'week' | 'month' | 'year' | 'anytime';
   }) => {
+    return runYoutubeSearch({
+      query,
+      timeRange,
+    });
+  },
+});
+
+export async function runYoutubeSearch({
+  query,
+  timeRange,
+}: {
+  query: string;
+  timeRange: 'day' | 'week' | 'month' | 'year' | 'anytime';
+}) {
     try {
       const exa = new Exa(serverEnv.EXA_API_KEY as string);
 
@@ -401,5 +415,4 @@ export const youtubeSearchTool = tool({
       console.error('YouTube search error:', error);
       throw error;
     }
-  },
-});
+}

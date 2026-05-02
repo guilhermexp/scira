@@ -29,7 +29,7 @@ interface CitationLink {
 const geistMono = Geist_Mono({
   subsets: ['latin'],
   variable: '--font-mono',
-  preload: true,
+  preload: false,
   display: 'swap',
 });
 

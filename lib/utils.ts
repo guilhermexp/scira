@@ -14,6 +14,7 @@ import {
   AppleStocksIcon,
   ConnectIcon,
   CodeCircleIcon,
+  VideoReplayIcon,
 } from '@hugeicons/core-free-icons';
 
 export function cn(...inputs: ClassValue[]) {
@@ -25,6 +26,7 @@ export type SearchGroupId =
   | 'x'
   | 'academic'
   | 'youtube'
+  | 'videos'
   | 'reddit'
   | 'stocks'
   | 'chat'
@@ -149,6 +151,13 @@ export function getSearchGroups(searchProvider: SearchProvider = 'parallel') {
       name: 'YouTube',
       description: 'Search YouTube videos powered by Exa',
       icon: YoutubeIcon,
+      show: true,
+    },
+    {
+      id: 'videos' as const,
+      name: 'Videos',
+      description: 'Search videos across YouTube, X, TikTok, Instagram and other video sites',
+      icon: VideoReplayIcon,
       show: true,
     },
   ] as const;
