@@ -1,0 +1,28 @@
+{
+  "createdAt": "2026-05-04T02:51:28+00:00",
+  "repo": "https://github.com/zaidmukaddam/scira.git",
+  "mode": "personal-fork",
+  "database": "neon-postgres",
+  "integrations": {
+    "keep": [
+      "better-auth",
+      "github-oauth",
+      "ai-providers",
+      "search-apis",
+      "maps",
+      "email",
+      "storage",
+      "redis"
+    ],
+    "remove": [
+      "polar",
+      "dodo-payments",
+      "subscription",
+      "billing",
+      "trial",
+      "license",
+      "analytics-required"
+    ]
+  },
+  "notes": null
+}

@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
-import { deleteTrailingMessages, branchOutChat } from '@/app/actions';
+import { deleteTrailingMessages } from '@/app/chat-actions';
 import { sileo } from 'sileo';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
@@ -2858,6 +2858,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                                 }
 
                                 // Branch out the chat
+                                const { branchOutChat } = await import('@/app/actions');
                                 const result = await branchOutChat({
                                   userMessage: userMessage as any,
                                   assistantMessage: message as any,

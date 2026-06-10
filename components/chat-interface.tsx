@@ -17,7 +17,7 @@ import { sileo } from 'sileo';
 import { v7 as uuidv7 } from 'uuid';
 
 // Internal app imports
-import { suggestQuestions, updateChatVisibility, getChatMeta } from '@/app/actions';
+import { updateChatVisibility, getChatMeta } from '@/app/chat-actions';
 
 // Component imports
 import { ChatDialogs } from '@/components/chat-dialogs';
@@ -41,7 +41,7 @@ import {
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
-import { deleteChat, updateChatTitle } from '@/app/actions';
+import { deleteChat, updateChatTitle } from '@/app/chat-actions';
 import { ButtonGroup } from '@/components/ui/button-group';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
@@ -101,6 +101,16 @@ interface AutoRouterConfig {
 }
 
 const INITIAL_QUERY_DEDUPE_WINDOW_MS = 5000;
+
+type SuggestionMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
+async function loadSuggestedQuestions(history: SuggestionMessage[]) {
+  const { suggestQuestions } = await import('@/app/suggest-questions-action');
+  return suggestQuestions(history);
+}
 
 const ChatInterface = memo(
   ({
@@ -689,12 +699,12 @@ const ChatInterface = memo(
           if (lastSuggestionKeyRef.current === suggestionKey) return;
           lastSuggestionKeyRef.current = suggestionKey;
 
-          const newHistory = [
+          const newHistory: SuggestionMessage[] = [
             { role: 'user', content: userText },
             { role: 'assistant', content: assistantText },
           ];
 
-          void suggestQuestions(newHistory)
+          void loadSuggestedQuestions(newHistory)
             .then(({ questions }) => {
               dispatch({ type: 'SET_SUGGESTED_QUESTIONS', payload: questions });
             })
@@ -932,7 +942,7 @@ const ChatInterface = memo(
               return message.content || '';
             };
 
-            const newHistory = [
+            const newHistory: SuggestionMessage[] = [
               { role: 'user', content: getMessageText(lastUserMessage) },
               { role: 'assistant', content: getMessageText(lastAssistantMessage) },
             ];
@@ -943,7 +953,7 @@ const ChatInterface = memo(
             if (lastSuggestionKeyRef.current === suggestionKey) return;
             lastSuggestionKeyRef.current = suggestionKey;
 
-            void suggestQuestions(newHistory)
+            void loadSuggestedQuestions(newHistory)
               .then(({ questions }) => {
                 if (!isCancelled) {
                   dispatch({ type: 'SET_SUGGESTED_QUESTIONS', payload: questions });

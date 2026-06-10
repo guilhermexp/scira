@@ -30,12 +30,15 @@ type PreferenceValue = string | string[] | boolean | AutoRouterConfig | undefine
 
 const DEBOUNCE_MS = 300; // Debounce DB writes by 300ms
 const MIGRATION_KEY_PREFIX = 'scira-prefs-migrated-';
+const isSelfHostedPersonalUse = process.env.NEXT_PUBLIC_SELF_HOSTED_PERSONAL_USE === 'true';
 
 interface UserPreferencesRecord {
   preferences?: Partial<Record<PreferenceKey, PreferenceValue>>;
 }
 
 async function fetchUserPreferences(): Promise<UserPreferencesRecord | null> {
+  if (isSelfHostedPersonalUse) return null;
+
   const response = await fetch('/api/preferences', {
     method: 'GET',
     cache: 'no-store',
@@ -51,6 +54,8 @@ async function fetchUserPreferences(): Promise<UserPreferencesRecord | null> {
 async function persistUserPreferences(
   preferences: Partial<Record<PreferenceKey, PreferenceValue>>,
 ): Promise<void> {
+  if (isSelfHostedPersonalUse) return;
+
   const response = await fetch('/api/preferences', {
     method: 'POST',
     credentials: 'include',
@@ -147,7 +152,7 @@ export function useSyncedPreferences<T extends PreferenceValue>(
   const { data: dbPreferences } = useQuery({
     queryKey: ['userPreferences', user?.id],
     queryFn: fetchUserPreferences,
-    enabled: !!user,
+    enabled: !!user && !isSelfHostedPersonalUse,
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: false,
     refetchOnMount: false,
@@ -155,6 +160,7 @@ export function useSyncedPreferences<T extends PreferenceValue>(
 
   // Migrate localStorage to DB on first load
   useEffect(() => {
+    if (isSelfHostedPersonalUse) return;
     if (!user?.id || hasMigratedPreferences(user.id)) return;
 
     const localPrefs = collectLocalStoragePreferences();
@@ -247,6 +253,7 @@ export function useSyncedPreferences<T extends PreferenceValue>(
   // Debounced function to save to DB
   const saveToDB = useCallback(
     (updates: Partial<Record<PreferenceKey, PreferenceValue>>) => {
+      if (isSelfHostedPersonalUse) return;
       if (!user?.id) return;
 
       // Mark that we have a pending save
@@ -335,4 +342,3 @@ export function useSyncedPreferences<T extends PreferenceValue>(
 
   return [localValue, setValue];
 }
-

@@ -390,6 +390,8 @@ export async function getStreamContext() {
 
 export async function POST(req: Request) {
   const requestStartTime = Date.now();
+  const isSelfHostedPersonalUse =
+    process.env.SELF_HOSTED_BYPASS_AUTH === 'true' || process.env.SELF_HOSTED_PERSONAL_USE === 'true';
   const preStreamTimings: { label: string; durationMs: number }[] = [];
   const shouldLogTimings = process.env.NODE_ENV !== 'production' && process.env.DEBUG_PERF === '1';
 
@@ -1551,15 +1553,17 @@ export async function POST(req: Request) {
             if (lightweightUser?.userId && event.finishReason === 'stop') {
               // Track usage synchronously - this is critical for billing and rate limiting
               try {
-                const shouldTrackMessageUsage = !shouldBypassRateLimits(model, lightweightUser);
+                const shouldTrackMessageUsage = !isSelfHostedPersonalUse && !shouldBypassRateLimits(model, lightweightUser);
                 const shouldTrackExtremeSearchUsage =
+                  !isSelfHostedPersonalUse &&
                   group === 'extreme' &&
                   event.steps?.some((step) =>
                     step.toolCalls?.some((toolCall) => toolCall && toolCall.toolName === 'extreme_search'),
                   );
-                const shouldTrackAnthropicUsage = getModelProvider(model) === 'anthropic' && lightweightUser.isMaxUser;
+                const shouldTrackAnthropicUsage =
+                  !isSelfHostedPersonalUse && getModelProvider(model) === 'anthropic' && lightweightUser.isMaxUser;
                 const shouldTrackGoogleUsage =
-                  getModelProvider(model) === 'google' && lightweightUser.isMaxUser;
+                  !isSelfHostedPersonalUse && getModelProvider(model) === 'google' && lightweightUser.isMaxUser;
 
                 if (
                   shouldTrackMessageUsage ||

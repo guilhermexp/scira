@@ -1117,7 +1117,7 @@ export async function getCustomInstructionsByUserId({ userId }: { userId: string
       .where(eq(customInstructions.userId, userId))
       .limit(1);
 
-    return instructions;
+    return instructions ?? null;
   } catch (error) {
     console.error('Error getting custom instructions:', error);
     return null;
@@ -1172,6 +1172,8 @@ export async function deleteCustomInstructions({ userId }: { userId: string }) {
 
 // User Preferences CRUD operations
 export async function getUserPreferencesByUserId({ userId }: { userId: string }) {
+  if (process.env.SELF_HOSTED_DISABLE_USER_PREFERENCES === 'true') return null;
+
   try {
     const [preferences] = await maindb
       .select()
@@ -1217,6 +1219,8 @@ export async function upsertUserPreferences({
     };
   }>;
 }) {
+  if (process.env.SELF_HOSTED_DISABLE_USER_PREFERENCES === 'true') return null;
+
   try {
     // Use transaction to ensure atomicity of read-modify-write
     return await maindb.transaction(async (tx) => {

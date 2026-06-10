@@ -4,6 +4,7 @@ let publisher: ReturnType<typeof createClient> | null = null;
 let subscriber: ReturnType<typeof createClient> | null = null;
 
 export function getResumableStreamClients() {
+  if (process.env.SELF_HOSTED_DISABLE_RESUMABLE_STREAMS === 'true') return null;
   if (!process.env.REDIS_URL) return null;
 
   if (!publisher) {

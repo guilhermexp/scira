@@ -1,0 +1,97 @@
+$ next build
+▲ Next.js 16.2.1-canary.2 (Turbopack)
+- Environments: .env.local, .env
+- Experiments (use with caution):
+  · optimizePackageImports
+  · serverActions
+  · staleTimes
+  ✓ turbopackFileSystemCacheForBuild
+  ✓ webpackMemoryOptimizations
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 7.0s
+  Running TypeScript ...
+  Finished TypeScript in 35.3s ...
+  Collecting page data using 10 workers ...
+(node:8370) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+  Generating static pages using 10 workers (0/50) ...
+  Generating static pages using 10 workers (12/50) 
+  Generating static pages using 10 workers (24/50) 
+(node:8372) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+  Generating static pages using 10 workers (37/50) 
+✓ Generating static pages using 10 workers (50/50) in 1686ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /about
+├ ƒ /api/auth/[...all]
+├ ƒ /api/clean_images
+├ ƒ /api/export/docx
+├ ƒ /api/export/pdf
+├ ƒ /api/lookout
+├ ƒ /api/mcp/apps/bridge
+├ ƒ /api/mcp/apps/resource/read
+├ ƒ /api/mcp/elicitation/respond
+├ ƒ /api/mcp/oauth/callback
+├ ƒ /api/mcp/oauth/client-metadata/[serverId]
+├ ƒ /api/mcp/servers
+├ ƒ /api/mcp/servers/[id]
+├ ƒ /api/mcp/servers/[id]/oauth/callback
+├ ƒ /api/mcp/servers/[id]/oauth/disconnect
+├ ƒ /api/mcp/servers/[id]/oauth/start
+├ ƒ /api/mcp/servers/[id]/tools
+├ ƒ /api/mcp/servers/test
+├ ƒ /api/og/chat/[id]
+├ ƒ /api/og/x-wrapped
+├ ƒ /api/preferences
+├ ƒ /api/proxy-image
+├ ƒ /api/raycast
+├ ƒ /api/search
+├ ƒ /api/search/[id]/stop
+├ ƒ /api/search/[id]/stream
+├ ƒ /api/suggest
+├ ƒ /api/transcribe
+├ ƒ /api/upload
+├ ƒ /api/x-wrapped
+├ ƒ /api/xql
+├ ○ /apple-icon.png
+├ ○ /apps
+├ ○ /apps/opengraph-image.png
+├ ○ /apps/twitter-image.png
+├ ƒ /connectors/[provider]/callback
+├ ○ /icon.png
+├ ○ /lookout
+├ ○ /lookout/opengraph-image.png
+├ ○ /lookout/twitter-image.png
+├ ○ /manifest.webmanifest
+├ ○ /new
+├ ○ /opengraph-image.png
+├ ƒ /pricing
+├ ○ /privacy-policy
+├ ○ /robots.txt
+├ ƒ /search/[id]
+├ ○ /searches
+├ ○ /settings
+├ ƒ /share/[id]
+├ ○ /sign-in
+├ ○ /sign-up
+├ ○ /success
+├ ○ /terms
+├ ○ /twitter-image.png
+├ ○ /voice
+├ ○ /voice/opengraph-image.png
+├ ○ /voice/twitter-image.png
+├ ○ /x-wrapped
+├ ƒ /x-wrapped/[username]
+└ ○ /xql
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

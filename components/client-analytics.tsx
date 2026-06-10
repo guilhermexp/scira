@@ -15,6 +15,8 @@ const SpeedInsights = dynamic(
 );
 
 export function ClientAnalytics(): React.JSX.Element {
+  if (process.env.NEXT_PUBLIC_ENABLE_ANALYTICS !== '1') return <></>;
+
   return (
     <>
       <Analytics />

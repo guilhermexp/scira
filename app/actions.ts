@@ -137,6 +137,8 @@ export async function getChatMeta(chatId: string, viewerUserId?: string) {
 export async function getUserCountryCode() {
   'use server';
 
+  if (process.env.SELF_HOSTED_DISABLE_VERCEL_GEOLOCATION === 'true') return null;
+
   try {
     const headersList = await headers();
 
@@ -156,16 +158,21 @@ export async function getUserCountryCode() {
 export async function suggestQuestions(history: any[]) {
   'use server';
 
+  if (process.env.SELF_HOSTED_DISABLE_SUGGESTED_QUESTIONS === 'true') {
+    return { questions: [] };
+  }
+
   console.log(history);
 
-  const { output } = await generateText({
-    model: scira.languageModel('scira-follow-up'),
-    providerOptions: {
-      google: {
-        structuredOutputs: true,
-      } satisfies GoogleGenerativeAIProviderOptions,
-    },
-    system: `You are a search engine follow up query/questions generator. You MUST create between 3 and 5 questions for the search engine based on the conversation history.
+  try {
+    const { output } = await generateText({
+      model: scira.languageModel('scira-follow-up'),
+      providerOptions: {
+        google: {
+          structuredOutputs: true,
+        } satisfies GoogleGenerativeAIProviderOptions,
+      },
+      system: `You are a search engine follow up query/questions generator. You MUST create between 3 and 5 questions for the search engine based on the conversation history.
 
 ### Question Generation Guidelines:
 - Create 3-5 questions that are open-ended and encourage further discussion
@@ -210,21 +217,25 @@ JSON Output Schema:
   ]
 }
 `,
-    messages: history,
-    output: Output.object({
-      schema: z.object({
-        questions: z
-          .array(z.string().max(150))
-          .describe('The generated questions based on the message history.')
-          .min(3)
-          .max(5),
+      messages: history,
+      output: Output.object({
+        schema: z.object({
+          questions: z
+            .array(z.string().max(150))
+            .describe('The generated questions based on the message history.')
+            .min(3)
+            .max(5),
+        }),
       }),
-    }),
-  });
+    });
 
-  return {
-    questions: output.questions,
-  };
+    return {
+      questions: output.questions,
+    };
+  } catch (error) {
+    console.warn('Suggested questions disabled after generation failure:', error);
+    return { questions: [] };
+  }
 }
 
 export async function checkImageModeration(images: string[]) {
@@ -409,6 +420,10 @@ export async function getRecentChats(
   try {
     return await getRecentChatsByUserId({ userId, limit });
   } catch (error) {
+    if (process.env.SELF_HOSTED_PERSONAL_USE === 'true') {
+      return { chats: [], hasMore: false };
+    }
+
     console.error('Error fetching recent chats:', error);
     return { chats: [], hasMore: false };
   }
@@ -1064,6 +1079,10 @@ export async function getUserMessageCount(providedUser?: User | null) {
   'use server';
 
   try {
+    if (process.env.SELF_HOSTED_PERSONAL_USE === 'true') {
+      return { count: 0, error: null };
+    }
+
     const user = providedUser || (await getUser());
     if (!user) {
       return { count: 0, error: 'User not found' };
@@ -1156,6 +1175,10 @@ export async function getExtremeSearchUsageCount(providedUser?: User | null) {
   'use server';
 
   try {
+    if (process.env.SELF_HOSTED_PERSONAL_USE === 'true') {
+      return { count: 0, error: null };
+    }
+
     const user = providedUser || (await getUser());
     if (!user) {
       return { count: 0, error: 'User not found' };
@@ -1232,6 +1255,10 @@ export async function getAnthropicUsageCountAction(providedUser?: User | null) {
   'use server';
 
   try {
+    if (process.env.SELF_HOSTED_PERSONAL_USE === 'true') {
+      return { count: 0, error: null };
+    }
+
     const user = providedUser || (await getUser());
     if (!user) {
       return { count: 0, error: 'User not found' };
@@ -1264,6 +1291,10 @@ export async function getAgentModeUsageCountAction(providedUser?: User | null) {
   'use server';
 
   try {
+    if (process.env.SELF_HOSTED_PERSONAL_USE === 'true') {
+      return { count: 0, error: null };
+    }
+
     const user = providedUser || (await getUser());
     if (!user) {
       return { count: 0, error: 'User not found' };
@@ -1330,6 +1361,10 @@ export async function getGoogleUsageCountAction(providedUser?: User | null) {
   'use server';
 
   try {
+    if (process.env.SELF_HOSTED_PERSONAL_USE === 'true') {
+      return { count: 0, error: null };
+    }
+
     const user = providedUser || (await getUser());
     if (!user) {
       return { count: 0, error: 'User not found' };
@@ -1468,6 +1503,10 @@ export async function getHistoricalUsage(providedUser?: User | null, days: numbe
   'use server';
 
   try {
+    if (process.env.SELF_HOSTED_PERSONAL_USE === 'true') {
+      return [];
+    }
+
     const user = providedUser || (await getUser());
     if (!user) {
       return [];
@@ -1532,7 +1571,7 @@ export async function getCustomInstructions(providedUser?: User | null) {
     }
 
     const instructions = await getCustomInstructionsByUserId({ userId: user.id });
-    return instructions;
+    return instructions ?? null;
   } catch (error) {
     console.error('Error getting custom instructions:', error);
     return null;
@@ -2389,6 +2428,17 @@ export async function testLookoutAction({ id }: { id: string }) {
 
 // Server action to get user's geolocation using Vercel
 export async function getUserLocation() {
+  if (process.env.SELF_HOSTED_DISABLE_VERCEL_GEOLOCATION === 'true') {
+    return {
+      country: 'Unknown',
+      countryCode: '',
+      city: '',
+      region: '',
+      isIndia: false,
+      loading: false,
+    };
+  }
+
   try {
     const headersList = await headers();
 

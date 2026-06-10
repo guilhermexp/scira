@@ -114,6 +114,17 @@ import type { TooltipRow } from '@/components/charts/tooltip/tooltip-content';
 import { Input } from '@/components/ui/input';
 import { ModelSelectorDialog } from '@/components/ui/model-selector';
 
+const isSelfHostedPersonalUse = process.env.NEXT_PUBLIC_SELF_HOSTED_PERSONAL_USE === 'true';
+
+const selfHostedUsageData = {
+  searchCount: { count: 0, error: null },
+  extremeSearchCount: { count: 0, error: null },
+  agentModeUsageCount: { count: 0, error: null },
+  anthropicUsageCount: { count: 0, error: null },
+  googleUsageCount: { count: 0, error: null },
+  subscriptionDetails: { hasSubscription: true },
+};
+
 interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -445,7 +456,7 @@ export function PreferencesSection({
     refetch,
   } = useQuery({
     queryKey: ['customInstructions', user?.id],
-    queryFn: () => getCustomInstructions(user),
+    queryFn: async () => (await getCustomInstructions(user)) ?? null,
     enabled: !!user,
   });
 
@@ -1124,6 +1135,10 @@ export function UsageSection({ user }: any) {
   } = useQuery({
     queryKey: ['usageData'],
     queryFn: async () => {
+      if (isSelfHostedPersonalUse) {
+        return selfHostedUsageData;
+      }
+
       const {
         searchCount,
         extremeSearchCount,
@@ -1165,7 +1180,8 @@ export function UsageSection({ user }: any) {
       };
     },
     staleTime: 1000 * 60 * 3,
-    enabled: !!user,
+    enabled: !!user && !isSelfHostedPersonalUse,
+    initialData: isSelfHostedPersonalUse ? selfHostedUsageData : undefined,
   });
 
   const {
@@ -1174,8 +1190,9 @@ export function UsageSection({ user }: any) {
     refetch: refetchHistoricalData,
   } = useQuery({
     queryKey: ['historicalUsage', user?.id, daysWindow],
-    queryFn: () => getHistoricalUsage(user, daysWindow),
-    enabled: !!user,
+    queryFn: () => (isSelfHostedPersonalUse ? [] : getHistoricalUsage(user, daysWindow)),
+    enabled: !!user && !isSelfHostedPersonalUse,
+    initialData: isSelfHostedPersonalUse ? [] : undefined,
     staleTime: 1000 * 60 * 10,
   });
 
@@ -1548,6 +1565,10 @@ export function SubscriptionSection({ subscriptionData, isProUser, user }: any) 
   const { data: polarOrders, isLoading: polarOrdersLoading } = useQuery({
     queryKey: ['polarOrders', user?.id],
     queryFn: async () => {
+      if (isSelfHostedPersonalUse) {
+        return [];
+      }
+
       try {
         const ordersResponse = await authClient.customer.orders.list({
           fetchOptions: {
@@ -1563,7 +1584,8 @@ export function SubscriptionSection({ subscriptionData, isProUser, user }: any) 
         return null;
       }
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && !isSelfHostedPersonalUse,
+    initialData: isSelfHostedPersonalUse ? [] : undefined,
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
 
@@ -1571,6 +1593,10 @@ export function SubscriptionSection({ subscriptionData, isProUser, user }: any) 
   const { data: dodoSubscriptions, isLoading: dodoSubscriptionsLoading } = useQuery({
     queryKey: ['dodoSubscriptions', user?.id],
     queryFn: async () => {
+      if (isSelfHostedPersonalUse) {
+        return [];
+      }
+
       try {
         const { data, error } = await betterauthClient.dodopayments.customer.subscriptions.list();
         if (error) {
@@ -1584,7 +1610,8 @@ export function SubscriptionSection({ subscriptionData, isProUser, user }: any) 
         return null;
       }
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && !isSelfHostedPersonalUse,
+    initialData: isSelfHostedPersonalUse ? [] : undefined,
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
 
@@ -1685,6 +1712,15 @@ export function SubscriptionSection({ subscriptionData, isProUser, user }: any) 
   }
 
   const handleManageSubscription = async () => {
+    if (isSelfHostedPersonalUse) {
+      sileo.info({
+        title: 'Billing disabled',
+        description: 'This self-hosted instance has personal-use access enabled.',
+        icon: <AlertCircle className="h-4 w-4" />,
+      });
+      return;
+    }
+
     // Determine the subscription source
     const getProAccessSource = () => {
       if (hasActiveSubscription) return 'polar';

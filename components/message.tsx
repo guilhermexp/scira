@@ -10,7 +10,6 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip
 import { sileo } from 'sileo';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
-import { checkImageModeration } from '@/app/actions';
 import {
   ChevronDown,
   ChevronLeft,
@@ -30,7 +29,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { UIMessagePart } from 'ai';
-import { deleteTrailingMessages } from '@/app/actions';
+import { deleteTrailingMessages } from '@/app/chat-actions';
 import { getErrorActions, getErrorIcon, isSignInRequired, isProRequired, isRateLimited } from '@/lib/errors';
 import { UserIcon } from '@phosphor-icons/react';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
@@ -519,6 +518,7 @@ const MessageEditor: React.FC<MessageEditorProps> = ({
             getBetterAllOptions(),
           );
           const imageDataURLs = imageFiles.map((_, index) => imageMap[`img:${index}`]);
+          const { checkImageModeration } = await import('@/app/actions');
           const moderationResult = await checkImageModeration(imageDataURLs);
           if (moderationResult !== 'safe') {
             const [status, category] = moderationResult.split('\n');

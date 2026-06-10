@@ -53,7 +53,7 @@ import { cn, SearchGroup, SearchGroupId, getSearchGroups, SearchProvider } from 
 import { track } from '@vercel/analytics';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ComprehensiveUserData } from '@/hooks/use-user-data';
-import { enhancePrompt, getDiscountConfigAction, getUserCountryCode } from '@/app/actions';
+import { getDiscountConfigAction, getUserCountryCode } from '@/app/form-actions';
 import { DiscountConfig } from '@/lib/discount';
 import { PRICING, SEARCH_LIMITS } from '@/lib/constants';
 import { LockIcon, Eye, Brain, FilePdf, MagnifyingGlassIcon } from '@phosphor-icons/react';
@@ -86,7 +86,7 @@ import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { CONNECTOR_CONFIGS, CONNECTOR_ICONS, type ConnectorProvider } from '@/lib/connectors';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { listUserConnectorsAction } from '@/app/actions';
+import { listUserConnectorsAction } from '@/app/form-actions';
 import { CaretDownIcon } from '@phosphor-icons/react/dist/ssr';
 import { useWebHaptics } from 'web-haptics/react';
 
@@ -3031,7 +3031,7 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
           // Check if connectors group is selected but no connectors are connected
           if (selectedGroup.id === 'connectors' && isAuthenticated && onOpenSettings && isProUser) {
             try {
-              const { listUserConnectorsAction } = await import('@/app/actions');
+              const { listUserConnectorsAction } = await import('@/app/form-actions');
               const result = await listUserConnectorsAction();
               if (result.success && result.connections.length === 0) {
                 // No connectors connected, open settings dialog to connectors tab
@@ -3882,6 +3882,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
     setIsEnhancing(true);
 
     const enhanceAsync = async () => {
+      const { enhancePrompt } = await import('@/app/enhance-prompt-action');
       const result = await enhancePrompt(input);
       if (result?.success && result.enhanced) {
         typewriterText(result.enhanced);

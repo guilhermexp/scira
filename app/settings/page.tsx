@@ -20,10 +20,9 @@ import {
   Brain02Icon,
   Attachment01Icon,
 } from '@hugeicons/core-free-icons';
-import { useSearchParams } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Suspense, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -38,13 +37,51 @@ import { LogoutIcon } from '@hugeicons/core-free-icons';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useRouter } from 'next/navigation';
 
+function SettingsSkeleton() {
+  return (
+    <div className="w-full">
+      <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border/40">
+        <div className="flex h-14 items-center justify-between px-4 md:px-6 max-w-7xl mx-auto w-full">
+          <div className="flex items-center gap-3">
+            <div className="md:hidden h-6 w-6 bg-muted rounded" />
+            <div className="h-5 w-24 bg-muted rounded" />
+          </div>
+        </div>
+      </header>
+      <main className="flex-1 overflow-auto p-4 md:p-6 max-w-7xl mx-auto w-full">
+        <div className="flex flex-col lg:flex-row gap-6">
+          <div className="hidden lg:block lg:w-64 shrink-0 space-y-4">
+            <div className="rounded-xl border border-border/60 p-6">
+              <div className="flex flex-col items-center space-y-4">
+                <div className="h-20 w-20 bg-muted rounded-full" />
+                <div className="space-y-2 w-full">
+                  <div className="h-4 w-24 bg-muted rounded mx-auto" />
+                  <div className="h-3 w-32 bg-muted rounded mx-auto" />
+                </div>
+              </div>
+            </div>
+            <div className="rounded-xl border border-border/60 p-2 space-y-1">
+              {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                <div key={i} className="h-10 bg-muted/30 rounded-lg" />
+              ))}
+            </div>
+          </div>
+          <div className="flex-1">
+            <div className="h-8 w-40 bg-muted rounded mb-4" />
+            <div className="h-64 w-full bg-muted/30 rounded-xl" />
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
 function SettingsContent() {
+  const [hasHydrated, setHasHydrated] = useState(false);
   const { user, isProUser, isLoading, subscriptionData } = useUser();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const searchParams = useSearchParams();
-  const defaultTab = searchParams.get('tab') || 'usage';
-  const [activeTab, setActiveTab] = useState(defaultTab);
+  const [activeTab, setActiveTab] = useState('usage');
   const [isCustomInstructionsEnabled, setIsCustomInstructionsEnabled] = useSyncedPreferences<boolean>(
     'scira-custom-instructions-enabled',
     true,
@@ -72,6 +109,21 @@ function SettingsContent() {
       },
     );
   };
+
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab) {
+      setActiveTab(tab);
+    }
+  }, []);
+
+  if (!hasHydrated) {
+    return <SettingsSkeleton />;
+  }
 
   return (
     <div className="w-full">
@@ -353,46 +405,7 @@ function SettingsContent() {
 export default function SettingsPage() {
   return (
     <SidebarLayout>
-      <Suspense
-        fallback={
-          <div className="w-full">
-            <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border/40">
-              <div className="flex h-14 items-center justify-between px-4 md:px-6 max-w-7xl mx-auto w-full">
-                <div className="flex items-center gap-3">
-                  <div className="md:hidden h-6 w-6 bg-muted rounded" />
-                  <div className="h-5 w-24 bg-muted rounded" />
-                </div>
-              </div>
-            </header>
-            <main className="flex-1 overflow-auto p-4 md:p-6 max-w-7xl mx-auto w-full">
-              <div className="flex flex-col lg:flex-row gap-6">
-                <div className="hidden lg:block lg:w-64 shrink-0 space-y-4">
-                  <div className="rounded-xl border border-border/60 p-6">
-                    <div className="flex flex-col items-center space-y-4">
-                      <div className="h-20 w-20 bg-muted rounded-full" />
-                      <div className="space-y-2 w-full">
-                        <div className="h-4 w-24 bg-muted rounded mx-auto" />
-                        <div className="h-3 w-32 bg-muted rounded mx-auto" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-border/60 p-2 space-y-1">
-                    {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-                      <div key={i} className="h-10 bg-muted/30 rounded-lg" />
-                    ))}
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <div className="h-8 w-40 bg-muted rounded mb-4" />
-                  <div className="h-64 w-full bg-muted/30 rounded-xl" />
-                </div>
-              </div>
-            </main>
-          </div>
-        }
-      >
-        <SettingsContent />
-      </Suspense>
+      <SettingsContent />
     </SidebarLayout>
   );
 }

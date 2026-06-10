@@ -24,6 +24,15 @@ export async function getMessageCountAndExtremeSearchByUserIdAction(userId: stri
   anthropicUsageResult: { count: number; error: null } | { count: undefined; error: Error };
   googleUsageResult: { count: number; error: null } | { count: undefined; error: Error };
 }> {
+  if (process.env.SELF_HOSTED_BYPASS_AUTH === 'true' || process.env.SELF_HOSTED_PERSONAL_USE === 'true') {
+    return {
+      messageCountResult: { count: 0, error: null },
+      extremeSearchUsage: { count: 0, error: null },
+      anthropicUsageResult: { count: 0, error: null },
+      googleUsageResult: { count: 0, error: null },
+    };
+  }
+
   const messageCacheKey = createMessageCountKey(userId);
   const extremeCacheKey = createExtremeCountKey(userId);
   const anthropicCacheKey = createAnthropicCountKey(userId);

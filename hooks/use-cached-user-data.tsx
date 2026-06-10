@@ -1,20 +1,28 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useUserData } from '@/hooks/use-user-data';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useSession } from '@/lib/auth-client';
 import { type ComprehensiveUserData } from '@/lib/user-data';
 import { shouldBypassRateLimits } from '@/ai/models';
 
+const isSelfHostedPersonalUse = process.env.NEXT_PUBLIC_SELF_HOSTED_PERSONAL_USE === 'true';
+
 export function useCachedUserData() {
-  const { data: session, isPending: isSessionPending } = useSession();
+  const sessionResult = isSelfHostedPersonalUse ? { data: null, isPending: false } : useSession();
+  const { data: session, isPending: isSessionPending } = sessionResult;
+  const [hasHydrated, setHasHydrated] = useState(false);
 
   // Get fresh data from the existing hook
   const { user: freshUser, isLoading: isFreshLoading, error, refetch, isRefetching, ...otherUserData } = useUserData();
 
   // Cache user data in localStorage
   const [cachedUser, setCachedUser] = useLocalStorage<ComprehensiveUserData | null>('scira-user-data', null);
+
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
 
   // Only write to cache when we have a session; prevents re-caching after sign out (React Query may still hold stale data)
   useEffect(() => {
@@ -33,12 +41,15 @@ export function useCachedUserData() {
   // Prefer fresh server data when available; only fall back to cached localStorage
   // data during initial load (before React Query has returned any data).
   // When signed out (session known to be null), never expose cached data.
-  const user =
-    !isSessionPending && !session
+  const resolvedUser =
+    !isSelfHostedPersonalUse && !isSessionPending && !session
       ? null
       : freshUser !== undefined
         ? freshUser
-        : cachedUser;
+        : hasHydrated
+          ? cachedUser
+          : null;
+  const user = hasHydrated ? resolvedUser : null;
 
   // Show loading only if we have no cached data and fresh data is loading
   const isLoading = !cachedUser && isFreshLoading;

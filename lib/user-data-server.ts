@@ -261,6 +261,88 @@ function setCachedLightweightAuth(userId: string, data: LightweightUserAuth): vo
   lightweightAuthCache.set(userId, data, LIGHTWEIGHT_CACHE_TTL_MS);
 }
 
+function isSelfHostedPersonalUse(): boolean {
+  return process.env.SELF_HOSTED_BYPASS_AUTH === 'true' || process.env.SELF_HOSTED_PERSONAL_USE === 'true';
+}
+
+function getSelfHostedUserSeed() {
+  const now = new Date();
+  return {
+    id: process.env.SELF_HOSTED_DEV_USER_ID || 'self-hosted-dev-user',
+    email: process.env.SELF_HOSTED_DEV_USER_EMAIL || 'dev@scira.local',
+    name: process.env.SELF_HOSTED_DEV_USER_NAME || 'Self Hosted User',
+    image: null,
+    emailVerified: true,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+async function ensureSelfHostedUser() {
+  const selfHostedUser = getSelfHostedUserSeed();
+
+  await maindb
+    .insert(user)
+    .values(selfHostedUser)
+    .onConflictDoUpdate({
+      target: user.id,
+      set: {
+        email: selfHostedUser.email,
+        name: selfHostedUser.name,
+        image: selfHostedUser.image,
+        emailVerified: true,
+        updatedAt: new Date(),
+      },
+    });
+
+  return selfHostedUser;
+}
+
+async function getSelfHostedLightweightUser(): Promise<LightweightUserAuth> {
+  const selfHostedUser = await ensureSelfHostedUser();
+  const lightweightData: LightweightUserAuth = {
+    userId: selfHostedUser.id,
+    email: selfHostedUser.email,
+    isProUser: true,
+    isMaxUser: true,
+  };
+  setCachedLightweightAuth(selfHostedUser.id, lightweightData);
+  return lightweightData;
+}
+
+async function getSelfHostedComprehensiveUser(): Promise<ComprehensiveUserData> {
+  const selfHostedUser = await ensureSelfHostedUser();
+  const comprehensiveData: ComprehensiveUserData = {
+    id: selfHostedUser.id,
+    email: selfHostedUser.email,
+    emailVerified: true,
+    name: selfHostedUser.name,
+    image: selfHostedUser.image,
+    createdAt: selfHostedUser.createdAt,
+    updatedAt: selfHostedUser.updatedAt,
+    isProUser: true,
+    isMaxUser: true,
+    planTier: 'max',
+    proSource: 'none',
+    subscriptionStatus: 'active',
+    subscriptionHistory: [],
+    dodoSubscription: {
+      hasSubscriptions: false,
+      expiresAt: null,
+      isExpired: false,
+      isExpiringSoon: false,
+    },
+  };
+  setCachedUserData(selfHostedUser.id, comprehensiveData);
+  setCachedLightweightAuth(selfHostedUser.id, {
+    userId: selfHostedUser.id,
+    email: selfHostedUser.email,
+    isProUser: true,
+    isMaxUser: true,
+  });
+  return comprehensiveData;
+}
+
 /**
  * Get custom instructions for a user with in-memory caching.
  * Falls back to DB via getCustomInstructionsByUserId when cache miss/expired.
@@ -296,6 +378,8 @@ export async function getCachedUserPreferencesByUserId(
   userId: string,
   options?: { ttlMs?: number },
 ): Promise<UserPreferences | null> {
+  if (process.env.SELF_HOSTED_DISABLE_USER_PREFERENCES === 'true') return null;
+
   const ttlMs = options?.ttlMs ?? USER_PREFERENCES_CACHE_TTL_MS;
   const cached = userPreferencesCache.get(userId);
   if (cached !== undefined) {
@@ -324,6 +408,10 @@ export function clearUserPreferencesCache(userId?: string): void {
  */
 export const getLightweightUserAuth = cache(async (): Promise<LightweightUserAuth | null> => {
   try {
+    if (isSelfHostedPersonalUse()) {
+      return getSelfHostedLightweightUser();
+    }
+
     const reqHeaders = await headers();
 
     const session = await auth.api.getSession({
@@ -465,6 +553,10 @@ export const getLightweightUserAuth = cache(async (): Promise<LightweightUserAut
 
 export const getComprehensiveUserData = cache(async (): Promise<ComprehensiveUserData | null> => {
   try {
+    if (isSelfHostedPersonalUse()) {
+      return getSelfHostedComprehensiveUser();
+    }
+
     // Get session once
     const session = await auth.api.getSession({
       headers: await headers(),
@@ -514,6 +606,8 @@ export const getComprehensiveUserData = cache(async (): Promise<ComprehensiveUse
             .where(eq(user.id, userId));
         },
         async dodoSubscriptions() {
+          if (process.env.SELF_HOSTED_DISABLE_BILLING === 'true') return [];
+
           // IMPORTANT: Use maindb for critical subscription queries to avoid replication lag
           return maindb
             .select({

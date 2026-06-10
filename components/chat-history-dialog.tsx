@@ -40,7 +40,7 @@ import {
   differenceInMonths,
   differenceInYears,
 } from 'date-fns';
-import { deleteChat, getUserChats, loadMoreChats, updateChatPinned, updateChatTitle } from '@/app/actions';
+import { deleteChat, getUserChats, loadMoreChats, updateChatPinned, updateChatTitle } from '@/app/chat-actions';
 import { Button } from './ui/button';
 import { sileo } from 'sileo';
 import { User } from '@/lib/db/schema';

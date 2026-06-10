@@ -4,7 +4,7 @@ import { DataUIPart, isToolUIPart } from 'ai';
 import { EnhancedErrorDisplay } from '@/components/message';
 import { MessagePartRenderer } from '@/components/message-parts';
 // import { SciraLogoHeader } from '@/components/scira-logo-header';
-import { deleteTrailingMessages } from '@/app/actions';
+import { deleteTrailingMessages } from '@/app/chat-actions';
 import { Attachment, ChatMessage, CustomUIDataTypes } from '@/lib/types';
 import { UseChatHelpers } from '@ai-sdk/react';
 import { ComprehensiveUserData } from '@/lib/user-data-server';
