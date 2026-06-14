@@ -242,6 +242,10 @@ To run the application locally without Docker:
    ```
 5. Open `http://localhost:3000` in your browser
 
+#### Current self-hosted setup
+
+This checkout has a local self-hosted setup documented in [SELF_HOSTING_STATUS.md](SELF_HOSTING_STATUS.md). Read it before changing environment variables, Cloudflare R2, Canvas, MCP, or voice backend settings.
+
 # License
 
 This project is licensed under the AGPLv3 License - see the [LICENSE](LICENSE) file for details.

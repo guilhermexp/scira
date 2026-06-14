@@ -53,3 +53,6 @@ creds.ts
 .agents/
 
 video/node_modules
+# Auto-Claude-Station data directory
+.auto-claude/
+.reverse-engineering/

@@ -49,6 +49,13 @@ import { MagicEditIcon } from '@/components/ui/magic-edit-icon';
 import { ProcessorIcon } from '@/components/ui/processor-icon';
 import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } from '@/components/ui/dialog';
 import { cn, SearchGroup, SearchGroupId, getSearchGroups, SearchProvider } from '@/lib/utils';
+import {
+  DOCUMENT_UPLOAD_MIME_TYPES,
+  getConvertedJpegFilename,
+  isHeicUpload,
+  isUploadImageContentType,
+  normalizeUploadContentType,
+} from '@/lib/uploads/file-types';
 
 import { track } from '@vercel/analytics';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -1952,7 +1959,18 @@ const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB for images
 const MAX_DOCUMENT_SIZE = 50 * 1024 * 1024; // 50MB for documents
 const MAX_INPUT_CHARS = 50000;
 
-const isImageFile = (file: File): boolean => file.type.startsWith('image/');
+const getUploadContentType = (file: File): string | null => normalizeUploadContentType(file.name, file.type);
+const isHeicFile = (file: File): boolean => isHeicUpload(file.name, file.type);
+const isImageFile = (file: File): boolean => {
+  const contentType = getUploadContentType(file);
+  return (contentType ? isUploadImageContentType(contentType) : false) || isHeicFile(file);
+};
+const isPdfFile = (file: File): boolean => getUploadContentType(file) === 'application/pdf';
+const isDocumentFile = (file: File): boolean => {
+  const contentType = getUploadContentType(file);
+  if (!contentType || contentType === 'application/pdf') return false;
+  return DOCUMENT_UPLOAD_MIME_TYPES.includes(contentType as (typeof DOCUMENT_UPLOAD_MIME_TYPES)[number]);
+};
 const getMaxSizeForFile = (file: File): number => (isImageFile(file) ? MAX_IMAGE_SIZE : MAX_DOCUMENT_SIZE);
 
 const truncateFilename = (filename: string, maxLength: number = 20) => {
@@ -1983,7 +2001,7 @@ const AttachmentPreview: React.FC<{
   const isPdf = useCallback(
     (attachment: Attachment | UploadingAttachment): boolean => {
       if (isUploadingAttachment(attachment)) {
-        return attachment.file.type === 'application/pdf';
+        return isPdfFile(attachment.file);
       }
       return (attachment as Attachment).contentType === 'application/pdf';
     },
@@ -1993,7 +2011,7 @@ const AttachmentPreview: React.FC<{
   const getDocumentType = useCallback(
     (attachment: Attachment | UploadingAttachment): 'pdf' | 'csv' | 'xlsx' | 'docx' | 'image' | null => {
       const contentType = isUploadingAttachment(attachment)
-        ? attachment.file.type
+        ? getUploadContentType(attachment.file)
         : (attachment as Attachment).contentType;
 
       if (contentType === 'application/pdf') return 'pdf';
@@ -4432,6 +4450,36 @@ const FormComponent: React.FC<FormComponentProps> = ({
     try {
       console.log('Uploading file:', file.name, file.type, file.size);
 
+      if (isHeicFile(file)) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('filename', file.name);
+
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          const errorText = await uploadResponse.text();
+          throw new Error(`Failed to convert and upload image: ${uploadResponse.status} ${errorText}`);
+        }
+
+        const { url, filename, contentType } = await uploadResponse.json();
+        console.log('HEIC conversion upload successful:', url);
+        return {
+          name: typeof filename === 'string' ? filename : getConvertedJpegFilename(file.name),
+          contentType: typeof contentType === 'string' ? contentType : 'image/jpeg',
+          url,
+          size: file.size,
+        };
+      }
+
+      const contentType = getUploadContentType(file);
+      if (!contentType) {
+        throw new Error('Unsupported file type');
+      }
+
       // Step 1: Get presigned URL from our API
       const presignResponse = await fetch('/api/upload', {
         method: 'POST',
@@ -4440,7 +4488,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         },
         body: JSON.stringify({
           filename: file.name,
-          contentType: file.type,
+          contentType,
           size: file.size,
         }),
       });
@@ -4458,7 +4506,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
         method: 'PUT',
         body: file,
         headers: {
-          'Content-Type': file.type,
+          'Content-Type': contentType,
         },
       });
 
@@ -4470,7 +4518,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
       console.log('Upload successful:', url);
       return {
         name: file.name,
-        contentType: file.type,
+        contentType,
         url,
         size: file.size,
       };
@@ -4505,29 +4553,21 @@ const FormComponent: React.FC<FormComponentProps> = ({
       const oversizedFiles: File[] = [];
       const blockedPdfFiles: File[] = [];
 
-      // Supported document types for file_query_search tool
-      const documentMimeTypes = [
-        'text/csv',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-        'application/vnd.ms-excel', // .xls
-      ];
-
       files.forEach((file) => {
         if (file.size > getMaxSizeForFile(file)) {
           oversizedFiles.push(file);
           return;
         }
 
-        if (file.type.startsWith('image/')) {
+        if (isImageFile(file)) {
           imageFiles.push(file);
-        } else if (file.type === 'application/pdf') {
+        } else if (isPdfFile(file)) {
           if (!isProUser) {
             blockedPdfFiles.push(file);
           } else {
             pdfFiles.push(file);
           }
-        } else if (documentMimeTypes.includes(file.type)) {
+        } else if (isDocumentFile(file)) {
           documentFiles.push(file);
         } else {
           unsupportedFiles.push(file);
@@ -4715,14 +4755,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
       const oversizedFiles: File[] = [];
       const blockedPdfFiles: File[] = [];
 
-      // Supported document types for file_query_search tool
-      const documentMimeTypes = [
-        'text/csv',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-        'application/vnd.ms-excel', // .xls
-      ];
-
       allFiles.forEach((file) => {
         console.log(`Processing file: ${file.name} (${file.type})`);
 
@@ -4731,15 +4763,15 @@ const FormComponent: React.FC<FormComponentProps> = ({
           return;
         }
 
-        if (file.type.startsWith('image/')) {
+        if (isImageFile(file)) {
           imageFiles.push(file);
-        } else if (file.type === 'application/pdf') {
+        } else if (isPdfFile(file)) {
           if (!isProUser) {
             blockedPdfFiles.push(file);
           } else {
             pdfFiles.push(file);
           }
-        } else if (documentMimeTypes.includes(file.type)) {
+        } else if (isDocumentFile(file)) {
           documentFiles.push(file);
         } else {
           unsupportedFiles.push(file);

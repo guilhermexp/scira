@@ -13,27 +13,27 @@ import { unauthenticatedRateLimit, getClientIdentifier } from '@/lib/rate-limit'
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
 import { del as blobDel, head as blobHead } from '@vercel/blob';
+import {
+  DOCUMENT_UPLOAD_MIME_TYPES,
+  IMAGE_UPLOAD_MIME_TYPES,
+  getConvertedJpegFilename,
+  isHeicUpload,
+  isUploadImageContentType,
+  normalizeUploadContentType,
+} from '@/lib/uploads/file-types';
 
 // Image types (5MB limit)
-const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif'];
+const IMAGE_TYPES = [...IMAGE_UPLOAD_MIME_TYPES];
 
 // Document types (50MB limit)
-const DOCUMENT_TYPES = [
-  'application/pdf',
-  'text/csv',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-  'application/vnd.ms-excel', // .xls
-];
-
-const VALID_TYPES = [...IMAGE_TYPES, ...DOCUMENT_TYPES];
+const DOCUMENT_TYPES = [...DOCUMENT_UPLOAD_MIME_TYPES];
 
 // File size limits
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB for images
 const MAX_DOCUMENT_SIZE = 50 * 1024 * 1024; // 50MB for documents
 
 function isImageType(contentType: string): boolean {
-  return IMAGE_TYPES.includes(contentType);
+  return isUploadImageContentType(contentType);
 }
 
 function getMaxSizeForType(contentType: string): number {
@@ -44,32 +44,139 @@ function getMaxSizeForType(contentType: string): number {
 const UploadRequestSchema = z
   .object({
     filename: z.string().min(1),
-    contentType: z.string().refine((type) => VALID_TYPES.includes(type), {
-      message: 'File type should be JPEG, PNG, GIF, PDF, CSV, DOCX, or XLSX',
-    }),
+    contentType: z.string(),
     size: z.number(),
   })
   .superRefine((data, ctx) => {
-    const maxSize = getMaxSizeForType(data.contentType);
+    const normalizedContentType = normalizeUploadContentType(data.filename, data.contentType);
+    if (!normalizedContentType || isHeicUpload(data.filename, data.contentType)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'File type should be JPEG, PNG, GIF, PDF, CSV, DOCX, or XLSX',
+        path: ['contentType'],
+      });
+      return;
+    }
+
+    const maxSize = getMaxSizeForType(normalizedContentType);
     if (data.size > maxSize) {
       const maxMB = maxSize / (1024 * 1024);
-      const fileType = isImageType(data.contentType) ? 'Image' : 'Document';
+      const fileType = isImageType(normalizedContentType) ? 'Image' : 'Document';
       ctx.addIssue({
         code: 'custom',
         message: `${fileType} size should be less than ${maxMB}MB`,
         path: ['size'],
       });
     }
-  });
+  })
+  .transform((data) => ({
+    ...data,
+    contentType: normalizeUploadContentType(data.filename, data.contentType)!,
+  }));
 
 // Delete request validation
 const DeleteRequestSchema = z.object({
   url: z.string().url(),
 });
 
+type AuthSession = Awaited<ReturnType<typeof auth.api.getSession>> | null;
+
+function getUploadKey(isAuthenticated: boolean, session: AuthSession, extension: string): string {
+  return isAuthenticated
+    ? `scira/users/${session!.user.id}/${nanoid()}.${extension}`
+    : `scira/public-${nanoid()}.${extension}`;
+}
+
+async function enforceUnauthenticatedUploadLimit(
+  request: NextRequest,
+  isAuthenticated: boolean,
+): Promise<NextResponse | null> {
+  if (isAuthenticated) return null;
+
+  const identifier = getClientIdentifier(request);
+  try {
+    const { success } = await unauthenticatedRateLimit.limit(identifier);
+    if (!success) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
+  } catch (error) {
+    console.warn('Unauthenticated upload rate limit unavailable:', error);
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'Upload rate limit unavailable' }, { status: 503 });
+    }
+  }
+
+  return null;
+}
+
+async function handleHeicUpload(
+  request: NextRequest,
+  session: AuthSession,
+  isAuthenticated: boolean,
+): Promise<NextResponse> {
+  const formData = await request.formData();
+  const fileEntry = formData.get('file');
+
+  if (!(fileEntry instanceof File)) {
+    return NextResponse.json({ error: 'Missing file' }, { status: 400 });
+  }
+
+  const originalFilename =
+    typeof formData.get('filename') === 'string' ? String(formData.get('filename')) : fileEntry.name;
+  if (!isHeicUpload(originalFilename, fileEntry.type)) {
+    return NextResponse.json({ error: 'Only HEIC or HEIF image conversion is supported here' }, { status: 400 });
+  }
+
+  if (fileEntry.size > MAX_IMAGE_SIZE) {
+    return NextResponse.json({ error: 'Image size should be less than 5MB' }, { status: 400 });
+  }
+
+  const rateLimitResponse = await enforceUnauthenticatedUploadLimit(request, isAuthenticated);
+  if (rateLimitResponse) return rateLimitResponse;
+
+  try {
+    const { default: convertHeic } = await import('heic-convert');
+    const inputBuffer = Buffer.from(await fileEntry.arrayBuffer());
+    const outputBuffer = await convertHeic({
+      buffer: inputBuffer,
+      format: 'JPEG',
+      quality: 0.9,
+    });
+
+    if (outputBuffer.byteLength > MAX_IMAGE_SIZE) {
+      return NextResponse.json({ error: 'Converted image size should be less than 5MB' }, { status: 400 });
+    }
+
+    const key = getUploadKey(isAuthenticated, session, 'jpg');
+    await r2Client.send(
+      new PutObjectCommand({
+        Bucket: R2_BUCKET_NAME,
+        Key: key,
+        Body: outputBuffer,
+        ContentType: 'image/jpeg',
+        Metadata: isAuthenticated ? { 'user-id': session!.user.id } : undefined,
+      }),
+    );
+
+    return NextResponse.json({
+      url: `${R2_PUBLIC_URL}/${key}`,
+      key,
+      contentType: 'image/jpeg',
+      filename: getConvertedJpegFilename(originalFilename),
+      authenticated: isAuthenticated,
+    });
+  } catch (error) {
+    console.error('Error converting HEIC image:', error);
+    return NextResponse.json({ error: 'Failed to convert HEIC image' }, { status: 500 });
+  }
+}
+
 // Only allow alphanumeric + a few safe chars as file extension to prevent key injection
 function sanitizeExtension(raw: string): string {
-  const cleaned = raw.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().slice(0, 10);
+  const cleaned = raw
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toLowerCase()
+    .slice(0, 10);
   return cleaned || 'bin';
 }
 
@@ -140,26 +247,31 @@ export async function GET(request: NextRequest) {
   // can automatically maximise parallelism across the four tasks.
   // Errors in r2List / dbQuery are caught internally so dependent tasks always
   // receive a safe fallback — the overall `all()` never rejects.
-  const { r2Res, r2Files, legacyFiles } = await all({
-    // ── Independent sources ── start immediately in parallel ──────────────
-    async r2List() {
-      try {
-        return await r2Client.send(new ListObjectsV2Command({
-          Bucket: R2_BUCKET_NAME,
-          Prefix: prefix,
-          MaxKeys: maxKeys,
-          ContinuationToken: continuationToken,
-        }));
-      } catch (e) {
-        console.error('R2 list error:', e);
-        return null;
-      }
-    },
+  const { r2Res, r2Files, legacyFiles } = await all(
+    {
+      // ── Independent sources ── start immediately in parallel ──────────────
+      async r2List() {
+        try {
+          return await r2Client.send(
+            new ListObjectsV2Command({
+              Bucket: R2_BUCKET_NAME,
+              Prefix: prefix,
+              MaxKeys: maxKeys,
+              ContinuationToken: continuationToken,
+            }),
+          );
+        } catch (e) {
+          console.error('R2 list error:', e);
+          return null;
+        }
+      },
 
-    async dbQuery() {
-      try {
-        if (continuationToken) return [] as DbFileRow[];
-        return await db.execute<DbFileRow>(sql`
+      async dbQuery() {
+        try {
+          if (continuationToken) return [] as DbFileRow[];
+          return await db
+            .execute<DbFileRow>(
+              sql`
             SELECT DISTINCT ON (elem->>'url')
               m.chat_id          AS "chatId",
               elem->>'url'       AS url,
@@ -177,112 +289,119 @@ export async function GET(request: NextRequest) {
             )
             ORDER BY elem->>'url', m.created_at DESC
             LIMIT 200
-          `).then((r) => r.rows);
-      } catch (e) {
-        console.error('DB file query error:', e);
-        return [] as DbFileRow[];
-      }
-    },
-
-    // ── r2Res ── alias so callers can read pagination metadata ────────────
-    async r2Res() {
-      return await this.$.r2List;
-    },
-
-    // ── r2Files ── waits for r2List + dbQuery to enrich with metadata ──────
-    async r2Files() {
-      const r2Result = await this.$.r2List;
-      const dbRows   = await this.$.dbQuery;
-
-      const dbMeta = new Map<string, DbFileRow>();
-      for (const row of dbRows) dbMeta.set(row.url, row);
-
-      return (r2Result?.Contents ?? []).map((obj) => {
-        const url  = `${R2_PUBLIC_URL}/${obj.Key}`;
-        const meta = dbMeta.get(url);
-        return {
-          key:          obj.Key!,
-          url,
-          size:         obj.Size ?? 0,
-          lastModified: obj.LastModified?.toISOString() ?? null,
-          filename:     meta?.name || (obj.Key!.split('/').pop() ?? obj.Key!),
-          mediaType:    meta?.mediaType ?? null,
-          chatId:       meta?.chatId ?? null,
-          source:       'r2' as const,
-        } satisfies UploadedFile;
-      });
-    },
-
-    // ── legacyFiles ── waits for r2Files + dbQuery, then fires HeadObjects ─
-    async legacyFiles() {
-      const r2Built    = await this.$.r2Files;
-      const dbRows     = await this.$.dbQuery;
-
-      const r2Urls     = new Set(r2Built.map((f) => f.url));
-      const legacyRows = dbRows.filter((r) => !r2Urls.has(r.url));
-
-      const r2LegacyRows   = legacyRows.filter((r) => !isVercelBlobUrl(r.url)).slice(0, 20);
-      const blobLegacyRows = legacyRows.filter((r) => isVercelBlobUrl(r.url)).slice(0, 20);
-
-      // Fetch metadata for both storage types in parallel
-      const metaMap = Object.keys({ ...r2LegacyRows, ...blobLegacyRows }).length > 0
-        ? await all(
-            {
-              ...Object.fromEntries(
-                r2LegacyRows.map((r, i) => [
-                  `r2:${i}`,
-                  async () => r2Client.send(new HeadObjectCommand({
-                    Bucket: R2_BUCKET_NAME,
-                    Key: new URL(r.url).pathname.slice(1),
-                  })).catch(() => null),
-                ]),
-              ),
-              ...Object.fromEntries(
-                blobLegacyRows.map((r, i) => [
-                  `blob:${i}`,
-                  async () => blobHead(r.url).catch(() => null),
-                ]),
-              ),
-            },
-            getBetterAllOptions(),
-          )
-        : {} as Record<string, null>;
-
-      return legacyRows.map((r) => {
-        const isBlob = isVercelBlobUrl(r.url);
-        let size = 0;
-        let lastModified: string | null = null;
-
-        if (isBlob) {
-          const idx  = blobLegacyRows.findIndex((lr) => lr.url === r.url);
-          const meta = idx >= 0 ? metaMap[`blob:${idx}`] : null;
-          size         = (meta as any)?.size ?? 0;
-          lastModified = (meta as any)?.uploadedAt ? new Date((meta as any).uploadedAt).toISOString() : null;
-        } else {
-          const idx  = r2LegacyRows.findIndex((lr) => lr.url === r.url);
-          const meta = idx >= 0 ? metaMap[`r2:${idx}`] : null;
-          size         = (meta as any)?.ContentLength ?? 0;
-          lastModified = (meta as any)?.LastModified ? new Date((meta as any).LastModified).toISOString() : null;
+          `,
+            )
+            .then((r) => r.rows);
+        } catch (e) {
+          console.error('DB file query error:', e);
+          return [] as DbFileRow[];
         }
+      },
 
-        const key = isBlob ? r.url : r.url.replace(`${R2_PUBLIC_URL}/`, '');
-        return {
-          key,
-          url:          r.url,
-          size,
-          lastModified,
-          filename:     r.name ?? key.split('/').pop() ?? key,
-          mediaType:    r.mediaType ?? null,
-          chatId:       r.chatId,
-          source:       (isBlob ? 'vercel-blob' : 'legacy') as UploadedFile['source'],
-        } satisfies UploadedFile;
-      });
+      // ── r2Res ── alias so callers can read pagination metadata ────────────
+      async r2Res() {
+        return await this.$.r2List;
+      },
+
+      // ── r2Files ── waits for r2List + dbQuery to enrich with metadata ──────
+      async r2Files() {
+        const r2Result = await this.$.r2List;
+        const dbRows = await this.$.dbQuery;
+
+        const dbMeta = new Map<string, DbFileRow>();
+        for (const row of dbRows) dbMeta.set(row.url, row);
+
+        return (r2Result?.Contents ?? []).map((obj) => {
+          const url = `${R2_PUBLIC_URL}/${obj.Key}`;
+          const meta = dbMeta.get(url);
+          return {
+            key: obj.Key!,
+            url,
+            size: obj.Size ?? 0,
+            lastModified: obj.LastModified?.toISOString() ?? null,
+            filename: meta?.name || (obj.Key!.split('/').pop() ?? obj.Key!),
+            mediaType: meta?.mediaType ?? null,
+            chatId: meta?.chatId ?? null,
+            source: 'r2' as const,
+          } satisfies UploadedFile;
+        });
+      },
+
+      // ── legacyFiles ── waits for r2Files + dbQuery, then fires HeadObjects ─
+      async legacyFiles() {
+        const r2Built = await this.$.r2Files;
+        const dbRows = await this.$.dbQuery;
+
+        const r2Urls = new Set(r2Built.map((f) => f.url));
+        const legacyRows = dbRows.filter((r) => !r2Urls.has(r.url));
+
+        const r2LegacyRows = legacyRows.filter((r) => !isVercelBlobUrl(r.url)).slice(0, 20);
+        const blobLegacyRows = legacyRows.filter((r) => isVercelBlobUrl(r.url)).slice(0, 20);
+
+        // Fetch metadata for both storage types in parallel
+        const metaMap =
+          Object.keys({ ...r2LegacyRows, ...blobLegacyRows }).length > 0
+            ? await all(
+                {
+                  ...Object.fromEntries(
+                    r2LegacyRows.map((r, i) => [
+                      `r2:${i}`,
+                      async () =>
+                        r2Client
+                          .send(
+                            new HeadObjectCommand({
+                              Bucket: R2_BUCKET_NAME,
+                              Key: new URL(r.url).pathname.slice(1),
+                            }),
+                          )
+                          .catch(() => null),
+                    ]),
+                  ),
+                  ...Object.fromEntries(
+                    blobLegacyRows.map((r, i) => [`blob:${i}`, async () => blobHead(r.url).catch(() => null)]),
+                  ),
+                },
+                getBetterAllOptions(),
+              )
+            : ({} as Record<string, null>);
+
+        return legacyRows.map((r) => {
+          const isBlob = isVercelBlobUrl(r.url);
+          let size = 0;
+          let lastModified: string | null = null;
+
+          if (isBlob) {
+            const idx = blobLegacyRows.findIndex((lr) => lr.url === r.url);
+            const meta = idx >= 0 ? metaMap[`blob:${idx}`] : null;
+            size = (meta as any)?.size ?? 0;
+            lastModified = (meta as any)?.uploadedAt ? new Date((meta as any).uploadedAt).toISOString() : null;
+          } else {
+            const idx = r2LegacyRows.findIndex((lr) => lr.url === r.url);
+            const meta = idx >= 0 ? metaMap[`r2:${idx}`] : null;
+            size = (meta as any)?.ContentLength ?? 0;
+            lastModified = (meta as any)?.LastModified ? new Date((meta as any).LastModified).toISOString() : null;
+          }
+
+          const key = isBlob ? r.url : r.url.replace(`${R2_PUBLIC_URL}/`, '');
+          return {
+            key,
+            url: r.url,
+            size,
+            lastModified,
+            filename: r.name ?? key.split('/').pop() ?? key,
+            mediaType: r.mediaType ?? null,
+            chatId: r.chatId,
+            source: (isBlob ? 'vercel-blob' : 'legacy') as UploadedFile['source'],
+          } satisfies UploadedFile;
+        });
+      },
     },
-  }, getBetterAllOptions());
+    getBetterAllOptions(),
+  );
 
-  const nextCursor  = r2Res?.NextContinuationToken ?? null;
+  const nextCursor = r2Res?.NextContinuationToken ?? null;
   const isTruncated = r2Res?.IsTruncated ?? false;
-  const files       = [...r2Files, ...legacyFiles];
+  const files = [...r2Files, ...legacyFiles];
 
   return NextResponse.json(
     { files, nextCursor, isTruncated },
@@ -292,7 +411,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   // Check for authentication but don't require it
-  let session: Awaited<ReturnType<typeof auth.api.getSession>> | null = null;
+  let session: AuthSession = null;
   try {
     session = await auth.api.getSession({
       headers: request.headers,
@@ -304,34 +423,29 @@ export async function POST(request: NextRequest) {
   const isAuthenticated = !!session?.user?.id;
 
   try {
+    const requestContentType = request.headers.get('content-type') ?? '';
+    if (requestContentType.includes('multipart/form-data')) {
+      return await handleHeicUpload(request, session, isAuthenticated);
+    }
+
     const body = await request.json();
     const validated = UploadRequestSchema.safeParse(body);
 
     if (!validated.success) {
-      return NextResponse.json(
-        { error: validated.error.issues[0]?.message || 'Invalid request' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: validated.error.issues[0]?.message || 'Invalid request' }, { status: 400 });
     }
 
     const { filename, contentType, size } = validated.data;
 
     // Rate-limit unauthenticated uploads by IP
-    if (!isAuthenticated) {
-      const identifier = getClientIdentifier(request);
-      const { success } = await unauthenticatedRateLimit.limit(identifier);
-      if (!success) {
-        return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
-      }
-    }
+    const rateLimitResponse = await enforceUnauthenticatedUploadLimit(request, isAuthenticated);
+    if (rateLimitResponse) return rateLimitResponse;
 
     // Sanitize extension to prevent path injection in the R2 key
     const rawExt = filename.split('.').pop() ?? '';
     const ext = sanitizeExtension(rawExt);
 
-    const key = isAuthenticated
-      ? `scira/users/${session!.user.id}/${nanoid()}.${ext}`
-      : `scira/public-${nanoid()}.${ext}`;
+    const key = getUploadKey(isAuthenticated, session, ext);
 
     const command = new PutObjectCommand({
       Bucket: R2_BUCKET_NAME,
@@ -356,10 +470,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error generating presigned URL:', error);
-    return NextResponse.json(
-      { error: 'Failed to generate upload URL' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to generate upload URL' }, { status: 500 });
   }
 }
 
@@ -395,8 +506,8 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Ownership check via DB for all non-new-format files
-    const r2Key       = isBlob ? '' : new URL(url).pathname.slice(1);
-    const isOwnR2Key  = !isBlob && r2Key.startsWith(`scira/users/${userId}/`);
+    const r2Key = isBlob ? '' : new URL(url).pathname.slice(1);
+    const isOwnR2Key = !isBlob && r2Key.startsWith(`scira/users/${userId}/`);
 
     if (!isOwnR2Key) {
       const rows = await db
@@ -404,11 +515,7 @@ export async function DELETE(request: NextRequest) {
         .from(message)
         .innerJoin(chat, eq(message.chatId, chat.id))
         .where(
-          and(
-            eq(chat.userId, userId),
-            eq(message.role, 'user'),
-            sql`${message.parts}::text LIKE ${'%' + url + '%'}`,
-          ),
+          and(eq(chat.userId, userId), eq(message.role, 'user'), sql`${message.parts}::text LIKE ${'%' + url + '%'}`),
         )
         .limit(1);
 

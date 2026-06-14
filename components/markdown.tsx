@@ -331,6 +331,21 @@ interface MarkdownRendererProps {
   isUserMessage?: boolean;
 }
 
+type ElementKeyType =
+  | 'paragraph'
+  | 'code'
+  | 'heading'
+  | 'list'
+  | 'listItem'
+  | 'blockquote'
+  | 'table'
+  | 'tableRow'
+  | 'tableCell'
+  | 'link'
+  | 'text'
+  | 'image'
+  | 'hr';
+
 interface CitationLink {
   text: string;
   link: string;
@@ -2510,26 +2525,8 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
       return Math.abs(hash).toString(36);
     }, [content]);
 
-    // Use closures to maintain counters without re-creating on each render
-    const getElementKey = useMemo(() => {
-      const counters = {
-        paragraph: 0,
-        code: 0,
-        heading: 0,
-        list: 0,
-        listItem: 0,
-        blockquote: 0,
-        table: 0,
-        tableRow: 0,
-        tableCell: 0,
-        link: 0,
-        text: 0,
-        image: 0,
-        hr: 0,
-      };
-
-      return (type: keyof typeof counters, content?: string) => {
-        const count = counters[type]++;
+    const getElementKey = useCallback(
+      (type: ElementKeyType, elementId: string, content?: string) => {
         const contentPrefix = content ? content.slice(0, 20) : '';
         // For code blocks, use a content-based key WITHOUT contentHash to preserve state across re-renders
         // This prevents collapse state from resetting when other content changes
@@ -2538,7 +2535,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
           for (let i = 0; i < Math.min(content.length, 100); i++) {
             codeHash = ((codeHash << 5) - codeHash + content.charCodeAt(i)) | 0;
           }
-          return `code-${Math.abs(codeHash).toString(36)}-${content.length}-${count}`;
+          return `code-${Math.abs(codeHash).toString(36)}-${content.length}-${elementId}`;
         }
         // For images, use stable content-based keys WITHOUT contentHash
         // so Cambio expand state and image elements don't jank/remount during streaming
@@ -2547,12 +2544,12 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
           for (let i = 0; i < Math.min(content.length, 200); i++) {
             imgHash = ((imgHash << 5) - imgHash + content.charCodeAt(i)) | 0;
           }
-          return `img-${Math.abs(imgHash).toString(36)}-${content.length}-${count}`;
+          return `img-${Math.abs(imgHash).toString(36)}-${content.length}-${elementId}`;
         }
-        // For table elements, use stable counter-based keys WITHOUT contentHash
+        // For table elements, use marked-react's parser position instead of contentHash
         // so MarkdownTableWithActions copy/export state doesn't reset during streaming
         if (type === 'table' || type === 'tableRow' || type === 'tableCell') {
-          return `${type}-${count}`;
+          return `${type}-${elementId}`;
         }
         // For links and citation groups, use content-based stable keys WITHOUT contentHash
         // so hover cards / citation group popovers don't get unmounted during streaming
@@ -2561,11 +2558,12 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
           for (let i = 0; i < Math.min(content.length, 100); i++) {
             linkHash = ((linkHash << 5) - linkHash + content.charCodeAt(i)) | 0;
           }
-          return `link-${Math.abs(linkHash).toString(36)}-${count}`;
+          return `link-${Math.abs(linkHash).toString(36)}-${elementId}`;
         }
-        return `${contentHash}-${type}-${count}-${contentPrefix}`.replace(/[^a-zA-Z0-9-]/g, '');
-      };
-    }, [contentHash]);
+        return `${contentHash}-${type}-${elementId}-${contentPrefix}`.replace(/[^a-zA-Z0-9-]/g, '');
+      },
+      [contentHash],
+    );
 
     const renderHoverCard = useCallback(
       (href: string, text: React.ReactNode, isCitation: boolean = false, citationText?: string, stableKey?: string) => {
@@ -2625,14 +2623,14 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
         } catch {
           displayDomain = getDisplayDomain(href);
         }
-        return <>{renderHoverCard(href, displayDomain, true, citationText, key)}</>;
+        return <Fragment key={key}>{renderHoverCard(href, displayDomain, true, citationText, key)}</Fragment>;
       },
       [renderHoverCard],
     );
 
     const renderer: Partial<ReactRenderer> = useMemo(
       () => ({
-        text(text: string) {
+        text(this: ReactRenderer, text: string) {
           // Check if text contains any LaTeX patterns or citation groups without mutating regex state
           const hasLatex = text.includes('XLATEXBLOCKX') || text.includes('XLATEXINLINEX');
           const hasCitationGroup = text.includes('XCITATIONGRPX');
@@ -2650,7 +2648,13 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
           const appPreviewPattern = /XAPPPREVX(\d+)XEND/g;
           const downloadPattern = /XDOWNLOADX(\d+)XEND/g;
 
-          const components: any[] = [];
+          const components: React.ReactNode[] = [];
+          let componentIndex = 0;
+          const getTextChildKey = (textContent: string) => {
+            const key = getElementKey('text', this.elementId, textContent);
+            componentIndex += 1;
+            return `${key}-${componentIndex}`;
+          };
           let lastEnd = 0;
           const allMatches: Array<{
             match: RegExpExecArray;
@@ -2682,14 +2686,14 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
 
             if (start > lastEnd) {
               const textContent = text.slice(lastEnd, start);
-              const key = getElementKey('text', textContent);
+              const key = getTextChildKey(textContent);
               components.push(<span key={key}>{textContent}</span>);
             }
 
             if (type === 'citation-group') {
               const citationGroup = citationGroups.find((group) => group.id === fullMatch);
               if (citationGroup) {
-                const key = getElementKey('link', citationGroup.id);
+                const key = getElementKey('link', this.elementId, citationGroup.id);
                 components.push(
                   <CitationGroup key={key} urls={citationGroup.urls} texts={citationGroup.texts} elementKey={key} />,
                 );
@@ -2697,19 +2701,19 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
             } else if (type === 'app-preview') {
               const appPreview = appPreviewBlocks.find((block) => block.id === fullMatch);
               if (appPreview) {
-                const key = getElementKey('link', appPreview.id);
+                const key = getElementKey('link', this.elementId, appPreview.id);
                 components.push(<AppLinkPreview key={key} href={appPreview.href} title={appPreview.title} />);
               }
             } else if (type === 'download') {
               const download = downloadBlocks.find((block) => block.id === fullMatch);
               if (download) {
-                const key = getElementKey('link', download.id);
+                const key = getElementKey('link', this.elementId, download.id);
                 components.push(<FileLinkPreview key={key} href={download.href} title={download.title} />);
               }
             } else {
               const latexBlock = latexBlocks.find((block) => block.id === fullMatch);
               if (latexBlock) {
-                const key = getElementKey('text', latexBlock.content);
+                const key = getTextChildKey(latexBlock.content);
                 if (type === 'latex-block') {
                   components.push(
                     <SafeLatex
@@ -2745,17 +2749,21 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
 
           if (lastEnd < text.length) {
             const textContent = text.slice(lastEnd);
-            const key = getElementKey('text', textContent);
+            const key = getTextChildKey(textContent);
             components.push(<span key={key}>{textContent}</span>);
           }
 
-          return components.length === 1 ? components[0] : <Fragment>{components}</Fragment>;
+          return components.length === 1 ? (
+            components[0]
+          ) : (
+            <Fragment key={getElementKey('text', this.elementId, 'fragment')}>{components}</Fragment>
+          );
         },
-        hr() {
-          return <></>;
+        hr(this: ReactRenderer) {
+          return <Fragment key={getElementKey('hr', this.elementId)} />;
         },
-        paragraph(children) {
-          const key = getElementKey('paragraph', String(children));
+        paragraph(this: ReactRenderer, children) {
+          const key = getElementKey('paragraph', this.elementId, String(children));
 
           if (typeof children === 'string') {
             const blockMatch = children.match(/^XLATEXBLOCKX(\d+)XEND$/);
@@ -2788,21 +2796,21 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
             </p>
           );
         },
-        code(children, language) {
-          const key = getElementKey('code', String(children));
+        code(this: ReactRenderer, children, language) {
+          const key = getElementKey('code', this.elementId, String(children));
           return (
             <CodeBlock language={language} elementKey={key} key={key}>
               {String(children)}
             </CodeBlock>
           );
         },
-        codespan(code) {
+        codespan(this: ReactRenderer, code) {
           const codeString = typeof code === 'string' ? code : String(code || '');
-          const key = getElementKey('code', codeString);
+          const key = getElementKey('code', this.elementId, codeString);
           return <InlineCode key={key} elementKey={key} code={codeString} />;
         },
-        link(href, text) {
-          const key = getElementKey('link', href);
+        link(this: ReactRenderer, href, text) {
+          const key = getElementKey('link', this.elementId, href);
 
           if (href.startsWith('mailto:')) {
             const email = href.replace('mailto:', '');
@@ -2851,13 +2859,13 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
           const citationText = citationLinks[citationIndex].text;
           return renderCitation(citationIndex, citationText, href, key);
         },
-        image(src, alt, title) {
-          const key = getElementKey('image', String(src));
+        image(this: ReactRenderer, src, alt, title) {
+          const key = getElementKey('image', this.elementId, String(src));
           if (!src) return <span key={key} />;
           return <ImageWithPreview key={key} src={src} alt={alt || undefined} title={title || undefined} />;
         },
-        heading(children, level) {
-          const key = getElementKey('heading', String(children));
+        heading(this: ReactRenderer, children, level) {
+          const key = getElementKey('heading', this.elementId, String(children));
           const HeadingTag = `h${level}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
           const sizeClasses =
             {
@@ -2875,8 +2883,8 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
             </HeadingTag>
           );
         },
-        list(children, ordered) {
-          const key = getElementKey('list');
+        list(this: ReactRenderer, children, ordered) {
+          const key = getElementKey('list', this.elementId);
           const ListTag = ordered ? 'ol' : 'ul';
           return (
             <ListTag
@@ -2890,16 +2898,16 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
             </ListTag>
           );
         },
-        listItem(children) {
-          const key = getElementKey('listItem');
+        listItem(this: ReactRenderer, children) {
+          const key = getElementKey('listItem', this.elementId);
           return (
             <li key={key} className="pl-2 text-[15px] leading-relaxed text-foreground/90">
               <span className="inline">{children}</span>
             </li>
           );
         },
-        blockquote(children) {
-          const key = getElementKey('blockquote');
+        blockquote(this: ReactRenderer, children) {
+          const key = getElementKey('blockquote', this.elementId);
           return (
             <blockquote
               key={key}
@@ -2909,32 +2917,32 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
             </blockquote>
           );
         },
-        strong(children) {
-          const key = getElementKey('text', String(children));
+        strong(this: ReactRenderer, children) {
+          const key = getElementKey('text', this.elementId, String(children));
           return (
             <strong key={key} className="font-medium text-foreground">
               {children}
             </strong>
           );
         },
-        em(children) {
-          const key = getElementKey('text', String(children));
+        em(this: ReactRenderer, children) {
+          const key = getElementKey('text', this.elementId, String(children));
           return (
             <em key={key} className="italic text-foreground/95">
               {children}
             </em>
           );
         },
-        table(children) {
-          const key = getElementKey('table');
+        table(this: ReactRenderer, children) {
+          const key = getElementKey('table', this.elementId);
           return <MarkdownTableWithActions key={key}>{children}</MarkdownTableWithActions>;
         },
-        tableRow(children) {
-          const key = getElementKey('tableRow');
+        tableRow(this: ReactRenderer, children) {
+          const key = getElementKey('tableRow', this.elementId);
           return <TableRow key={key}>{children}</TableRow>;
         },
-        tableCell(children, flags) {
-          const key = getElementKey('tableCell');
+        tableCell(this: ReactRenderer, children, flags) {
+          const key = getElementKey('tableCell', this.elementId);
           const alignClass = flags.align ? `text-${flags.align}` : 'text-left';
           const isHeader = flags.header;
 
@@ -2965,16 +2973,16 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = React.memo(
             </TableCell>
           );
         },
-        tableHeader(children) {
-          const key = getElementKey('table');
+        tableHeader(this: ReactRenderer, children) {
+          const key = getElementKey('table', this.elementId);
           return (
             <TableHeader key={key} className="p-1! m-1!">
               {children}
             </TableHeader>
           );
         },
-        tableBody(children) {
-          const key = getElementKey('table');
+        tableBody(this: ReactRenderer, children) {
+          const key = getElementKey('table', this.elementId);
           return (
             <TableBody key={key} className="text-wrap! m-1!">
               {children}
