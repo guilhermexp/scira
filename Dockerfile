@@ -15,7 +15,7 @@ WORKDIR /app
 # Copy package manifest and install dependencies.
 # This fork ships bun.lock but no pnpm-lock.yaml/package-lock.json; use npm install for portable Docker builds.
 COPY package.json ./
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # Stage 2: Building the application
 # This stage builds the Next.js application
