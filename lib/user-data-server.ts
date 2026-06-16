@@ -261,8 +261,12 @@ function setCachedLightweightAuth(userId: string, data: LightweightUserAuth): vo
   lightweightAuthCache.set(userId, data, LIGHTWEIGHT_CACHE_TTL_MS);
 }
 
-function isSelfHostedPersonalUse(): boolean {
-  return process.env.SELF_HOSTED_BYPASS_AUTH === 'true' || process.env.SELF_HOSTED_PERSONAL_USE === 'true';
+function isSelfHostedBypassAuth(): boolean {
+  return process.env.SELF_HOSTED_BYPASS_AUTH === 'true';
+}
+
+function shouldForceMaxForAuthenticatedUser(): boolean {
+  return process.env.SELF_HOSTED_FORCE_MAX_AUTHENTICATED === 'true';
 }
 
 function getSelfHostedUserSeed() {
@@ -312,7 +316,7 @@ async function getSelfHostedLightweightUser(): Promise<LightweightUserAuth> {
 
 async function getSelfHostedComprehensiveUser(): Promise<ComprehensiveUserData> {
   const selfHostedUser = await ensureSelfHostedUser();
-  const comprehensiveData: ComprehensiveUserData = {
+  return getForcedMaxComprehensiveUser({
     id: selfHostedUser.id,
     email: selfHostedUser.email,
     emailVerified: true,
@@ -320,6 +324,38 @@ async function getSelfHostedComprehensiveUser(): Promise<ComprehensiveUserData> 
     image: selfHostedUser.image,
     createdAt: selfHostedUser.createdAt,
     updatedAt: selfHostedUser.updatedAt,
+  });
+}
+
+function getForcedMaxLightweightUser(userSeed: { id: string; email: string }): LightweightUserAuth {
+  const lightweightData: LightweightUserAuth = {
+    userId: userSeed.id,
+    email: userSeed.email,
+    isProUser: true,
+    isMaxUser: true,
+  };
+  setCachedLightweightAuth(userSeed.id, lightweightData);
+  return lightweightData;
+}
+
+function getForcedMaxComprehensiveUser(userSeed: {
+  id: string;
+  email: string;
+  emailVerified?: boolean;
+  name?: string | null;
+  image?: string | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+}): ComprehensiveUserData {
+  const now = new Date();
+  const comprehensiveData: ComprehensiveUserData = {
+    id: userSeed.id,
+    email: userSeed.email,
+    emailVerified: userSeed.emailVerified ?? true,
+    name: userSeed.name || userSeed.email.split('@')[0],
+    image: userSeed.image ?? null,
+    createdAt: userSeed.createdAt ?? now,
+    updatedAt: userSeed.updatedAt ?? now,
     isProUser: true,
     isMaxUser: true,
     planTier: 'max',
@@ -333,13 +369,8 @@ async function getSelfHostedComprehensiveUser(): Promise<ComprehensiveUserData> 
       isExpiringSoon: false,
     },
   };
-  setCachedUserData(selfHostedUser.id, comprehensiveData);
-  setCachedLightweightAuth(selfHostedUser.id, {
-    userId: selfHostedUser.id,
-    email: selfHostedUser.email,
-    isProUser: true,
-    isMaxUser: true,
-  });
+  setCachedUserData(userSeed.id, comprehensiveData);
+  getForcedMaxLightweightUser({ id: userSeed.id, email: userSeed.email });
   return comprehensiveData;
 }
 
@@ -408,7 +439,7 @@ export function clearUserPreferencesCache(userId?: string): void {
  */
 export const getLightweightUserAuth = cache(async (): Promise<LightweightUserAuth | null> => {
   try {
-    if (isSelfHostedPersonalUse()) {
+    if (isSelfHostedBypassAuth()) {
       return getSelfHostedLightweightUser();
     }
 
@@ -423,6 +454,13 @@ export const getLightweightUserAuth = cache(async (): Promise<LightweightUserAut
     }
 
     const userId = session.user.id;
+
+    if (shouldForceMaxForAuthenticatedUser()) {
+      return getForcedMaxLightweightUser({
+        id: userId,
+        email: session.user.email || process.env.SELF_HOSTED_DEV_USER_EMAIL || 'dev@scira.local',
+      });
+    }
 
     // Check lightweight cache first
     const cached = getCachedLightweightAuth(userId);
@@ -553,7 +591,7 @@ export const getLightweightUserAuth = cache(async (): Promise<LightweightUserAut
 
 export const getComprehensiveUserData = cache(async (): Promise<ComprehensiveUserData | null> => {
   try {
-    if (isSelfHostedPersonalUse()) {
+    if (isSelfHostedBypassAuth()) {
       return getSelfHostedComprehensiveUser();
     }
 
@@ -567,6 +605,18 @@ export const getComprehensiveUserData = cache(async (): Promise<ComprehensiveUse
     }
 
     const userId = session.user.id;
+
+    if (shouldForceMaxForAuthenticatedUser()) {
+      return getForcedMaxComprehensiveUser({
+        id: userId,
+        email: session.user.email || process.env.SELF_HOSTED_DEV_USER_EMAIL || 'dev@scira.local',
+        emailVerified: session.user.emailVerified ?? true,
+        name: session.user.name,
+        image: session.user.image,
+        createdAt: session.user.createdAt,
+        updatedAt: session.user.updatedAt,
+      });
+    }
 
     // Check cache first
     const cached = getCachedUserData(userId);

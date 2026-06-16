@@ -2,13 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSessionCookie } from 'better-auth/cookies';
 
 const authRoutes = ['/sign-in', '/sign-up'];
-const protectedRoutes = ['/settings', '/searches'];
+const protectedRoutes = ['/', '/settings', '/searches'];
+
+function redirectToSignIn(request: NextRequest) {
+  const signInUrl = new URL('/sign-in', request.url);
+  signInUrl.searchParams.set('redirectTo', request.nextUrl.pathname + request.nextUrl.search);
+  return NextResponse.redirect(signInUrl);
+}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname === '/api/search') return NextResponse.next();
-  if (pathname.startsWith('/new') || pathname.startsWith('/api/search')) {
+  if (pathname.startsWith('/new')) {
     return NextResponse.next();
   }
 
@@ -30,6 +35,11 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Better Auth endpoints must remain public so users can log in/out.
+  if (pathname.startsWith('/api/auth')) {
+    return NextResponse.next();
+  }
+
   const sessionCookie = getSessionCookie(request);
 
   // Allow /settings as a real page; still protect it behind auth
@@ -47,8 +57,16 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
-  if (!sessionCookie && protectedRoutes.some((route) => pathname.startsWith(route))) {
-    return NextResponse.redirect(new URL('/sign-in', request.url));
+  const requiresAuth =
+    pathname === '/' ||
+    pathname.startsWith('/api/search') ||
+    protectedRoutes.some((route) => route !== '/' && pathname.startsWith(route));
+
+  if (!sessionCookie && requiresAuth) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+    return redirectToSignIn(request);
   }
 
   return NextResponse.next();
