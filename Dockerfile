@@ -12,10 +12,10 @@ RUN apk add --no-cache libc6-compat
 
 WORKDIR /app
 
-# Copy package files and install dependencies using pnpm
-# pnpm is used for faster and more efficient package management
-COPY package.json pnpm-lock.yaml* ./
-RUN corepack enable pnpm && pnpm i;
+# Copy package manifest and install dependencies.
+# This fork ships bun.lock but no pnpm-lock.yaml/package-lock.json; use npm install for portable Docker builds.
+COPY package.json ./
+RUN npm install
 
 # Stage 2: Building the application
 # This stage builds the Next.js application
